@@ -8,6 +8,19 @@ interface HeaderProps {
   width?: number;
   height?: number;
   format?: 'mobile' | 'tv';
+  session?: 'morning' | 'full';
+}
+
+const TOTAL_MINS: Record<string, number> = { morning: 120, full: 330 };
+const BASE_MINUTE = 9 * 60 + 30; // 09:30
+
+function tradingMinsToClock(mins: number): { h: number; m: number } {
+  const raw = BASE_MINUTE + mins;
+  let h = Math.floor(raw / 60);
+  let m = raw % 60;
+  if (h >= 13) { h -= 1; m += 60; } // skip 12:00-13:00 display gap
+  if (h >= 13) { h = 13; m = m % 60; }
+  return { h: h % 24, m: m % 60 };
 }
 
 export const Header: React.FC<HeaderProps> = ({
@@ -18,18 +31,24 @@ export const Header: React.FC<HeaderProps> = ({
   width = 1080,
   height = 1920,
   format = 'mobile',
+  session = 'full',
 }) => {
   const isTV = format === 'tv';
   const scale = isTV ? 1.2 : 1.55;
 
+  const totalMins = TOTAL_MINS[session] || 330;
   const progress = frame / totalFrames;
-  const mins = Math.round(progress * 330);
-  const hours = Math.floor(9.5 + mins / 60);
-  const minutes = mins % 60;
-  const seconds = Math.round((progress * 330 * 60) % 60);
-  const timeStr = `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+  const mins = Math.round(progress * totalMins);
+  const clock = tradingMinsToClock(mins);
+  const seconds = Math.round((progress * totalMins * 60) % 60);
+  const timeStr = `${clock.h.toString().padStart(2, '0')}:${clock.m.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
 
   const getMarketPhase = () => {
+    if (session === 'morning') {
+      if (mins < 15) return { text: 'OPEN', color: '#fbbf24' };
+      if (mins < 60) return { text: 'AM SESSION', color: '#4ade80' };
+      return { text: 'AM CLOSE', color: '#4a80d0' };
+    }
     if (mins < 15) return { text: 'OPEN', color: '#fbbf24' };
     if (mins < 60) return { text: 'AM SESSION', color: '#4ade80' };
     if (mins < 120) return { text: 'AM CLOSE', color: '#4a80d0' };

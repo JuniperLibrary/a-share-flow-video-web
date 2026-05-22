@@ -1,7 +1,6 @@
 import React from 'react';
 import { AbsoluteFill, useCurrentFrame, useVideoConfig, getInputProps, interpolate } from 'remotion';
 import { BarRaceChart } from './BarChartRace.tsx';
-import { MarketEventFeed } from './MarketEventFeed.tsx';
 import { FinancialBackground } from './FinancialBackground.tsx';
 import type { MultiDayVideoProps } from './types.ts';
 
@@ -115,31 +114,18 @@ export const MultiDayVideo: React.FC = () => {
         </AbsoluteFill>
       )}
 
-      {/* Bar Chart Race + Market Event Feed */}
+      {/* Bar Chart Race — full height */}
       {showRace && (
-        <>
-          {/* Main chart area (70%) */}
-          <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: height * 0.70 }}>
-            <BarRaceChart
-              snapshots={snapshots}
-              analysis={analysis}
-              frame={frame}
-              totalFrames={totalFrames}
-              width={width}
-              height={height * 0.70}
-            />
-          </div>
-
-          {/* Market Event Feed (30%) */}
-          <MarketEventFeed
+        <div style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }}>
+          <BarRaceChart
+            snapshots={snapshots}
             analysis={analysis}
             frame={frame}
             totalFrames={totalFrames}
             width={width}
             height={height}
-            currentDate={snapshots[0]?.date || ''}
           />
-        </>
+        </div>
       )}
 
       {/* Summary */}

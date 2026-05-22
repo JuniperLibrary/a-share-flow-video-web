@@ -14,48 +14,28 @@ interface TickChartProps {
   xLim?: [number, number];
 }
 
-const SECTOR_COLORS: Record<string, string> = {
-  '半导体': '#00d4ff',
-  'AI应用': '#00ffaa',
-  'CPO概念': '#00ff88',
-  '有色金属': '#ffc107',
-  '锂矿概念': '#66bb6a',
-  '商业航天': '#ff8a80',
-  '电池': '#4caf50',
-  '机器人': '#00ffcc',
-  '创新药': '#ba68c8',
-  '白酒': '#ff9800',
-  '消费电子': '#00c8ff',
-  '银行': '#ffb300',
-  '人工智能': '#00b4ff',
-  '云计算': '#ce93d8',
-  '低空经济': '#ff6b9d',
-  '电网设备': '#7aa2ff',
-  '通信设备': '#89dceb',
-  '传媒': '#f4a261',
-  '国产芯片': '#e07a5f',
-  '元件': '#5cdb95',
-  '通信服务': '#845ec2',
-};
-
-function getSectorColor(name: string, fallback: string): string {
-  for (const key in SECTOR_COLORS) {
-    if (name.includes(key)) return SECTOR_COLORS[key];
-  }
-  return fallback;
-}
+const PALETTE = [
+  '#ff6b6b', '#ffa94d', '#ffd43b', '#69db7c', '#38d9a9',
+  '#2bd6d6', '#4dabf7', '#748ffc', '#9775fa', '#e599f7',
+  '#f783ac', '#ff8787', '#ffb068', '#ffe066', '#8ce99a',
+  '#63e6be', '#3bc9db', '#66c0ff', '#91a7ff', '#b197fc',
+  '#d0bfff',
+];
 
 /** Smooth easing for entrance animations */
 function easeOutQuad(t: number): number {
   return 1 - (1 - t) * (1 - t);
 }
 
-/** Convert "HH:MM" to trading minutes from 09:30, accounting for lunch break */
+/** Convert "HH:MM" to x-axis position (0-300), matching the XTICK positions.
+ *  XTICKS model: morning 0→120 (09:30→11:30), afternoon 180→300 (13:00→15:00).
+ *  The 90-min lunch break is compressed into 60 units of chart space.
+ */
 function timeToTradingMinutes(t: string): number {
   const [h, m] = t.split(':').map(Number);
   let val = h * 60 + m - (9 * 60 + 30);
   if (val < 0) val = 0;
-  if (h >= 13) val -= 90; // lunch break 11:30-13:00
+  if (h >= 13) val -= 30; // compress 90 min lunch → 60 chart units
   return val;
 }
 
@@ -109,18 +89,18 @@ export const TickChart: React.FC<TickChartProps> = ({
   const xMax = propXLim ? propXLim[1] : 330;
   const isMorning = session === 'morning';
 
-  const chartLeft = isTV ? 30 : 50;
-  const chartRight = isTV ? width * 0.60 : 480;
-  const chartTop = isTV ? 100 : 180;
-  const chartBottom = isTV ? height * 0.78 : height * 0.83;
+  const chartLeft = isTV ? 80 : 50;
+  const chartRight = isTV ? width * 0.72 : 580;
+  const chartTop = isTV ? 150 : 180;
+  const chartBottom = isTV ? height * 0.86 : height * 0.83;
 
   const chartW = chartRight - chartLeft;
   const chartH = chartBottom - chartTop;
 
   const coloredTicks = useMemo(() => {
-    return sectorTicks.map(s => ({
+    return sectorTicks.map((s, i) => ({
       ...s,
-      color: s.color || getSectorColor(s.name, '#888888'),
+      color: PALETTE[i % PALETTE.length],
     }));
   }, [sectorTicks]);
 
@@ -198,44 +178,31 @@ export const TickChart: React.FC<TickChartProps> = ({
       ? 1
       : easeOutQuad((frame - CURVE_REVEAL_START) / (CURVE_REVEAL_END - CURVE_REVEAL_START));
 
-  const MIN_LABEL_GAP = isTV ? 18 : 22;
   const labelPositions = React.useMemo(() => {
     const positions = new Map<string, { rawY: number; adjY: number }>();
-    if (currentIdx < 2) return positions;
+    if (cumulativeData.length === 0) return positions;
 
-    const items = cumulativeData
-      .map((s, rankIdx) => {
-        if (rankIdx >= 18) return null;
-        const yVal = s.cum[currentIdx];
-        const rawY = yScale(yVal);
-        return { name: s.name, rawY, rank: rankIdx };
+    // Sort sectors by endpoint Y position (top-to-bottom order matching the chart)
+    const sorted = cumulativeData
+      .map((s) => {
+        const yVal = s.cum.length > 0 ? s.cum[currentIdx] : 0;
+        return { name: s.name, rawY: yScale(yVal) };
       })
-      .filter(Boolean) as { name: string; rawY: number; rank: number }[];
+      .sort((a, b) => a.rawY - b.rawY);
 
-    items.sort((a, b) => a.rawY - b.rawY);
-    const adjusted = items.map(it => ({ ...it, adjY: it.rawY }));
+    // Evenly distribute all labels across chart height
+    const padding = 15;
+    const topBound = chartTop + padding;
+    const bottomBound = chartBottom - padding;
+    const step = (bottomBound - topBound) / Math.max(sorted.length - 1, 1);
 
-    for (let pass = 0; pass < 6; pass++) {
-      let shifted = false;
-      for (let i = 1; i < adjusted.length; i++) {
-        const gap = adjusted[i].adjY - adjusted[i - 1].adjY;
-        if (gap < MIN_LABEL_GAP && gap > -MIN_LABEL_GAP) {
-          const push = (MIN_LABEL_GAP - gap) / 2 + 0.5;
-          adjusted[i - 1].adjY -= push;
-          adjusted[i].adjY += push;
-          shifted = true;
-        }
-      }
-      if (!shifted) break;
-    }
-
-    for (const it of adjusted) {
-      const clampedY = Math.max(chartTop + 10, Math.min(chartBottom - 10, it.adjY));
-      positions.set(it.name, { rawY: it.rawY, adjY: clampedY });
-    }
+    sorted.forEach((item, i) => {
+      const adjY = topBound + i * step;
+      positions.set(item.name, { rawY: item.rawY, adjY });
+    });
 
     return positions;
-  }, [cumulativeData, currentIdx, yScale, chartTop, chartBottom, isTV]);
+  }, [cumulativeData, currentIdx, yScale, chartTop, chartBottom]);
 
   // ─── Flow particles: pre-compute particle positions along each curve ───
   // Each top-12 sector gets 2-3 particles that travel along the curve
@@ -294,42 +261,12 @@ export const TickChart: React.FC<TickChartProps> = ({
     const rankIdx = sortedByAbs.findIndex(s => s.name === sector.name);
     const isActiveEvent = activeEventSector === sector.name;
 
-    let lineWidth: number;
-    let glowWidth: number;
-    let glowOpacity: number;
-    let mainOpacity: number;
-    let pointR: number;
-    let pointOpacity: number;
-
-    if (rankIdx < 5) {
-      lineWidth = isTV ? 2.5 : 3.8;
-      glowWidth = isTV ? 8 : 12;
-      glowOpacity = 0.12;
-      mainOpacity = 0.85;
-      pointR = isTV ? 4.5 : 6.5;
-      pointOpacity = 0.85;
-    } else if (rankIdx < 12) {
-      lineWidth = isTV ? 1.8 : 3.0;
-      glowWidth = isTV ? 4 : 8;
-      glowOpacity = 0.08;
-      mainOpacity = 0.6;
-      pointR = isTV ? 3.5 : 5.5;
-      pointOpacity = 0.6;
-    } else if (rankIdx < 20) {
-      lineWidth = isTV ? 1.2 : 2.2;
-      glowWidth = isTV ? 2 : 4;
-      glowOpacity = 0.04;
-      mainOpacity = 0.4;
-      pointR = isTV ? 2.5 : 4.5;
-      pointOpacity = 0.4;
-    } else {
-      lineWidth = isTV ? 0.7 : 1.4;
-      glowWidth = 0;
-      glowOpacity = 0;
-      mainOpacity = 0.15;
-      pointR = 0;
-      pointOpacity = 0;
-    }
+    const lineWidth = isTV ? 1.8 : 3.0;
+    const glowWidth = isTV ? 6 : 10;
+    const glowOpacity = 0.1;
+    const mainOpacity = 0.8;
+    const pointR = isTV ? 3.5 : 5.5;
+    const pointOpacity = 0.75;
 
     const eventPulse = isActiveEvent ? Math.sin(frame * 0.4) * 0.4 + 0.8 : 1;
 
@@ -358,8 +295,8 @@ export const TickChart: React.FC<TickChartProps> = ({
       : 0;
     const endY = visibleCum.length > 0 ? yScale(visibleCum[visibleCum.length - 1]) : 0;
 
-    const showLabel = currentIdx > 2 && rankIdx < 18 && pointR > 0 && sectorReveal > 0.3;
-    const showValueLabel = currentIdx > 4 && rankIdx < 18 && pointR > 0 && sectorReveal > 0.5;
+    const showLabel = pointR > 0;
+    const showValueLabel = pointR > 0;
     const labelPos = labelPositions.get(sector.name);
     const labelY = labelPos ? labelPos.adjY : endY;
 
@@ -374,52 +311,52 @@ export const TickChart: React.FC<TickChartProps> = ({
     const glowOp = pointOpacity * 0.12 * pulsePhase * eventPulse * sectorReveal;
 
     return (
-      <g key={sector.name} opacity={sectorReveal}>
-        {/* Area fill under curve */}
-        {areaD && visibleCum.length > 2 && (
-          <path d={areaD} fill={areaColor} opacity={areaOpacity} />
-        )}
+      <g key={sector.name}>
+        <g opacity={sectorReveal}>
+          {/* Area fill under curve */}
+          {areaD && visibleCum.length > 2 && (
+            <path d={areaD} fill={areaColor} opacity={areaOpacity} />
+          )}
 
-        {/* Outer glow */}
-        {glowWidth > 0 && (
-          <path d={pathD} fill="none" stroke={sector.color} strokeWidth={glowWidth * eventPulse} opacity={glowOpacity * eventPulse * sectorReveal} strokeLinecap="round" strokeLinejoin="round" style={{ filter: 'blur(8px)' }} />
-        )}
+          {/* Outer glow */}
+          {glowWidth > 0 && (
+            <path d={pathD} fill="none" stroke={sector.color} strokeWidth={glowWidth * eventPulse} opacity={glowOpacity * eventPulse * sectorReveal} strokeLinecap="round" strokeLinejoin="round" style={{ filter: 'blur(8px)' }} />
+          )}
 
-        {/* Thick background line */}
-        <path d={pathD} fill="none" stroke={sector.color} strokeWidth={lineWidth * 1.2} opacity={mainOpacity * 0.15 * eventPulse * sectorReveal} strokeLinecap="round" strokeLinejoin="round" />
+          {/* Thick background line */}
+          <path d={pathD} fill="none" stroke={sector.color} strokeWidth={lineWidth * 1.2} opacity={mainOpacity * 0.15 * eventPulse * sectorReveal} strokeLinecap="round" strokeLinejoin="round" />
 
-        {/* Main line */}
-        <path d={pathD} fill="none" stroke={sector.color} strokeWidth={lineWidth} opacity={effectiveOpacity} strokeLinecap="round" strokeLinejoin="round" />
+          {/* Main line */}
+          <path d={pathD} fill="none" stroke={sector.color} strokeWidth={lineWidth} opacity={effectiveOpacity} strokeLinecap="round" strokeLinejoin="round" />
 
-        {/* Event highlight */}
-        {isActiveEvent && (
-          <path d={pathD} fill="none" stroke="#ffffff" strokeWidth={lineWidth * 0.4} opacity={0.25 * eventPulse * sectorReveal} strokeLinecap="round" strokeLinejoin="round" />
-        )}
+          {/* Event highlight */}
+          {isActiveEvent && (
+            <path d={pathD} fill="none" stroke="#ffffff" strokeWidth={lineWidth * 0.4} opacity={0.25 * eventPulse * sectorReveal} strokeLinecap="round" strokeLinejoin="round" />
+          )}
 
-        {/* Endpoint glow + dot */}
-        {currentIdx > 1 && pointR > 0 && (
-          <>
-            <circle cx={endX} cy={endY} r={glowR} fill={sector.color} opacity={glowOp} style={{ filter: 'blur(4px)' }} />
-            <circle cx={endX} cy={endY} r={pointR} fill={sector.color} stroke="#ffffff" strokeWidth={rankIdx < 5 ? 1.2 : 0.8} opacity={Math.min((currentIdx - 1) / 4, 1) * pointOpacity * eventPulse * sectorReveal} />
-          </>
-        )}
+          {/* Endpoint glow + dot */}
+          {currentIdx > 1 && pointR > 0 && (
+            <>
+              <circle cx={endX} cy={endY} r={glowR} fill={sector.color} opacity={glowOp} style={{ filter: 'blur(4px)' }} />
+              <circle cx={endX} cy={endY} r={pointR} fill={sector.color} stroke="#ffffff" strokeWidth={1} opacity={pointOpacity * eventPulse * sectorReveal} />
+            </>
+          )}
+        </g>
 
-        {/* Sector label with connector line */}
         {showLabel && (
-          <>
+          <g>
             {Math.abs(labelY - endY) > 2 && (
-              <line x1={endX + pointR + 2} y1={endY} x2={endX + pointR + 8} y2={labelY} stroke={sector.color} strokeWidth={rankIdx < 5 ? 1.5 : 1.0} opacity={Math.min((currentIdx - 2) / 4, 1) * pointOpacity * 0.5 * eventPulse * sectorReveal} />
+              <line x1={endX + pointR + 2} y1={endY} x2={endX + pointR + 8} y2={labelY} stroke={sector.color} strokeWidth={1} opacity={0.4} />
             )}
-            <line x1={endX + pointR + 8} y1={labelY} x2={endX + pointR + 16} y2={labelY} stroke={sector.color} strokeWidth={rankIdx < 5 ? 1.6 : 1.2} opacity={Math.min((currentIdx - 2) / 4, 1) * pointOpacity * 0.5 * eventPulse * sectorReveal} />
-            <text x={endX + pointR + 19} y={labelY + 1} fill={sector.color} fontSize={rankIdx < 5 ? (isTV ? 12 : 20) : (isTV ? 10 : 18)} fontWeight={rankIdx < 5 ? 600 : 400} textAnchor="start" dominantBaseline="middle" opacity={Math.min((currentIdx - 2) / 4, 1) * (rankIdx < 5 ? 0.85 : 0.6) * sectorReveal} style={{ textShadow: `0 0 4px ${sector.color}33`, fontFamily: '"PingFang SC", "Helvetica Neue", sans-serif' }}>
+            <line x1={endX + pointR + 8} y1={labelY} x2={endX + pointR + 16} y2={labelY} stroke={sector.color} strokeWidth={1} opacity={0.4} />
+            <text x={endX + pointR + 19} y={labelY + 1} fill={sector.color} fontSize={isTV ? 12 : 18} fontWeight={500} textAnchor="start" dominantBaseline="middle" style={{ textShadow: `0 0 4px ${sector.color}33`, fontFamily: '"PingFang SC", "Helvetica Neue", sans-serif' }}>
               {sector.name}
             </text>
-          </>
+          </g>
         )}
 
-        {/* Value label */}
         {showValueLabel && (
-          <text x={endX + pointR + 19 + (rankIdx < 5 ? 90 : 72)} y={labelY + 1} fill={visibleCum[currentIdx] >= 0 ? '#4ade80' : '#f87171'} fontSize={rankIdx < 5 ? (isTV ? 12 : 20) : (isTV ? 10 : 18)} fontWeight={rankIdx < 5 ? 600 : 400} textAnchor="start" dominantBaseline="middle" opacity={Math.min((currentIdx - 4) / 4, 1) * (rankIdx < 5 ? 0.8 : 0.55) * sectorReveal} style={{ fontFamily: '"Helvetica Neue", Arial, sans-serif', fontVariantNumeric: 'tabular-nums' }}>
+          <text x={endX + pointR + 100} y={labelY + 1} fill={visibleCum[currentIdx] >= 0 ? '#f87171' : '#4ade80'} fontSize={isTV ? 12 : 18} fontWeight={500} textAnchor="start" dominantBaseline="middle" style={{ fontFamily: '"Helvetica Neue", Arial, sans-serif', fontVariantNumeric: 'tabular-nums' }}>
             {visibleCum[currentIdx] >= 0 ? '+' : ''}{visibleCum[currentIdx].toFixed(1)}
           </text>
         )}

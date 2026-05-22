@@ -38,13 +38,23 @@ const SECTOR_COLORS: Record<string, string> = {
   '国产芯片': '#e07a5f',
   '元件': '#5cdb95',
   '通信服务': '#845ec2',
+  '电网设备': '#7aa2ff',
+  '通信设备': '#89dceb',
+  '传媒': '#f4a261',
 };
+
+const FALLBACK_PALETTE = [
+  '#7aa2ff', '#89dceb', '#f4a261', '#ff6b9d', '#a78bfa',
+  '#34d399', '#fbbf24', '#fb7185', '#22d3ee', '#c084fc',
+];
 
 function getSectorColor(name: string, fallback: string): string {
   for (const key in SECTOR_COLORS) {
     if (name.includes(key)) return SECTOR_COLORS[key];
   }
-  return fallback;
+  // Use deterministic index into palette so same sector always gets same color
+  const hash = name.split('').reduce((acc, c) => acc + c.charCodeAt(0), 0);
+  return FALLBACK_PALETTE[hash % FALLBACK_PALETTE.length];
 }
 
 function createRNG(seed: number) {
@@ -91,6 +101,7 @@ function generateCurve(net: number, numPts: number, seed: number): Float64Array 
     cumNoise += noise[i];
     data[i] = base[i] + cumNoise * 0.03;
   }
+  data[0] = 0; // all curves start at 0
   return data;
 }
 
@@ -141,7 +152,7 @@ export const Chart: React.FC<ChartProps> = ({
 
   // TV layout: chart ~60%, events ~12%, ranking ~20%
   const chartLeft = isTV ? 30 : 50;
-  const chartRight = isTV ? width * 0.60 : 480;
+  const chartRight = isTV ? width * 0.60 : 580;
   const chartTop = isTV ? 100 : 180;
   const chartBottom = isTV ? height * 0.78 : height * 0.83;
 
@@ -214,7 +225,6 @@ export const Chart: React.FC<ChartProps> = ({
     const items: { name: string; rawY: number; rank: number }[] = [];
     for (const sector of curves) {
       const rankIdx = sortedByAbs.findIndex(s => s.name === sector.name);
-      if (rankIdx >= 18) continue;
       const ptR = rankIdx < 5 ? (isTV ? 4.5 : 4) : rankIdx < 12 ? (isTV ? 3.5 : 3) : (isTV ? 2.5 : 2);
       if (ptR <= 0) continue;
       const yVal = sector.data[currentIdx];
@@ -293,8 +303,8 @@ export const Chart: React.FC<ChartProps> = ({
       glowWidth = 0;
       glowOpacity = 0;
       mainOpacity = 0.15;
-      pointR = 0;
-      pointOpacity = 0;
+      pointR = isTV ? 1.5 : 3;
+      pointOpacity = 0.2;
     }
 
     const eventPulse = isActiveEvent
@@ -304,8 +314,9 @@ export const Chart: React.FC<ChartProps> = ({
     const endX = currentIdx > 0 ? xScale(xValues[currentIdx]) : 0;
     const endY = currentIdx > 0 ? yScale(yValues[currentIdx]) : 0;
 
-    const showLabel = currentIdx > 8 && rankIdx < 18 && pointR > 0;
-    const showValueLabel = currentIdx > 12 && rankIdx < 18 && pointR > 0;
+    const visibleRankLimit = currentIdx < 20 ? 5 : currentIdx < 45 ? 10 : currentIdx < 80 ? 15 : 999;
+    const showLabel = currentIdx > 8 && rankIdx < visibleRankLimit && pointR > 0;
+    const showValueLabel = currentIdx > 12 && rankIdx < visibleRankLimit && pointR > 0;
     const labelPos = labelPositions.get(sector.name);
     const labelY = labelPos ? labelPos.adjY : endY;
 
