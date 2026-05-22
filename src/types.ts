@@ -1,6 +1,7 @@
 export interface Sector {
   name: string;
   net: number;
+  rate: number;
   color: string;
   source: string;
   rank_group: string;

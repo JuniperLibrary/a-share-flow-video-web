@@ -9,6 +9,7 @@ interface TickPoint {
   Time: string;
   Name: string;
   Net: number;
+  Rate: number;
 }
 
 interface TickSnapshot {
@@ -187,7 +188,7 @@ export function MarketPage() {
   for (const p of latestPoints) latestNet.set(p.Name, p.Net);
 
   const sectors = Array.from(latestNet.entries())
-    .map(([name, net]) => ({ name, net }))
+    .map(([name, net]) => ({ name, net, rate: 0 }))
     .sort((a, b) => b.net - a.net);
 
   const positiveSectors = sectors.filter(s => s.net >= 0);

@@ -7,6 +7,7 @@ import { DatePicker } from '../components/ui/date-picker';
 interface SectorData {
   name: string;
   net: number;
+  rate: number;
 }
 
 interface TrendPoint {
@@ -78,7 +79,7 @@ function SnapshotTab() {
     if (!date) return;
     api.getAllSectors(date).then(res => {
       if (res.sectors?.length) {
-        setData(res.sectors.map(s => ({ name: s.name, net: s.net })));
+        setData(res.sectors.map(s => ({ name: s.name, net: s.net, rate: s.rate ?? 0 })));
         setSaved(true);
       }
     }).catch(() => void 0);
@@ -105,7 +106,7 @@ function SnapshotTab() {
             setLoading(false);
             const dataRes = await api.getAllSectors(date);
             if (dataRes.sectors) {
-              setData(dataRes.sectors.map(s => ({ name: s.name, net: s.net })));
+              setData(dataRes.sectors.map(s => ({ name: s.name, net: s.net, rate: s.rate ?? 0 })));
               setSaved(true);
             }
           } else if (status.status === 'error') {
@@ -131,7 +132,7 @@ function SnapshotTab() {
     try {
       const dataRes = await api.getAllSectors(date);
       if (dataRes.sectors) {
-        setData(dataRes.sectors.map(s => ({ name: s.name, net: s.net })));
+        setData(dataRes.sectors.map(s => ({ name: s.name, net: s.net, rate: s.rate ?? 0 })));
         setSaved(true);
       }
     } catch { void 0; }
@@ -223,7 +224,8 @@ function SnapshotTab() {
                   <tr className="border-b border-white/[0.04]">
                     <th className="text-left px-4 py-3 text-xs font-medium text-gray-500 w-16">排名</th>
                     <th className="text-left px-4 py-3 text-xs font-medium text-gray-500">板块名称</th>
-                    <th className="text-right px-4 py-3 text-xs font-medium text-gray-500">主力资金净流入 (亿)</th>
+                    <th className="text-right px-4 py-3 text-xs font-medium text-gray-500">主力净流入 (亿)</th>
+                    <th className="text-right px-4 py-3 text-xs font-medium text-gray-500 w-24">净占比 (%)</th>
                     <th className="text-center px-4 py-3 text-xs font-medium text-gray-500 w-24">趋势</th>
                   </tr>
                 </thead>
@@ -236,6 +238,9 @@ function SnapshotTab() {
                       </td>
                       <td className={`px-4 py-3 text-right font-mono text-sm font-semibold ${s.net >= 0 ? 'text-rose-400' : 'text-emerald-400'}`}>
                         {formatNet(s.net)}
+                      </td>
+                      <td className={`px-4 py-3 text-right font-mono text-xs ${s.rate >= 0 ? 'text-rose-400/70' : 'text-emerald-400/70'}`}>
+                        {s.rate !== 0 ? `${s.rate > 0 ? '+' : ''}${s.rate.toFixed(2)}` : '-'}
                       </td>
                       <td className="px-4 py-3 text-center">
                         <Tag

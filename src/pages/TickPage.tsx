@@ -7,6 +7,7 @@ interface TickPoint {
   Time: string;
   Name: string;
   Net: number;
+  Rate: number;
 }
 
 interface TickSnapshot {

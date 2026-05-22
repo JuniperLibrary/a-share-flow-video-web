@@ -14,11 +14,11 @@ export const api = {
   getData: (date: string) =>
     request<{ sectors: Sector[]; videos: string[]; 文案: Record<string, Record<string, string>> }>(`/api/data/${date}`),
 
-  generateMultiDay: (date: string, days: number, copy_mode: string, format: string) =>
+  generateMultiDay: (date: string, days: number, copy_mode: string) =>
     fetch(apiUrl('/api/generate-multiday'), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ date, days, copy_mode, format }),
+      body: JSON.stringify({ date, days, copy_mode }),
     }),
 
   getConfig: () =>
@@ -53,11 +53,11 @@ export const api = {
   exportHotSectors: (date: string) =>
     request<{ date: string; sectors: Sector[] }>(`/api/export-hot-sectors/${date}`),
 
-  generateTick: (date: string, session: string, format: string, copy_mode: string) =>
+  generateTick: (date: string, session: string, copy_mode: string) =>
     fetch(apiUrl('/api/generate-tick'), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ date, session, format, copy_mode }),
+      body: JSON.stringify({ date, session, copy_mode }),
     }),
 
   getTickInterval: () =>
@@ -82,7 +82,7 @@ export const api = {
     request<{ task_id: string; date: string; status: string; progress: string; count: number; error?: string }>(`/api/sectors-all/save/status/${taskId}`),
 
   getAllSectors: (date: string) =>
-    request<{ date: string; sectors: { date: string; code: string; name: string; net: number }[] }>(`/api/sectors-all/${date}`),
+    request<{ date: string; sectors: { date: string; code: string; name: string; net: number; rate: number }[] }>(`/api/sectors-all/${date}`),
 
   getSectorsAllNames: () =>
     request<{ names: string[] }>('/api/sectors-all/names'),
@@ -91,8 +91,8 @@ export const api = {
     request<{ dates: string[] }>('/api/sectors-all/dates'),
 
   getSectorsTrend: (name: string, startDate: string, endDate: string) =>
-    request<{ name: string; sectors: { date: string; code: string; name: string; net: number }[] }>(`/api/sectors-all/trend?name=${encodeURIComponent(name)}&start_date=${startDate}&end_date=${endDate}`),
+    request<{ name: string; sectors: { date: string; code: string; name: string; net: number; rate: number }[] }>(`/api/sectors-all/trend?name=${encodeURIComponent(name)}&start_date=${startDate}&end_date=${endDate}`),
 
   getSectorsAllRange: (startDate: string, endDate: string) =>
-    request<{ sectors: { date: string; code: string; name: string; net: number }[] }>(`/api/sectors-all/range?start_date=${startDate}&end_date=${endDate}`),
+    request<{ sectors: { date: string; code: string; name: string; net: number; rate: number }[] }>(`/api/sectors-all/range?start_date=${startDate}&end_date=${endDate}`),
 };
