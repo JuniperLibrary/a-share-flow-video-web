@@ -16,11 +16,11 @@ export function trendInfo(n: number): string {
 }
 
 export function trendClass(n: number): string {
-  return n > 0 ? 'tag-green' : 'tag-red';
+  return n > 0 ? 'tag-red' : 'tag-green';
 }
 
 export function netColor(n: number): string {
-  return n > 0 ? '#4ade80' : '#f87171';
+  return n > 0 ? '#f53f3f' : '#00b42a';
 }
 
 export async function copyToClipboard(text: string): Promise<boolean> {

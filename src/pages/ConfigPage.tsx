@@ -1,4 +1,6 @@
 import { useState, useEffect } from 'react';
+import { Input, Button, Space, Tag } from '@arco-design/web-react';
+import { IconSave, IconLock, IconSettings, IconTool } from '@arco-design/web-react/icon';
 import { api } from '../api';
 
 export function ConfigPage() {
@@ -7,6 +9,7 @@ export function ConfigPage() {
   const [model, setModel] = useState('gpt-4o-mini');
   const [hasKey, setHasKey] = useState(false);
   const [status, setStatus] = useState('');
+  const [statusType, setStatusType] = useState<'success' | 'error' | ''>('');
 
   useEffect(() => { loadConfig(); }, []);
 
@@ -24,46 +27,159 @@ export function ConfigPage() {
     try {
       const key = apiKey === '••••••' ? '' : apiKey;
       await api.saveConfig(key, apiBase, model);
-      setStatus('✅ 已保存（.env）');
+      setStatusType('success');
+      setStatus('配置已保存');
       loadConfig();
     } catch (e: unknown) {
-      setStatus(`❌ 保存失败: ${e instanceof Error ? e.message : String(e)}`);
+      setStatusType('error');
+      setStatus(`保存失败: ${e instanceof Error ? e.message : String(e)}`);
     }
   }
 
   return (
-    <div>
-      <div className="card">
-        <h2>API 配置</h2>
-        <div className="form-row">
-          <div className="form-group" style={{ flex: 2 }}>
-            <label>API Key (OpenAI 协议)</label>
-            <input type="password" placeholder={hasKey ? '已设置 (••••••)' : 'sk-...'} value={apiKey} onChange={e => setApiKey(e.target.value)} style={{ width: '100%' }} />
-          </div>
-        </div>
-        <div className="form-row" style={{ marginTop: 12 }}>
-          <div className="form-group" style={{ flex: 1 }}>
-            <label>接口地址</label>
-            <input type="text" value={apiBase} onChange={e => setApiBase(e.target.value)} />
-          </div>
-          <div className="form-group" style={{ flex: 1 }}>
-            <label>模型</label>
-            <input type="text" value={model} onChange={e => setModel(e.target.value)} />
-          </div>
-        </div>
-        <div style={{ marginTop: 16 }}>
-          <button className="btn btn-primary" onClick={handleSave}>💾 保存配置</button>
-          {status && <span style={{ marginLeft: 12, fontSize: 13, color: '#8892a4' }}>{status}</span>}
-        </div>
-      </div>
+    <div className="relative min-h-screen px-5 py-5">
+      <div
+        className="pointer-events-none absolute inset-0 opacity-[0.015]"
+        style={{
+          backgroundImage: 'linear-gradient(rgba(255,255,255,1) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,1) 1px, transparent 1px)',
+          backgroundSize: '40px 40px',
+        }}
+      />
 
-      <div className="card">
-        <h2>当前设置</h2>
-        <div style={{ fontSize: 13, lineHeight: 1.8, color: '#8892a4' }}>
-          <div>🤖 AI状态：{hasKey ? '✅ 已配置' : '❌ 未配置'}</div>
-          <div>🔗 API地址：{apiBase}</div>
-          <div>🧠 模型：{model}</div>
-          <div>📊 行业板块：净流入 TOP10 + 净流出 TOP10</div>
+      <div className="relative mx-auto" style={{ maxWidth: 640 }}>
+        <div className="flex items-baseline gap-3 mb-6">
+          <h1 className="text-2xl font-bold bg-gradient-to-r from-rose-400 via-amber-300 to-cyan-400 bg-clip-text text-transparent">
+            AI 配置
+          </h1>
+          <span className="text-sm text-gray-500">大模型 API 连接设置</span>
+        </div>
+
+          <div className="rounded-2xl border border-white/[0.06] bg-black/30 backdrop-blur-xl p-6 shadow-2xl mb-4">
+          <div className="flex items-center gap-3 mb-8">
+            <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-cyan-500/20 to-blue-500/20 flex items-center justify-center">
+              <IconLock style={{ color: '#22d3ee', fontSize: 16 }} />
+            </div>
+            <div>
+              <h2 className="text-base font-semibold text-white">API 配置</h2>
+              <p className="text-xs text-gray-500 mt-0.5">设置 AI 分析引擎的访问凭证</p>
+            </div>
+            {hasKey && (
+              <Tag color="green" style={{ marginLeft: 'auto', borderRadius: 4, fontSize: 11 }}>
+                已配置
+              </Tag>
+            )}
+          </div>
+
+          <div className="space-y-6">
+            <div>
+              <label className="flex items-center gap-1.5 text-xs text-gray-400 mb-2">
+                <span className="w-1 h-1 rounded-full bg-cyan-400" />
+                API Key (OpenAI 协议)
+              </label>
+              <Input.Password
+                value={apiKey}
+                onChange={setApiKey}
+                placeholder={hasKey ? '已设置' : 'sk-...'}
+                style={{
+                  maxWidth: '100%',
+                  background: 'rgba(255,255,255,0.04)',
+                  border: '1px solid rgba(255,255,255,0.08)',
+                  color: '#fff',
+                  height: 42,
+                  fontSize: 14,
+                }}
+              />
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div>
+                <label className="flex items-center gap-1.5 text-xs text-gray-400 mb-2">
+                  <span className="w-1 h-1 rounded-full bg-white/30" />
+                  <IconSettings style={{ fontSize: 12 }} />
+                  接口地址
+                </label>
+                <Input
+                  value={apiBase}
+                  onChange={setApiBase}
+                  style={{
+                    background: 'rgba(255,255,255,0.04)',
+                    border: '1px solid rgba(255,255,255,0.08)',
+                    color: '#fff',
+                    height: 42,
+                    fontSize: 14,
+                  }}
+                />
+              </div>
+              <div>
+                <label className="flex items-center gap-1.5 text-xs text-gray-400 mb-2">
+                  <span className="w-1 h-1 rounded-full bg-white/30" />
+                  <IconTool style={{ fontSize: 12 }} />
+                  模型
+                </label>
+                <Input
+                  value={model}
+                  onChange={setModel}
+                  style={{
+                    background: 'rgba(255,255,255,0.04)',
+                    border: '1px solid rgba(255,255,255,0.08)',
+                    color: '#fff',
+                    height: 42,
+                    fontSize: 14,
+                  }}
+                />
+              </div>
+            </div>
+
+            <div className="flex items-center gap-4 pt-2">
+              <Button
+                type="primary"
+                onClick={handleSave}
+                icon={<IconSave />}
+                style={{
+                  background: 'linear-gradient(135deg, #0891b2, #0d9488)',
+                  border: 'none',
+                  height: 38,
+                  fontWeight: 600,
+                  paddingLeft: 24,
+                  paddingRight: 24,
+                  boxShadow: '0 0 20px rgba(6, 182, 212, 0.15)',
+                }}
+              >
+                保存配置
+              </Button>
+              {status && (
+                <span className={`text-sm ${statusType === 'error' ? 'text-rose-400' : 'text-emerald-400'}`}>
+                  {statusType === 'success' ? '✓' : '✕'} {status}
+                </span>
+              )}
+            </div>
+          </div>
+        </div>
+
+        <div className="rounded-2xl border border-white/[0.06] bg-black/30 backdrop-blur-xl p-6 shadow-2xl">
+          <div className="flex items-center gap-3 mb-6">
+            <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-gray-500/20 to-gray-400/5 flex items-center justify-center">
+              <IconSettings style={{ color: '#86909c', fontSize: 16 }} />
+            </div>
+            <h2 className="text-base font-semibold text-white">当前设置</h2>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div className="rounded-lg border border-white/[0.04] bg-white/[0.02] p-4">
+              <p className="text-xs text-gray-500 mb-1">AI 状态</p>
+              <Tag color={hasKey ? 'green' : 'red'} style={{ borderRadius: 4, fontSize: 12 }}>
+                {hasKey ? '已配置' : '未配置'}
+              </Tag>
+            </div>
+            <div className="rounded-lg border border-white/[0.04] bg-white/[0.02] p-4">
+              <p className="text-xs text-gray-500 mb-1">模型</p>
+              <p className="text-sm font-mono text-white">{model}</p>
+            </div>
+            <div className="rounded-lg border border-white/[0.04] bg-white/[0.02] p-4 sm:col-span-2">
+              <p className="text-xs text-gray-500 mb-1">接口地址</p>
+              <p className="text-sm font-mono text-white truncate">{apiBase}</p>
+            </div>
+          </div>
         </div>
       </div>
     </div>

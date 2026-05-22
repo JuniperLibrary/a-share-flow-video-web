@@ -1,85 +1,93 @@
-import { useState, useEffect, useCallback } from 'react';
-import { DataPage } from './pages/DataPage';
+import { useState, useEffect } from 'react';
+import { Layout, Menu, Typography } from '@arco-design/web-react';
+import {
+  IconDashboard,
+  IconPlayArrow,
+  IconEye,
+  IconList,
+  IconSettings,
+} from '@arco-design/web-react/icon';
+import DashboardPage from './pages/DashboardPage';
+import { TickPage } from './pages/TickPage';
+import { AllSectorsPage } from './pages/AllSectorsPage';
 import { GeneratePage } from './pages/GeneratePage';
 import { PreviewPage } from './pages/PreviewPage';
-import { ConfigPage } from './pages/ConfigPage';
-import { SchedulerPage } from './pages/SchedulerPage';
-import { TickPage } from './pages/TickPage';
 import { MarketPage } from './pages/MarketPage';
+import { ConfigPage } from './pages/ConfigPage';
 import { api } from './api';
-import type { Sector, DateItem } from './types';
 
-type Page = 'data' | 'generate' | 'preview' | 'config' | 'scheduler' | 'tick' | 'market';
+const { Sider, Content } = Layout;
+const { Title } = Typography;
+
+type Page = 'dashboard' | 'tick' | 'all-sectors' | 'generate' | 'preview' | 'market' | 'config';
+
+const navItems: { key: Page; label: string; icon: React.ReactNode }[] = [
+  { key: 'dashboard', label: '仪表盘', icon: <IconDashboard /> },
+  { key: 'tick', label: 'Tick 采集', icon: <IconList /> },
+  { key: 'all-sectors', label: '全量板块', icon: <IconList /> },
+  { key: 'generate', label: '视频生成', icon: <IconPlayArrow /> },
+  { key: 'preview', label: '视频预览', icon: <IconEye /> },
+  { key: 'market', label: '实时行情', icon: <IconList /> },
+  { key: 'config', label: 'AI 配置', icon: <IconSettings /> },
+];
 
 export default function App() {
-  const [page, setPage] = useState<Page>('data');
+  const [page, setPage] = useState<Page>('dashboard');
   const [dates, setDates] = useState<string[]>([]);
-  const [sectorData, setSectorData] = useState<Sector[]>([]);
 
-  useEffect(() => { loadDates(); }, []);
-
-  async function loadDates() {
-    try {
-      const data = await api.getDates();
-      setDates(data.dates?.map(d => d.date) || []);
-    } catch { void 0; }
-  }
-
-  const handleSectorData = useCallback((data: Sector[]) => {
-    setSectorData(data);
+  useEffect(() => {
+    api.getDates().then(d => {
+      setDates(d.dates?.map(x => x.date) || []);
+    }).catch(() => void 0);
   }, []);
 
-  const handleDone = useCallback(() => {
-    loadDates();
-    setPage('preview');
-  }, []);
-
-  const navItems: { key: Page; label: string; icon: string }[] = [
-    { key: 'data', label: '数据', icon: '📋' },
-    { key: 'generate', label: '生成', icon: '🎬' },
-    { key: 'preview', label: '预览', icon: '👁' },
-    { key: 'market', label: '行情', icon: '📈' },
-    { key: 'config', label: '配置', icon: '⚙' },
-    { key: 'scheduler', label: '定时', icon: '⏰' },
-    { key: 'tick', label: 'Tick', icon: '📊' },
-  ];
+  const handleDone = () => setPage('preview');
 
   return (
-    <div className="container">
-      <div className="header">
-        <h1>📊 <span>A股</span>情绪流动可视化</h1>
-        <div className="sub">板块情绪监控 · 智能视频生成 · 一键发布</div>
-      </div>
-
-      <div className="nav">
-        {navItems.map(item => (
-          <a key={item.key} className={page === item.key ? 'active' : ''} onClick={() => setPage(item.key)}>
-            {item.icon} {item.label}
-          </a>
-        ))}
-      </div>
-
-      <div className={page === 'data' ? 'page active' : 'page'}>
-        <DataPage onSectorData={handleSectorData} sectorData={sectorData} />
-      </div>
-      <div className={page === 'generate' ? 'page active' : 'page'}>
-        <GeneratePage dates={dates} onDone={handleDone} />
-      </div>
-      <div className={page === 'preview' ? 'page active' : 'page'}>
-        <PreviewPage />
-      </div>
-      <div className={page === 'market' ? 'page active' : 'page'}>
-        <MarketPage />
-      </div>
-      <div className={page === 'config' ? 'page active' : 'page'}>
-        <ConfigPage />
-      </div>
-      <div className={page === 'scheduler' ? 'page active' : 'page'}>
-        <SchedulerPage />
-      </div>
-      <div className={page === 'tick' ? 'page active' : 'page'}>
-        <TickPage />
-      </div>
-    </div>
+    <Layout style={{ minHeight: '100vh', background: '#0a1628' }}>
+      <Sider
+        width={220}
+        style={{
+          background: '#0d1f3c',
+          borderRight: '1px solid #1a3a5c',
+          boxShadow: '2px 0 12px rgba(0,0,0,0.3)',
+        }}
+      >
+        <div style={{ padding: '20px 16px 16px', borderBottom: '1px solid #1a3a5c' }}>
+          <Title heading={5} style={{ margin: 0, color: '#fff', fontWeight: 700 }}>
+            📊 A股情绪流
+          </Title>
+          <div style={{ fontSize: 12, color: '#86909c', marginTop: 4 }}>
+            板块资金流向可视化
+          </div>
+        </div>
+        <Menu
+          mode="vertical"
+          selectedKeys={[page]}
+          onClickMenuItem={(key) => setPage(key as Page)}
+          style={{ border: 'none', marginTop: 8, background: 'transparent' }}
+        >
+          {navItems.map((item) => (
+            <Menu.Item key={item.key} style={{ fontSize: 14, color: '#86909c' }}>
+              {item.icon}
+              <span style={{ marginLeft: 8 }}>{item.label}</span>
+            </Menu.Item>
+          ))}
+        </Menu>
+      </Sider>
+      <Layout>
+        <Content style={{ padding: 24, overflow: 'auto', background: '#0a1628' }}>
+          {page === 'dashboard' && <DashboardPage />}
+          <div style={{ display: page === 'tick' ? 'block' : 'none' }}>
+            <TickPage />
+          </div>
+          {page === 'all-sectors' && <AllSectorsPage />}
+          {page === 'generate' && <GeneratePage dates={dates} onDone={handleDone} />}
+          {page === 'preview' && <PreviewPage />}
+          {page === 'market' && <MarketPage />}
+          {page === 'config' && <ConfigPage />}
+        </Content>
+      </Layout>
+    </Layout>
   );
 }

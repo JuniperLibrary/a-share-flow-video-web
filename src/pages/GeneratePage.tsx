@@ -1,4 +1,11 @@
 import { useState, useEffect } from 'react';
+import {
+  Select,
+  Button,
+  Space,
+  Alert,
+} from '@arco-design/web-react';
+import { IconPlayArrow } from '@arco-design/web-react/icon';
 import { api } from '../api';
 import { useSSE } from '../hooks/useSSE';
 import type { SSEMessage } from '../types';
@@ -8,10 +15,31 @@ interface GeneratePageProps {
   onDone: () => void;
 }
 
-type VideoType = 'single' | 'multiday';
+type VideoType = 'multiday' | 'tick';
+
+const videoTypeConfig = [
+  {
+    key: 'tick' as VideoType,
+    label: 'Tick 曲线视频',
+    desc: '基于实时高频采集数据 · 日内资金流动曲线渲染',
+    gradient: 'from-cyan-500/20 to-teal-500/5',
+    border: 'hover:border-cyan-500/30',
+    accent: 'bg-gradient-to-r from-cyan-400 to-teal-400',
+    icon: '◈',
+  },
+  {
+    key: 'multiday' as VideoType,
+    label: '多日 Bar Chart Race',
+    desc: '动态横向排名条形竞赛图 · 多交易日资金流向对比',
+    gradient: 'from-blue-500/20 to-indigo-500/5',
+    border: 'hover:border-blue-500/30',
+    accent: 'bg-gradient-to-r from-blue-400 to-indigo-400',
+    icon: '◈',
+  },
+];
 
 export function GeneratePage({ dates, onDone }: GeneratePageProps) {
-  const [videoType, setVideoType] = useState<VideoType>('single');
+  const [videoType, setVideoType] = useState<VideoType>('tick');
   const [genDate, setGenDate] = useState('');
   const [session, setSession] = useState('full');
   const [copyMode, setCopyMode] = useState('template');
@@ -19,131 +47,304 @@ export function GeneratePage({ dates, onDone }: GeneratePageProps) {
   const [days, setDays] = useState(3);
   const { logs, progress, isRunning, startStream } = useSSE();
   const [statusText, setStatusText] = useState('');
-  const [statusClass, setStatusClass] = useState('');
+  const [statusType, setStatusType] = useState<'info' | 'success' | 'error' | ''>('');
 
   useEffect(() => {
     if (dates.length > 0 && !genDate) setGenDate(dates[0]);
   }, [dates]);
 
   async function handleGenerate() {
-    if (!genDate) { alert('请选择日期'); return; }
+    if (!genDate) return;
     setStatusText('');
-    setStatusClass('running');
-
-    setStatusText('⏳ 正在生成视频...');
+    setStatusType('info');
+    setStatusText('正在生成视频...');
 
     try {
-      await startStream(
-        () => {
-          if (videoType === 'multiday') {
-            return api.generateMultiDay(genDate, days, copyMode, format);
-          }
-          return api.generate(genDate, copyMode, format, session);
-        },
-        (msg: SSEMessage) => {
-          if (msg.type === 'done') {
-            setStatusClass('done');
-            setStatusText('✅ ' + msg.text);
-            onDone();
-          } else if (msg.type === 'error') {
-            throw new Error(msg.text);
-          }
+      if (videoType === 'tick') {
+        const res = await api.generateTick(genDate, session, format, copyMode);
+        const data = await res.json();
+        if (data.error) {
+          setStatusType('error');
+          setStatusText(data.error);
+        } else {
+          setStatusType('success');
+          setStatusText('Tick 视频已生成: ' + data.output);
         }
-      );
+      } else {
+        await startStream(
+          () => api.generateMultiDay(genDate, days, copyMode, format),
+          (msg: SSEMessage) => {
+            if (msg.type === 'done') {
+              setStatusType('success');
+              setStatusText(msg.text);
+              onDone();
+            } else if (msg.type === 'error') {
+              throw new Error(msg.text);
+            }
+          },
+        );
+      }
     } catch (e: unknown) {
-      setStatusClass('error');
-      setStatusText(`❌ ${e instanceof Error ? e.message : String(e)}`);
+      setStatusType('error');
+      setStatusText(e instanceof Error ? e.message : String(e));
     }
   }
 
-  const fmtLabel = format === 'tv' ? '📺 TV (16:9)' : '📱 App (9:16)';
+  const selectedConfig = videoTypeConfig.find(vt => vt.key === videoType)!;
 
   return (
-    <div className="card">
-      <h2>生成配置</h2>
+    <div className="relative min-h-screen px-5 py-5">
+      <div
+        className="pointer-events-none absolute inset-0 opacity-[0.015]"
+        style={{
+          backgroundImage: 'linear-gradient(rgba(255,255,255,1) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,1) 1px, transparent 1px)',
+          backgroundSize: '40px 40px',
+        }}
+      />
 
-      {/* Video Type Tabs */}
-      <div className="video-type-tabs">
-        <button
-          className={`tab-btn ${videoType === 'single' ? 'active' : ''}`}
-          onClick={() => setVideoType('single')}
-        >
-          📊 单日资金流向
-          <span className="tab-desc">单交易日板块资金曲线</span>
-        </button>
-        <button
-          className={`tab-btn ${videoType === 'multiday' ? 'active' : ''}`}
-          onClick={() => setVideoType('multiday')}
-        >
-          📈 多日 Bar Chart Race
-          <span className="tab-desc">动态横向排名条形竞赛图</span>
-        </button>
-      </div>
-
-      <div className="form-row">
-        <div className="form-group">
-          <label>截止日期</label>
-          <select value={genDate} onChange={e => setGenDate(e.target.value)} style={{ minWidth: 130 }}>
-            {(dates || []).map(d => <option key={d} value={d}>{d}</option>)}
-          </select>
+      <div className="relative">
+        <div className="flex items-baseline gap-3 mb-6">
+          <h1 className="text-2xl font-bold bg-gradient-to-r from-rose-400 via-amber-300 to-cyan-400 bg-clip-text text-transparent">
+            视频生成
+          </h1>
+          <span className="text-sm text-gray-500">AI 自动分析 · Remotion 渲染</span>
         </div>
-        {videoType === 'multiday' && (
-          <div className="form-group">
-            <label>天数</label>
-            <select value={days} onChange={e => setDays(Number(e.target.value))} style={{ minWidth: 80 }}>
-              <option value={3}>近3日</option>
-              <option value={5}>近5日</option>
-              <option value={7}>近7日</option>
-            </select>
+
+        <div className="rounded-2xl border border-white/[0.06] bg-black/30 backdrop-blur-xl p-6 shadow-2xl">
+          {/* Video Type Selector */}
+          <div className="grid grid-cols-2 gap-4 mb-6">
+            {videoTypeConfig.map((vt) => {
+              const active = videoType === vt.key;
+              return (
+                <button
+                  key={vt.key}
+                  onClick={() => setVideoType(vt.key)}
+                  className={`
+                    relative overflow-hidden rounded-xl border p-5 text-left transition-all duration-300
+                    ${active
+                      ? 'border-white/20 bg-white/[0.06] shadow-lg shadow-white/5 scale-[1.02]'
+                      : 'border-white/[0.04] bg-white/[0.02] hover:border-white/10 hover:bg-white/[0.04] hover:scale-[1.01]'}
+                  `}
+                >
+                  {/* Active indicator bar */}
+                  {active && (
+                    <div className="absolute inset-0 opacity-10">
+                      <div className={`absolute inset-0 ${vt.gradient}`} />
+                    </div>
+                  )}
+                  {active && (
+                    <div className="absolute top-0 left-0 w-1 h-full rounded-r bg-gradient-to-b from-white/40 to-white/5" />
+                  )}
+
+                  <div className="flex items-center justify-between mb-2">
+                    <span className={`text-base font-semibold ${active ? 'text-white' : 'text-gray-400'}`}>
+                      {vt.label}
+                    </span>
+                    <div className={`
+                      w-2.5 h-2.5 rounded-full transition-all duration-300
+                      ${active ? 'shadow-lg scale-110' : 'bg-white/10'}
+                    `} style={{
+                      background: active
+                        ? videoType === 'multiday'
+                          ? 'linear-gradient(135deg, #60a5fa, #818cf8)'
+                          : 'linear-gradient(135deg, #22d3ee, #2dd4bf)'
+                        : undefined,
+                    }} />
+                  </div>
+                  <p className="text-xs text-gray-500 leading-relaxed">{vt.desc}</p>
+                </button>
+              );
+            })}
           </div>
-        )}
-        {videoType === 'single' && (
-          <div className="form-group">
-            <label>时段</label>
-            <select value={session} onChange={e => setSession(e.target.value)} style={{ minWidth: 100 }}>
-              <option value="full">全天</option>
-              <option value="morning">早盘</option>
-            </select>
+
+          {/* Active type label */}
+          <div className="flex items-center gap-2 mb-5">
+            <div className={`
+              h-0.5 w-6 rounded-full
+              ${videoType === 'multiday' ? 'bg-blue-400' : 'bg-cyan-400'}
+            `} />
+            <span className="text-xs font-medium tracking-wider text-gray-500 uppercase">
+              {videoType === 'multiday' ? '多日趋势' : '日内 Tick'} 配置
+            </span>
           </div>
-        )}
-        <div className="form-group">
-          <label>文案模式</label>
-          <select value={copyMode} onChange={e => setCopyMode(e.target.value)} style={{ minWidth: 100 }}>
-            <option value="template">模板文案</option>
-            <option value="ai">AI文案</option>
-          </select>
-        </div>
-        <div className="form-group">
-          <label>输出格式</label>
-          <select value={format} onChange={e => setFormat(e.target.value)} style={{ minWidth: 100 }}>
-            <option value="mobile">📱 App (9:16)</option>
-            <option value="tv">📺 TV (16:9)</option>
-          </select>
-        </div>
-        <div className="form-group">
-          <label>&nbsp;</label>
-          <button className="btn btn-primary" onClick={handleGenerate} disabled={isRunning || !genDate}>🚀 生成</button>
+
+          {/* Form controls */}
+          <div className="flex flex-wrap gap-x-5 gap-y-3 mb-5">
+            {/* Date */}
+            <div>
+              <div className="flex items-center gap-1.5 mb-1.5">
+                <span className="w-1 h-1 rounded-full bg-white/30" />
+                <span className="text-xs text-gray-500">
+                  {videoType === 'tick' ? '采集日期' : '截止日期'}
+                </span>
+              </div>
+              <Select
+                value={genDate}
+                onChange={setGenDate}
+                style={{ width: 150, background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)' }}
+                options={(dates || []).map(d => ({ label: d, value: d }))}
+              />
+            </div>
+
+            {/* Days (multiday only) */}
+            {videoType === 'multiday' && (
+              <div>
+                <div className="flex items-center gap-1.5 mb-1.5">
+                  <span className="w-1 h-1 rounded-full bg-white/30" />
+                  <span className="text-xs text-gray-500">对比天数</span>
+                </div>
+                <Select
+                  value={days}
+                  onChange={setDays}
+                  style={{ width: 110, background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)' }}
+                  options={[
+                    { label: '近3日', value: 3 },
+                    { label: '近5日', value: 5 },
+                    { label: '近7日', value: 7 },
+                  ]}
+                />
+              </div>
+            )}
+
+            {/* Session (tick only) */}
+            {videoType === 'tick' && (
+              <div>
+                <div className="flex items-center gap-1.5 mb-1.5">
+                  <span className="w-1 h-1 rounded-full bg-white/30" />
+                  <span className="text-xs text-gray-500">时段</span>
+                </div>
+                <Select
+                  value={session}
+                  onChange={setSession}
+                  style={{ width: 110, background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)' }}
+                  options={[
+                    { label: '全天', value: 'full' },
+                    { label: '早盘', value: 'morning' },
+                  ]}
+                />
+              </div>
+            )}
+
+            {/* Copy mode */}
+            <div>
+              <div className="flex items-center gap-1.5 mb-1.5">
+                <span className="w-1 h-1 rounded-full bg-white/30" />
+                <span className="text-xs text-gray-500">文案模式</span>
+              </div>
+              <Select
+                value={copyMode}
+                onChange={setCopyMode}
+                style={{ width: 120, background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)' }}
+                options={[
+                  { label: '模板文案', value: 'template' },
+                  { label: 'AI文案', value: 'ai' },
+                ]}
+              />
+            </div>
+
+            {/* Format */}
+            <div>
+              <div className="flex items-center gap-1.5 mb-1.5">
+                <span className="w-1 h-1 rounded-full bg-white/30" />
+                <span className="text-xs text-gray-500">输出格式</span>
+              </div>
+              <Select
+                value={format}
+                onChange={setFormat}
+                style={{ width: 150, background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)' }}
+                options={[
+                  { label: '📱 竖屏 (9:16)', value: 'mobile' },
+                  { label: '📺 横屏 (16:9)', value: 'tv' },
+                ]}
+              />
+            </div>
+
+            {/* Generate button */}
+            <div className="flex items-end">
+              <Button
+                type="primary"
+                loading={isRunning}
+                onClick={handleGenerate}
+                disabled={!genDate}
+                icon={<IconPlayArrow />}
+                style={{
+                  background: videoType === 'tick'
+                    ? 'linear-gradient(135deg, #0891b2, #0d9488)'
+                    : 'linear-gradient(135deg, #3b82f6, #6366f1)',
+                  border: 'none',
+                  height: 36,
+                  fontWeight: 600,
+                  paddingLeft: 20,
+                  paddingRight: 20,
+                  boxShadow: videoType === 'tick'
+                    ? '0 0 20px rgba(6, 182, 212, 0.15)'
+                    : '0 0 20px rgba(59, 130, 246, 0.15)',
+                }}
+              >
+                生成
+              </Button>
+            </div>
+          </div>
+
+          {/* Status message */}
+          {statusType && (
+            <Alert
+              type={statusType === 'success' ? 'success' : statusType === 'error' ? 'error' : 'info'}
+              title={statusText}
+              style={{ marginTop: 12, background: 'rgba(26, 58, 92, 0.6)', border: '1px solid rgba(42, 74, 108, 0.5)' }}
+            />
+          )}
+
+          {/* Progress */}
+          {progress && isRunning && (
+            <div className="mt-3 flex items-center gap-2 text-xs text-gray-500">
+              <span className="inline-block w-1.5 h-1.5 rounded-full bg-cyan-400 animate-pulse" />
+              {progress}
+            </div>
+          )}
+
+          {/* Logs */}
+          {logs.length > 0 && (
+            <div className="mt-4 rounded-lg bg-black/30 border border-white/[0.04] p-4 max-h-48 overflow-y-auto custom-scrollbar">
+              <div className="flex items-center gap-2 mb-2 text-xs text-gray-500">
+                <span className="w-1 h-1 rounded-full bg-white/20" />
+                生成日志
+              </div>
+              <div className="space-y-1">
+                {logs.map((l, i) => (
+                  <div
+                    key={i}
+                    className="text-xs font-mono text-gray-500 leading-relaxed hover:text-gray-300 transition-colors"
+                  >
+                    <span className="text-gray-600">{String(i + 1).padStart(2, '0')}</span>
+                    <span className="mx-2 text-gray-700">|</span>
+                    {l}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Navigate to preview */}
+          {statusType === 'success' && (
+            <div className="mt-5 flex items-center gap-3">
+              <Button
+                onClick={onDone}
+                style={{
+                  background: 'linear-gradient(135deg, #00d4ff, #0891b2)',
+                  border: 'none',
+                  color: '#fff',
+                  fontWeight: 600,
+                  boxShadow: '0 0 20px rgba(0, 212, 255, 0.2)',
+                }}
+              >
+                前往预览
+              </Button>
+              <span className="text-xs text-gray-600">查看生成的视频文件</span>
+            </div>
+          )}
         </div>
       </div>
-
-      {statusClass && (
-        <div className={`status ${statusClass}`}>
-          <div>{statusText}</div>
-          {progress && statusClass === 'running' && <div className="progress">{progress}</div>}
-        </div>
-      )}
-
-      {logs.length > 0 && (
-        <div className="log-panel" style={{ marginTop: 8 }}>
-          {logs.map((l, i) => <div key={i}>{l}</div>)}
-        </div>
-      )}
-
-      {statusClass === 'done' && (
-        <div style={{ marginTop: 12 }}>
-          <button className="btn btn-secondary" onClick={onDone}>👁 前往预览</button>
-        </div>
-      )}
     </div>
   );
 }

@@ -1,4 +1,4 @@
-import type { DateItem, Sector, ConfigData, SchedulerStatus, SSEMessage } from './types';
+import type { DateItem, Sector, ConfigData, SSEMessage } from './types';
 import { apiUrl } from './utils';
 
 async function request<T>(url: string, options?: RequestInit): Promise<T> {
@@ -13,13 +13,6 @@ export const api = {
 
   getData: (date: string) =>
     request<{ sectors: Sector[]; videos: string[]; 文案: Record<string, Record<string, string>> }>(`/api/data/${date}`),
-
-  generate: (date: string, copy_mode: string, format: string, session: string) =>
-    fetch(apiUrl('/api/generate'), {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ date, copy_mode, format, session }),
-    }),
 
   generateMultiDay: (date: string, days: number, copy_mode: string, format: string) =>
     fetch(apiUrl('/api/generate-multiday'), {
@@ -44,19 +37,6 @@ export const api = {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ date, session }),
     }),
-
-  getSchedulerStatus: () =>
-    request<SchedulerStatus>('/api/scheduler'),
-
-  updateScheduler: (body: { enabled?: boolean; run_time?: string; morning_run_time?: string }) =>
-    request<SchedulerStatus>('/api/scheduler', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(body),
-    }),
-
-  runSchedulerNow: () =>
-    request<{ ok: boolean; message: string }>('/api/scheduler/run-now', { method: 'POST' }),
 
   getFiles: (date: string) =>
     request<{ videos: Record<string, string>; 文案: { template: Record<string, string>; ai: Record<string, string> } }>(`/api/files/${date}`),
@@ -92,4 +72,27 @@ export const api = {
 
   getTickData: (date: string, session: string) =>
     request<{ date: string; session: string; points: { Time: string; Name: string; Net: number }[] }>(`/api/tick-data/${date}?session=${session}`),
+
+  saveAllSectors: (date: string) =>
+    request<{ task_id: string; message: string }>(`/api/sectors-all/save/${date}`, {
+      method: 'POST',
+    }),
+
+  getSaveAllStatus: (taskId: string) =>
+    request<{ task_id: string; date: string; status: string; progress: string; count: number; error?: string }>(`/api/sectors-all/save/status/${taskId}`),
+
+  getAllSectors: (date: string) =>
+    request<{ date: string; sectors: { date: string; code: string; name: string; net: number }[] }>(`/api/sectors-all/${date}`),
+
+  getSectorsAllNames: () =>
+    request<{ names: string[] }>('/api/sectors-all/names'),
+
+  getSectorsAllDates: () =>
+    request<{ dates: string[] }>('/api/sectors-all/dates'),
+
+  getSectorsTrend: (name: string, startDate: string, endDate: string) =>
+    request<{ name: string; sectors: { date: string; code: string; name: string; net: number }[] }>(`/api/sectors-all/trend?name=${encodeURIComponent(name)}&start_date=${startDate}&end_date=${endDate}`),
+
+  getSectorsAllRange: (startDate: string, endDate: string) =>
+    request<{ sectors: { date: string; code: string; name: string; net: number }[] }>(`/api/sectors-all/range?start_date=${startDate}&end_date=${endDate}`),
 };
