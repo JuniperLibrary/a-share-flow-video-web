@@ -389,69 +389,6 @@ body {
   background: #00d4ff !important;
 }
 
-/* DatePicker */
-.arco-picker {
-  background: #1a3a5c !important;
-  border: 1px solid #2a4a6c !important;
-  color: #fff !important;
-}
-
-.arco-picker-input {
-  color: #fff !important;
-}
-
-.arco-picker-input input {
-  color: #fff !important;
-  background: transparent !important;
-}
-
-.arco-picker:hover {
-  border-color: #00d4ff !important;
-}
-
-.arco-picker-panel {
-  background: #1a3a5c !important;
-  border: 1px solid #2a4a6c !important;
-}
-
-.arco-picker-cell {
-  color: #b0b8c4 !important;
-}
-
-.arco-picker-cell:hover {
-  background: #2a4a6c !important;
-}
-
-.arco-picker-header {
-  background: #1a3a5c !important;
-  border-bottom: 1px solid #2a4a6c !important;
-  color: #fff !important;
-}
-
-.arco-picker-header-btn {
-  color: #b0b8c4 !important;
-}
-
-.arco-picker-header-btn:hover {
-  color: #00d4ff !important;
-}
-
-.arco-picker-header-view {
-  color: #fff !important;
-}
-
-.arco-picker-body {
-  background: #1a3a5c !important;
-}
-
-.arco-picker-cell-selected {
-  background: rgba(0, 212, 255, 0.2) !important;
-}
-
-.arco-picker-cell-disabled {
-  opacity: 0.4 !important;
-}
-
 /* Alert */
 .arco-alert {
   background: #1a3a5c !important;
@@ -623,4 +560,20 @@ body {
   .arco-layout-sider {
     display: none !important;
   }
+}
+
+/* DatePicker dropdown animation */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-in {
+  animation: fadeIn 0.15s ease-out;
 }

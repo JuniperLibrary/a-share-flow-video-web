@@ -9,24 +9,16 @@ import { IconPlayArrow } from '@arco-design/web-react/icon';
 import { api } from '../api';
 import { useSSE } from '../hooks/useSSE';
 import type { SSEMessage } from '../types';
+import { DatePicker } from '../components/ui/date-picker';
 
 interface GeneratePageProps {
   dates: string[];
   onDone: () => void;
 }
 
-type VideoType = 'multiday' | 'tick';
+type VideoType = 'multiday';
 
 const videoTypeConfig = [
-  {
-    key: 'tick' as VideoType,
-    label: 'Tick 曲线视频',
-    desc: '基于实时高频采集数据 · 日内资金流动曲线渲染',
-    gradient: 'from-cyan-500/20 to-teal-500/5',
-    border: 'hover:border-cyan-500/30',
-    accent: 'bg-gradient-to-r from-cyan-400 to-teal-400',
-    icon: '◈',
-  },
   {
     key: 'multiday' as VideoType,
     label: '多日 Bar Chart Race',
@@ -39,7 +31,7 @@ const videoTypeConfig = [
 ];
 
 export function GeneratePage({ dates, onDone }: GeneratePageProps) {
-  const [videoType, setVideoType] = useState<VideoType>('tick');
+  const [videoType, setVideoType] = useState<VideoType>('multiday');
   const [genDate, setGenDate] = useState('');
   const [session, setSession] = useState('full');
   const [copyMode, setCopyMode] = useState('template');
@@ -60,30 +52,18 @@ export function GeneratePage({ dates, onDone }: GeneratePageProps) {
     setStatusText('正在生成视频...');
 
     try {
-      if (videoType === 'tick') {
-        const res = await api.generateTick(genDate, session, format, copyMode);
-        const data = await res.json();
-        if (data.error) {
-          setStatusType('error');
-          setStatusText(data.error);
-        } else {
-          setStatusType('success');
-          setStatusText('Tick 视频已生成: ' + data.output);
-        }
-      } else {
-        await startStream(
-          () => api.generateMultiDay(genDate, days, copyMode, format),
-          (msg: SSEMessage) => {
-            if (msg.type === 'done') {
-              setStatusType('success');
-              setStatusText(msg.text);
-              onDone();
-            } else if (msg.type === 'error') {
-              throw new Error(msg.text);
-            }
-          },
-        );
-      }
+      await startStream(
+        () => api.generateMultiDay(genDate, days, copyMode, format),
+        (msg: SSEMessage) => {
+          if (msg.type === 'done') {
+            setStatusType('success');
+            setStatusText(msg.text);
+            onDone();
+          } else if (msg.type === 'error') {
+            throw new Error(msg.text);
+          }
+        },
+      );
     } catch (e: unknown) {
       setStatusType('error');
       setStatusText(e instanceof Error ? e.message : String(e));
@@ -175,14 +155,13 @@ export function GeneratePage({ dates, onDone }: GeneratePageProps) {
               <div className="flex items-center gap-1.5 mb-1.5">
                 <span className="w-1 h-1 rounded-full bg-white/30" />
                 <span className="text-xs text-gray-500">
-                  {videoType === 'tick' ? '采集日期' : '截止日期'}
+                  截止日期
                 </span>
               </div>
-              <Select
+              <DatePicker
                 value={genDate}
                 onChange={setGenDate}
-                style={{ width: 150, background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)' }}
-                options={(dates || []).map(d => ({ label: d, value: d }))}
+                style={{ width: 150 }}
               />
             </div>
 
@@ -201,25 +180,6 @@ export function GeneratePage({ dates, onDone }: GeneratePageProps) {
                     { label: '近3日', value: 3 },
                     { label: '近5日', value: 5 },
                     { label: '近7日', value: 7 },
-                  ]}
-                />
-              </div>
-            )}
-
-            {/* Session (tick only) */}
-            {videoType === 'tick' && (
-              <div>
-                <div className="flex items-center gap-1.5 mb-1.5">
-                  <span className="w-1 h-1 rounded-full bg-white/30" />
-                  <span className="text-xs text-gray-500">时段</span>
-                </div>
-                <Select
-                  value={session}
-                  onChange={setSession}
-                  style={{ width: 110, background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)' }}
-                  options={[
-                    { label: '全天', value: 'full' },
-                    { label: '早盘', value: 'morning' },
                   ]}
                 />
               </div>
@@ -268,17 +228,13 @@ export function GeneratePage({ dates, onDone }: GeneratePageProps) {
                 disabled={!genDate}
                 icon={<IconPlayArrow />}
                 style={{
-                  background: videoType === 'tick'
-                    ? 'linear-gradient(135deg, #0891b2, #0d9488)'
-                    : 'linear-gradient(135deg, #3b82f6, #6366f1)',
+                  background: 'linear-gradient(135deg, #3b82f6, #6366f1)',
                   border: 'none',
                   height: 36,
                   fontWeight: 600,
                   paddingLeft: 20,
                   paddingRight: 20,
-                  boxShadow: videoType === 'tick'
-                    ? '0 0 20px rgba(6, 182, 212, 0.15)'
-                    : '0 0 20px rgba(59, 130, 246, 0.15)',
+                  boxShadow: '0 0 20px rgba(59, 130, 246, 0.15)',
                 }}
               >
                 生成

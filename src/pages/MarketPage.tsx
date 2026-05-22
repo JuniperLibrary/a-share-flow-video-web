@@ -1,7 +1,8 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { Select, Tag, Button, DatePicker } from '@arco-design/web-react';
+import { Select, Tag, Button } from '@arco-design/web-react';
 import { IconPlayArrow, IconRefresh, IconInfoCircle } from '@arco-design/web-react/icon';
 import { apiUrl } from '../utils';
+import { DatePicker } from '../components/ui/date-picker';
 
 interface TickPoint {
   Time: string;
@@ -274,11 +275,14 @@ export function MarketPage() {
 
             <DatePicker
               value={replayDate}
-              onChange={val => setReplayDate(val as string)}
-              style={{ width: 120, background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', height: 34, fontSize: 12 }}
+              onChange={val => setReplayDate(val)}
+              style={{ width: 120 }}
               placeholder="回放日期"
               disabledDate={(current) => {
-                const dateStr = current.format('YYYY-MM-DD');
+                const y = current.getFullYear();
+                const m = String(current.getMonth() + 1).padStart(2, '0');
+                const d = String(current.getDate()).padStart(2, '0');
+                const dateStr = `${y}-${m}-${d}`;
                 return !availableDates.includes(dateStr);
               }}
             />

@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react';
-import { DatePicker, Button, Tag, Spin } from '@arco-design/web-react';
+import { Button, Tag, Spin } from '@arco-design/web-react';
 import { IconRefresh, IconDownload, IconScan, IconCalendar } from '@arco-design/web-react/icon';
 import { api } from '../api';
+import { DatePicker } from '../components/ui/date-picker';
 
 interface SectorData {
   name: string;
@@ -150,8 +151,8 @@ function SnapshotTab() {
         <div className="flex flex-wrap items-center gap-3">
           <DatePicker
             value={date}
-            onChange={val => setDate(val as string)}
-            style={{ width: 140, background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', color: '#fff', height: 34, fontSize: 13 }}
+            onChange={val => setDate(val)}
+            style={{ width: 140 }}
           />
           <button
             onClick={handleFetch}
@@ -386,9 +387,9 @@ function TrendTab() {
             ))}
           </div>
 
-          <DatePicker value={startDate} onChange={val => setStartDate(val as string)} style={{ width: 120, background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', color: '#fff', height: 34, fontSize: 12 }} />
+          <DatePicker value={startDate} onChange={val => setStartDate(val)} style={{ width: 120 }} />
           <span className="text-xs text-gray-600">至</span>
-          <DatePicker value={endDate} onChange={val => setEndDate(val as string)} style={{ width: 120, background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', color: '#fff', height: 34, fontSize: 12 }} />
+          <DatePicker value={endDate} onChange={val => setEndDate(val)} style={{ width: 120 }} />
 
           <button
             onClick={handleQuery}

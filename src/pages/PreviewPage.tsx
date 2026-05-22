@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { Input, Button, Select } from '@arco-design/web-react';
 import { IconSend, IconCopy, IconCheck, IconCamera } from '@arco-design/web-react/icon';
 import { api } from '../api';
+import { DatePicker } from '../components/ui/date-picker';
 
 interface SectorOption {
   code: string;
@@ -112,18 +113,12 @@ export function PreviewPage() {
                   <span className="w-1 h-1 rounded-full bg-amber-400" />
                   日期
                 </label>
-                <Select
+                <DatePicker
                   value={genDate}
                   onChange={setGenDate}
                   placeholder="选择日期"
-                  style={{ width: '100%', background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', height: 42 }}
-                >
-                  {dates.map(d => (
-                    <Select.Option key={d} value={d}>
-                      {d}
-                    </Select.Option>
-                  ))}
-                </Select>
+                  style={{ width: '100%' }}
+                />
               </div>
             </div>
 
