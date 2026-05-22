@@ -118,7 +118,6 @@ src/
 | `/api/tick/replay-stream` | GET | SSE 回放历史 Tick 数据 |
 | `/api/tick/events/:date` | GET | Tick 事件分析数据 |
 | `/api/tick-data/:date` | GET | Tick 历史数据 |
-| `/api/generate-tick` | POST | 基于 Tick 生成视频 |
 | `/api/dashboard` | GET | 仪表盘聚合数据 |
 | `/api/sectors-all/save/:date` | POST | 获取全量板块并保存 |
 | `/api/sectors-all/status/:task_id` | GET | 全量板块任务状态 |

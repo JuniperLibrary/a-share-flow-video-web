@@ -53,13 +53,6 @@ export const api = {
   exportHotSectors: (date: string) =>
     request<{ date: string; sectors: Sector[] }>(`/api/export-hot-sectors/${date}`),
 
-  generateTick: (date: string, session: string, format: string, copy_mode: string) =>
-    fetch(apiUrl('/api/generate-tick'), {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ date, session, format, copy_mode }),
-    }),
-
   getTickInterval: () =>
     request<{ intervalMinutes: number }>('/api/tick/interval'),
 
