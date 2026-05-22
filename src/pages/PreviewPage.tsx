@@ -1,8 +1,9 @@
 import { useState, useEffect } from 'react';
-import { Input, Button, Select } from '@arco-design/web-react';
+import { Input, Button } from '@arco-design/web-react';
 import { IconSend, IconCopy, IconCheck, IconCamera } from '@arco-design/web-react/icon';
 import { api } from '../api';
 import { DatePicker } from '../components/ui/date-picker';
+import { Select } from '../components/ui/select';
 
 interface SectorOption {
   code: string;
@@ -97,16 +98,11 @@ export function PreviewPage() {
                 </label>
                 <Select
                   value={selectedSector}
-                  onChange={setSelectedSector}
+                  onChange={val => setSelectedSector(val as string)}
                   placeholder="选择板块"
-                  style={{ width: '100%', background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', height: 42 }}
-                >
-                  {sectors.map(s => (
-                    <Select.Option key={s.code} value={s.code}>
-                      {s.name}
-                    </Select.Option>
-                  ))}
-                </Select>
+                  style={{ width: '100%' }}
+                  options={sectors.map(s => ({ label: s.name, value: s.code }))}
+                />
               </div>
               <div className="flex-1">
                 <label className="flex items-center gap-1.5 text-xs text-gray-400 mb-2">

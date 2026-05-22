@@ -1,8 +1,9 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { Select, Tag, Button } from '@arco-design/web-react';
+import { Tag, Button } from '@arco-design/web-react';
 import { IconPlayArrow, IconRefresh, IconInfoCircle } from '@arco-design/web-react/icon';
 import { apiUrl } from '../utils';
 import { DatePicker } from '../components/ui/date-picker';
+import { Select } from '../components/ui/select';
 
 interface TickPoint {
   Time: string;
@@ -269,7 +270,7 @@ export function MarketPage() {
             <Select
               value={selectedSession}
               onChange={val => setSelectedSession(val as 'full' | 'morning')}
-              style={{ width: 80, background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', height: 34, fontSize: 12 }}
+              style={{ width: 80 }}
               options={[{ label: '全天', value: 'full' }, { label: '早盘', value: 'morning' }]}
             />
 

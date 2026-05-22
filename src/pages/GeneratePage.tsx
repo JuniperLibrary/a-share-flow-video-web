@@ -1,6 +1,5 @@
 import { useState, useEffect } from 'react';
 import {
-  Select,
   Button,
   Space,
   Alert,
@@ -10,6 +9,7 @@ import { api } from '../api';
 import { useSSE } from '../hooks/useSSE';
 import type { SSEMessage } from '../types';
 import { DatePicker } from '../components/ui/date-picker';
+import { Select } from '../components/ui/select';
 
 interface GeneratePageProps {
   dates: string[];
@@ -195,8 +195,8 @@ export function GeneratePage({ dates, onDone }: GeneratePageProps) {
                 </div>
                 <Select
                   value={days}
-                  onChange={setDays}
-                  style={{ width: 110, background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)' }}
+                  onChange={val => setDays(val as number)}
+                  style={{ width: 110 }}
                   options={[
                     { label: '近3日', value: 3 },
                     { label: '近5日', value: 5 },
@@ -215,8 +215,8 @@ export function GeneratePage({ dates, onDone }: GeneratePageProps) {
                 </div>
                 <Select
                   value={session}
-                  onChange={setSession}
-                  style={{ width: 110, background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)' }}
+                  onChange={val => setSession(val as string)}
+                  style={{ width: 110 }}
                   options={[
                     { label: '全天', value: 'full' },
                     { label: '早盘', value: 'morning' },
@@ -233,8 +233,8 @@ export function GeneratePage({ dates, onDone }: GeneratePageProps) {
               </div>
               <Select
                 value={copyMode}
-                onChange={setCopyMode}
-                style={{ width: 120, background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)' }}
+                onChange={val => setCopyMode(val as string)}
+                style={{ width: 120 }}
                 options={[
                   { label: '模板文案', value: 'template' },
                   { label: 'AI文案', value: 'ai' },
@@ -250,8 +250,8 @@ export function GeneratePage({ dates, onDone }: GeneratePageProps) {
               </div>
               <Select
                 value={format}
-                onChange={setFormat}
-                style={{ width: 150, background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)' }}
+                onChange={val => setFormat(val as string)}
+                style={{ width: 150 }}
                 options={[
                   { label: '📱 竖屏 (9:16)', value: 'mobile' },
                   { label: '📺 横屏 (16:9)', value: 'tv' },
