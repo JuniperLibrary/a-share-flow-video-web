@@ -3,12 +3,10 @@ import { AbsoluteFill, useCurrentFrame, useVideoConfig, getInputProps } from 're
 import { Background } from './Background.tsx';
 import { Header } from './Header.tsx';
 import { Chart } from './Chart.tsx';
-import { Timeline } from './Timeline.tsx';
 import { RankingPanel } from './RankingPanel.tsx';
-import { Ticker } from './Ticker.tsx';
 import { Particles } from './Particles.tsx';
 import { Disclaimer } from './Disclaimer.tsx';
-import type { BloombergVideoProps, TimelineEvent, TickerItem, SectorData } from './types.ts';
+import type { BloombergVideoProps, SectorData } from './types.ts';
 
 export const BloombergVideo: React.FC = () => {
   const frame = useCurrentFrame();
@@ -20,8 +18,6 @@ export const BloombergVideo: React.FC = () => {
   const sectors = inputProps.sectors || [];
   const totalFrames = inputProps.totalFrames || durationInFrames;
   const events = inputProps.events;
-  const timelineEvents = inputProps.timelineEvents || [];
-  const tickerItems = inputProps.tickerItems || [];
   const format = inputProps.format || 'mobile';
   const isTV = format === 'tv';
   const session = inputProps.session || 'full';
@@ -63,7 +59,7 @@ export const BloombergVideo: React.FC = () => {
   return (
     <AbsoluteFill>
       <Background frame={frame} totalFrames={totalFrames} sentiment={sentiment} width={width} height={height} format={format} />
-      <Header displayDate={displayDate} frame={frame} totalFrames={totalFrames} sentiment={sentiment} width={width} height={height} format={format} />
+      <Header displayDate={displayDate} frame={frame} totalFrames={totalFrames} sentiment={sentiment} width={width} height={height} format={format} session={session} />
       <Particles frame={frame} width={width} height={height} />
 
       <Chart
@@ -80,31 +76,11 @@ export const BloombergVideo: React.FC = () => {
         xLim={xLim}
       />
 
-      <Timeline
-        timelineEvents={timelineEvents}
-        frame={frame}
-        totalFrames={totalFrames}
-        width={width}
-        height={height}
-        format={format}
-        session={session}
-        xLim={xLim}
-      />
-
       <RankingPanel
         sectors={sectors}
         frame={frame}
         totalFrames={totalFrames}
         highlightId={mainLineId || undefined}
-        width={width}
-        height={height}
-        format={format}
-      />
-
-      <Ticker
-        tickerItems={tickerItems}
-        frame={frame}
-        totalFrames={totalFrames}
         width={width}
         height={height}
         format={format}

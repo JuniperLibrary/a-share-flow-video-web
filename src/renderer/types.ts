@@ -1,6 +1,7 @@
 export interface SectorData {
   name: string;
   net: number;
+  rate: number;
   color: string;
 }
 
@@ -34,6 +35,7 @@ export interface SectorTick {
   color: string;
   data: number[];
   times: string[];
+  rate: number;
 }
 
 export interface BloombergVideoProps {

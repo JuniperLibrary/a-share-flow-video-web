@@ -20,7 +20,7 @@ const RankingGroup: React.FC<{
   frame: number;
   scale: number;
 }> = ({ title, sectors, isPositive, visibleCount, highlightId, frame, scale }) => {
-  const color = isPositive ? '#4ade80' : '#f87171';
+  const color = isPositive ? '#f87171' : '#4ade80';
   const arrow = isPositive ? '↑' : '↓';
   const displaySectors = sectors.slice(0, 18);
 
@@ -117,7 +117,13 @@ const RankingGroup: React.FC<{
                 zIndex: 1,
               }}
             >
-              {isPositive ? '+' : ''}{sector.net.toFixed(1)}亿 {arrow}
+              {isPositive ? '+' : ''}{sector.net.toFixed(1)}亿
+              {sector.rate !== 0 && (
+                <span style={{ fontSize: 12 * scale, color: isPositive ? '#f87171' : '#4ade80', opacity: 0.7, marginLeft: 4 * scale }}>
+                  ({sector.rate > 0 ? '+' : ''}{sector.rate.toFixed(1)}%)
+                </span>
+              )}
+              &nbsp;{arrow}
             </span>
           </div>
         );
@@ -142,8 +148,8 @@ export const RankingPanel: React.FC<RankingPanelProps> = ({
   const panelTop = isTV ? 110 : 180;
   const panelWidth = isTV ? width * 0.18 : width * 0.28;
 
-  const inflowSectors = sectors.filter((s) => s.net >= 0).sort((a, b) => b.net - a.net);
-  const outflowSectors = sectors.filter((s) => s.net < 0).sort((a, b) => a.net - b.net);
+  const inflowSectors = sectors.filter((s) => s.net >= 0).sort((a, b) => Math.abs(b.rate) - Math.abs(a.rate));
+  const outflowSectors = sectors.filter((s) => s.net < 0).sort((a, b) => Math.abs(b.rate) - Math.abs(a.rate));
 
   const progress = frame / totalFrames;
   const inflowVisible = Math.min(

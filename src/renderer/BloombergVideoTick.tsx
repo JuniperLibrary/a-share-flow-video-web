@@ -2,13 +2,11 @@ import React from 'react';
 import { AbsoluteFill, useCurrentFrame, useVideoConfig, getInputProps } from 'remotion';
 import { Background } from './Background.tsx';
 import { Header } from './Header.tsx';
-import { Timeline } from './Timeline.tsx';
 import { RankingPanel } from './RankingPanel.tsx';
-import { Ticker } from './Ticker.tsx';
 import { Particles } from './Particles.tsx';
 import { Disclaimer } from './Disclaimer.tsx';
 import { TickChart } from './TickChart.tsx';
-import type { BloombergVideoProps, TimelineEvent, TickerItem, SectorTick } from './types.ts';
+import type { BloombergVideoProps, SectorTick } from './types.ts';
 
 export const BloombergVideoTick: React.FC = () => {
   const frame = useCurrentFrame();
@@ -20,8 +18,6 @@ export const BloombergVideoTick: React.FC = () => {
   const sectorTicks = inputProps.sectorTicks || [];
   const totalFrames = inputProps.totalFrames || durationInFrames;
   const events = inputProps.events;
-  const timelineEvents = inputProps.timelineEvents || [];
-  const tickerItems = inputProps.tickerItems || [];
   const format = inputProps.format || 'mobile';
   const isTV = format === 'tv';
   const session = inputProps.session || 'full';
@@ -52,6 +48,7 @@ export const BloombergVideoTick: React.FC = () => {
     return sectorTicks.map(s => ({
       name: s.name,
       net: s.data.reduce((a, b) => a + b, 0),
+      rate: s.rate,
       color: s.color || '#888888',
     }));
   }, [sectorTicks]);
@@ -59,7 +56,7 @@ export const BloombergVideoTick: React.FC = () => {
   return (
     <AbsoluteFill>
       <Background frame={frame} totalFrames={totalFrames} sentiment={sentiment} width={width} height={height} format={format} />
-      <Header displayDate={displayDate} frame={frame} totalFrames={totalFrames} sentiment={sentiment} width={width} height={height} format={format} />
+      <Header displayDate={displayDate} frame={frame} totalFrames={totalFrames} sentiment={sentiment} width={width} height={height} format={format} session={session} />
       <Particles frame={frame} width={width} height={height} />
 
       <TickChart
@@ -75,31 +72,11 @@ export const BloombergVideoTick: React.FC = () => {
         xLim={xLim}
       />
 
-      <Timeline
-        timelineEvents={timelineEvents}
-        frame={frame}
-        totalFrames={totalFrames}
-        width={width}
-        height={height}
-        format={format}
-        session={session}
-        xLim={xLim}
-      />
-
       <RankingPanel
         sectors={sectorsForRanking}
         frame={frame}
         totalFrames={totalFrames}
         highlightId={sectorsForRanking[0]?.name}
-        width={width}
-        height={height}
-        format={format}
-      />
-
-      <Ticker
-        tickerItems={tickerItems}
-        frame={frame}
-        totalFrames={totalFrames}
         width={width}
         height={height}
         format={format}
