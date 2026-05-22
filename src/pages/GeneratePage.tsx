@@ -13,7 +13,7 @@ import { Select } from '../components/ui/select';
 
 interface GeneratePageProps {
   dates: string[];
-  onDone: () => void;
+  onDone: (date: string) => void;
 }
 
 type VideoType = 'multiday' | 'tick';
@@ -44,15 +44,29 @@ export function GeneratePage({ dates, onDone }: GeneratePageProps) {
   const [genDate, setGenDate] = useState('');
   const [session, setSession] = useState('full');
   const [copyMode, setCopyMode] = useState('template');
-  const [format, setFormat] = useState('mobile');
   const [days, setDays] = useState(3);
   const { logs, progress, isRunning, startStream } = useSSE();
   const [statusText, setStatusText] = useState('');
   const [statusType, setStatusType] = useState<'info' | 'success' | 'error' | ''>('');
 
   useEffect(() => {
-    if (dates.length > 0 && !genDate) setGenDate(dates[0]);
+    if (genDate) return;
+    const today = new Date().toISOString().slice(0, 10);
+    if (videoType === 'tick') {
+      setGenDate(today);
+    } else if (dates.length > 0) {
+      setGenDate(dates[0]);
+    }
   }, [dates]);
+
+  useEffect(() => {
+    const today = new Date().toISOString().slice(0, 10);
+    if (videoType === 'tick') {
+      setGenDate(today);
+    } else if (dates.length > 0) {
+      setGenDate(dates[0]);
+    }
+  }, [videoType]);
 
   async function handleGenerate() {
     if (!genDate) return;
@@ -62,7 +76,7 @@ export function GeneratePage({ dates, onDone }: GeneratePageProps) {
 
     try {
       if (videoType === 'tick') {
-        const res = await api.generateTick(genDate, session, format, copyMode);
+        const res = await api.generateTick(genDate, session, copyMode);
         const data = await res.json();
         if (data.error) {
           setStatusType('error');
@@ -70,15 +84,16 @@ export function GeneratePage({ dates, onDone }: GeneratePageProps) {
         } else {
           setStatusType('success');
           setStatusText('Tick 视频已生成: ' + data.output);
+          onDone(genDate);
         }
       } else {
         await startStream(
-          () => api.generateMultiDay(genDate, days, copyMode, format),
+          () => api.generateMultiDay(genDate, days, copyMode),
           (msg: SSEMessage) => {
             if (msg.type === 'done') {
               setStatusType('success');
               setStatusText(msg.text);
-              onDone();
+              onDone(genDate);
             } else if (msg.type === 'error') {
               throw new Error(msg.text);
             }
@@ -242,23 +257,6 @@ export function GeneratePage({ dates, onDone }: GeneratePageProps) {
               />
             </div>
 
-            {/* Format */}
-            <div>
-              <div className="flex items-center gap-1.5 mb-1.5">
-                <span className="w-1 h-1 rounded-full bg-white/30" />
-                <span className="text-xs text-gray-500">输出格式</span>
-              </div>
-              <Select
-                value={format}
-                onChange={val => setFormat(val as string)}
-                style={{ width: 150 }}
-                options={[
-                  { label: '📱 竖屏 (9:16)', value: 'mobile' },
-                  { label: '📺 横屏 (16:9)', value: 'tv' },
-                ]}
-              />
-            </div>
-
             {/* Generate button */}
             <div className="flex items-end">
               <Button
@@ -325,7 +323,7 @@ export function GeneratePage({ dates, onDone }: GeneratePageProps) {
           {statusType === 'success' && (
             <div className="mt-5 flex items-center gap-3">
               <Button
-                onClick={onDone}
+                onClick={() => onDone(genDate)}
                 style={{
                   background: 'linear-gradient(135deg, #00d4ff, #0891b2)',
                   border: 'none',

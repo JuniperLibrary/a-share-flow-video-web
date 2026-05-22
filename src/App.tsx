@@ -34,6 +34,7 @@ const navItems: { key: Page; label: string; icon: React.ReactNode }[] = [
 export default function App() {
   const [page, setPage] = useState<Page>('dashboard');
   const [dates, setDates] = useState<string[]>([]);
+  const [previewDate, setPreviewDate] = useState('');
 
   useEffect(() => {
     api.getDates().then(d => {
@@ -41,7 +42,10 @@ export default function App() {
     }).catch(() => void 0);
   }, []);
 
-  const handleDone = () => setPage('preview');
+  const handleDone = (date: string) => {
+    setPreviewDate(date);
+    setPage('preview');
+  };
 
   return (
     <Layout style={{ minHeight: '100vh', background: '#0a1628' }}>
@@ -77,15 +81,27 @@ export default function App() {
       </Sider>
       <Layout>
         <Content style={{ padding: 24, overflow: 'auto', background: '#0a1628' }}>
-          {page === 'dashboard' && <DashboardPage />}
+          <div style={{ display: page === 'dashboard' ? 'block' : 'none' }}>
+            <DashboardPage />
+          </div>
           <div style={{ display: page === 'tick' ? 'block' : 'none' }}>
             <TickPage />
           </div>
-          {page === 'all-sectors' && <AllSectorsPage />}
-          {page === 'generate' && <GeneratePage dates={dates} onDone={handleDone} />}
-          {page === 'preview' && <PreviewPage />}
-          {page === 'market' && <MarketPage />}
-          {page === 'config' && <ConfigPage />}
+          <div style={{ display: page === 'all-sectors' ? 'block' : 'none' }}>
+            <AllSectorsPage />
+          </div>
+          <div style={{ display: page === 'generate' ? 'block' : 'none' }}>
+            <GeneratePage dates={dates} onDone={handleDone} />
+          </div>
+          <div style={{ display: page === 'preview' ? 'block' : 'none' }}>
+            <PreviewPage previewDate={previewDate} />
+          </div>
+          <div style={{ display: page === 'market' ? 'block' : 'none' }}>
+            <MarketPage />
+          </div>
+          <div style={{ display: page === 'config' ? 'block' : 'none' }}>
+            <ConfigPage />
+          </div>
         </Content>
       </Layout>
     </Layout>

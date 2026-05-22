@@ -174,7 +174,7 @@ body {
 .arco-pagination-item-active {
   background: #00d4ff !important;
   border-color: #00d4ff !important;
-  color: #0a1628 !important;
+  color: #fff !important;
 }
 
 .arco-pagination-item-active:hover {
@@ -241,7 +241,7 @@ body {
 .arco-btn-primary {
   background: #00d4ff !important;
   border-color: #00d4ff !important;
-  color: #0a1628 !important;
+  color: #fff !important;
   font-weight: 600 !important;
 }
 

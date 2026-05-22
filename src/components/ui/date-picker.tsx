@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
+import { createPortal } from 'react-dom';
 import { IconCalendar } from '@arco-design/web-react/icon';
 
 interface DatePickerProps {
@@ -44,7 +45,9 @@ export function DatePicker({ value, onChange, placeholder = '选择日期', disa
     }
     return new Date();
   });
-  const containerRef = useRef<HTMLDivElement>(null);
+  const [dropdownPos, setDropdownPos] = useState<{ top: number; left: number }>({ top: 0, left: 0 });
+  const triggerRef = useRef<HTMLButtonElement>(null);
+  const dropdownRef = useRef<HTMLDivElement>(null);
 
   const selectedDate = value ? parseDate(value) : null;
 
@@ -56,14 +59,18 @@ export function DatePicker({ value, onChange, placeholder = '选择日期', disa
   }, [value]);
 
   useEffect(() => {
-    function handleClickOutside(e: MouseEvent) {
-      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
+    if (!isOpen) return;
+    function handleClick(e: MouseEvent) {
+      if (
+        dropdownRef.current && !dropdownRef.current.contains(e.target as Node) &&
+        triggerRef.current && !triggerRef.current.contains(e.target as Node)
+      ) {
         setIsOpen(false);
       }
     }
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, []);
+    document.addEventListener('mousedown', handleClick);
+    return () => document.removeEventListener('mousedown', handleClick);
+  }, [isOpen]);
 
   const handlePrevMonth = useCallback(() => {
     setViewDate(prev => {
@@ -132,11 +139,24 @@ export function DatePicker({ value, onChange, placeholder = '选择日期', disa
   const selectedStr = selectedDate ? formatDate(selectedDate) : '';
 
   return (
-    <div ref={containerRef} className={`relative ${className || ''}`} style={style}>
+    <div className={`relative ${className || ''}`} style={style}>
       {/* Input */}
       <button
+        ref={triggerRef}
         type="button"
-        onClick={() => setIsOpen(!isOpen)}
+        onClick={() => {
+          if (!isOpen && triggerRef.current) {
+            const rect = triggerRef.current.getBoundingClientRect();
+            const panelWidth = 280;
+            const panelHeight = 340;
+            const left = Math.min(rect.left, window.innerWidth - panelWidth - 8);
+            const top = rect.bottom + 4 + panelHeight > window.innerHeight
+              ? rect.top - panelHeight - 4
+              : rect.bottom + 4;
+            setDropdownPos({ top, left });
+          }
+          setIsOpen(!isOpen);
+        }}
         className="flex items-center gap-2 px-3 h-[34px] rounded-lg text-xs transition-all cursor-pointer"
         style={{
           width: style?.width || 140,
@@ -158,12 +178,17 @@ export function DatePicker({ value, onChange, placeholder = '选择日期', disa
         )}
       </button>
 
-      {/* Dropdown */}
-      {isOpen && (
+      {/* Dropdown rendered at document.body via portal to avoid ancestor overflow clipping */}
+      {isOpen && createPortal(
         <div
-          className="absolute z-50 mt-1 rounded-xl overflow-hidden animate-in fade-in slide-in-from-top-1"
+          ref={dropdownRef}
+          className="rounded-xl overflow-hidden animate-in fade-in slide-in-from-top-1"
           style={{
+            position: 'fixed',
+            top: dropdownPos.top,
+            left: dropdownPos.left,
             width: 280,
+            zIndex: 9999,
             background: 'rgba(15,23,42,0.98)',
             border: '1px solid rgba(34,211,238,0.15)',
             backdropFilter: 'blur(20px)',
@@ -303,7 +328,8 @@ export function DatePicker({ value, onChange, placeholder = '选择日期', disa
               {selectedStr || '未选择'}
             </span>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );
