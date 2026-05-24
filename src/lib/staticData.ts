@@ -96,6 +96,12 @@ export async function getLatestDate(): Promise<string | null> {
   return unique[unique.length - 1] || null;
 }
 
+export async function getSectorsAllDates(): Promise<string[]> {
+  const all = await getSectorsAll();
+  const dates = [...new Set(all.map(s => s.date))].sort();
+  return dates;
+}
+
 /** Compute dashboard data from static JSON */
 export async function getDashboardData() {
   const sectors = await getSectors();

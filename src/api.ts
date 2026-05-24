@@ -2,7 +2,11 @@ import type { DateItem, Sector, ConfigData, NewsListResponse, NewsSearchResponse
 import { apiUrl } from './utils';
 import * as staticData from './lib/staticData';
 
-let staticMode = false;
+let staticMode = import.meta.env.VITE_STATIC_MODE === 'true';
+
+if (!staticMode) {
+  checkBackend();
+}
 
 async function checkBackend() {
   try {
@@ -12,9 +16,6 @@ async function checkBackend() {
   staticMode = true;
   console.info('[api] Backend unreachable, switching to static data mode');
 }
-
-// Check on module load
-checkBackend();
 
 export function isStaticMode(): boolean {
   return staticMode;
@@ -121,8 +122,12 @@ export const api = {
       body: JSON.stringify({ date, days, copy_mode }),
     }),
 
-  getConfig: () =>
-    request<ConfigData>('/api/config'),
+  getConfig: async () => {
+    if (staticMode) {
+      return { has_api_key: false, api_base: '', model: '', sessions: {} };
+    }
+    return request<ConfigData>('/api/config');
+  },
 
   saveConfig: (api_key: string, api_base: string, model: string) =>
     request<{ ok: boolean }>('/api/config', {
@@ -187,8 +192,13 @@ export const api = {
   getSectorsAllNames: () =>
     request<{ names: string[] }>('/api/sectors-all/names'),
 
-  getSectorsAllDates: () =>
-    request<{ dates: string[] }>('/api/sectors-all/dates'),
+  getSectorsAllDates: async () => {
+    if (staticMode) {
+      const dates = await staticData.getSectorsAllDates();
+      return { dates };
+    }
+    return request<{ dates: string[] }>('/api/sectors-all/dates');
+  },
 
   getSectorsAllRange: (startDate: string, endDate: string) =>
     request<{ sectors: { date: string; code: string; name: string; net: number; rate: number }[] }>(`/api/sectors-all/range?start_date=${startDate}&end_date=${endDate}`),

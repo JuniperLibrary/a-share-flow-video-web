@@ -52,6 +52,7 @@ jobs:
         env:
           VITE_BASE_URL: ${{ steps.pages.outputs.base_path }}
           VITE_API_BASE_URL: ${{ vars.VITE_API_BASE_URL || '' }}
+          VITE_STATIC_MODE: true
 
       # 从 Go 后端仓库拉取最新 JSON 数据
       - name: Fetch JSON data
