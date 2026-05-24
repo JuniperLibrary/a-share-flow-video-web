@@ -3,8 +3,8 @@
  * Reads from JSON files (exported by the Go backend) when no API backend is available.
  */
 
-const baseUrl = import.meta.env.VITE_BASE_URL || '';
-const DATA_BASE = `${baseUrl}data`;
+const baseUrl = (import.meta.env.VITE_BASE_URL || '').replace(/\/+$/, '');
+const DATA_BASE = `${baseUrl}/data`;
 
 export interface SectorRow {
   datetime: string;
