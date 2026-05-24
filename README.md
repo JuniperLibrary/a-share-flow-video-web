@@ -11,6 +11,7 @@
 - **Tick 采集控制**：实时采集板块资金流数据，支持历史回放
 - **实时行情**：SSE 流式推送板块资金曲线 + AI 异动事件检测
 - **新闻资讯**：财联社电报实时展示，按板块标签筛选，全文弹窗阅读
+- **基金宝**：基金持仓管理工具，支持多账户/多分组、自定义标签、盈亏统计、交易记录、持仓日历、定投计算、扫描导入、云端同步
 
 ## 快速开始
 
@@ -72,7 +73,17 @@ src/
 ├── index.css             # 全局样式（Tailwind CSS + 暗色主题）
 ├── components/
 │   └── ui/               # 自定义 UI 组件（DatePicker, Select 等暗色玻璃风格）
-├── pages/                # Web 页面组件
+    ├── fund/                 # 基金宝功能（从 real-time-fund 移植）
+    │   ├── FundTab.jsx       # 基金宝应用入口（QueryClientProvider + Toaster）
+    │   ├── FundPage.jsx      # 主页面（路由状态控制）
+    │   ├── fund.css          # 基金宝样式（4400+ 行，Tailwind v3 兼容）
+    │   ├── stores/           # Zustand 状态管理（index, modal, storage, user）
+    │   ├── lib/              # 工具库（supabase 客户端, Next.js 兼容垫片, 交易日历等）
+    │   ├── api/fund.js       # 基金数据 API 客户端（1920 行）
+    │   ├── hooks/            # 自定义 Hooks（移动端检测, 同步管理, 主题, 交易日历等）
+    │   └── components/       # 70+ 组件（卡片, 表格, 图表, 模态框, 设置面板等）
+    │       └── ui/           # 21 个 shadcn/ui 基础组件（dialog, drawer, select, tabs 等）
+    ├── pages/                # Web 页面组件
 │   ├── DashboardPage.tsx # 仪表盘（市场概览 + 板块排行 + 趋势图）
 │   ├── AllSectorsPage.tsx# 全量板块获取与展示
 │   ├── GeneratePage.tsx  # 视频生成控制台
@@ -141,6 +152,12 @@ src/
 | @arco-design/web-react | UI 组件库（Layout, Menu, Button, Input, Pagination 等） |
 | lucide-react | 图标库 |
 | Remotion | 视频渲染（React 组件生成 MP4） |
+| **zustand** | 基金宝状态管理 |
+| **@tanstack/react-query** | 基金宝数据请求与缓存 |
+| **framer-motion** | 基金宝交互动画 |
+| **chart.js / react-chartjs-2** | 基金宝趋势图表 |
+| **shadcn/ui radix-ui** | 基金宝基础 UI 组件 |
+| **Supabase** | 基金宝云端同步（可选，无 key 时本地运行） |
 
 ## 页面导航
 
@@ -156,6 +173,7 @@ src/
 | 实时行情 | SSE 资金曲线图表 + 市场事件列表 |
 | 新闻资讯 | 财联社电报轮询控制、搜索、全文弹窗 |
 | AI 配置 | API Key / Base URL / Model 配置 |
+| 基金宝 | 基金持仓管理（多分组、交易记录、盈亏图表、扫描导入、云端同步 + Supabase 可选） |
 
 ## 环境变量
 
@@ -223,6 +241,7 @@ CORS_ALLOWED_ORIGINS=https://your-frontend-host.com
 | 视频预览 | ❌ 需后端 | — |
 | 实时行情 | ❌ 需后端 | — |
 | AI 配置 | ❌ 需后端 | — |
+| 基金宝 | ✅ 完整（本地存储，无需后端） | 浏览器 localStorage + 本地 IndexedDB |
 
 ## License
 
