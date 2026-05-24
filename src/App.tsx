@@ -23,15 +23,15 @@ const { Title } = Typography;
 
 type Page = 'dashboard' | 'tick' | 'all-sectors' | 'generate' | 'preview' | 'market' | 'config' | 'news';
 
-const navItems: { key: Page; label: string; icon: React.ReactNode }[] = [
+const allNavItems: { key: Page; label: string; icon: React.ReactNode; staticOnly?: boolean }[] = [
   { key: 'dashboard', label: '仪表盘', icon: <IconDashboard /> },
-  { key: 'tick', label: 'Tick 采集', icon: <IconList /> },
+  { key: 'tick', label: 'Tick 采集', icon: <IconList />, staticOnly: true },
   { key: 'all-sectors', label: '全量板块', icon: <IconList /> },
-  { key: 'generate', label: '视频生成', icon: <IconPlayArrow /> },
-  { key: 'preview', label: '视频预览', icon: <IconEye /> },
-  { key: 'market', label: '实时行情', icon: <IconList /> },
+  { key: 'generate', label: '视频生成', icon: <IconPlayArrow />, staticOnly: true },
+  { key: 'preview', label: '视频预览', icon: <IconEye />, staticOnly: true },
+  { key: 'market', label: '实时行情', icon: <IconList />, staticOnly: true },
   { key: 'news', label: '新闻资讯', icon: <IconFile /> },
-  { key: 'config', label: 'AI 配置', icon: <IconSettings /> },
+  { key: 'config', label: 'AI 配置', icon: <IconSettings />, staticOnly: true },
 ];
 
 export default function App() {
@@ -44,6 +44,15 @@ export default function App() {
       setDates(d.dates?.map(x => x.date) || []);
     }).catch(() => void 0);
   }, []);
+
+  const staticMode = api.isStaticMode();
+  const navItems = staticMode ? allNavItems.filter(i => !i.staticOnly) : allNavItems;
+
+  useEffect(() => {
+    if (staticMode && allNavItems.find(i => i.key === page)?.staticOnly) {
+      setPage('dashboard');
+    }
+  }, [staticMode, page]);
 
   const handleDone = (date: string) => {
     setPreviewDate(date);
