@@ -7,6 +7,7 @@ import {
   IconList,
   IconSettings,
   IconFile,
+  IconStar,
 } from '@arco-design/web-react/icon';
 import DashboardPage from './pages/DashboardPage';
 import { TickPage } from './pages/TickPage';
@@ -16,15 +17,17 @@ import { PreviewPage } from './pages/PreviewPage';
 import { MarketPage } from './pages/MarketPage';
 import { ConfigPage } from './pages/ConfigPage';
 import { NewsPage } from './pages/NewsPage';
+import FundTab from './fund/FundTab';
 import { api } from './api';
 
 const { Sider, Content } = Layout;
 const { Title } = Typography;
 
-type Page = 'dashboard' | 'tick' | 'all-sectors' | 'generate' | 'preview' | 'market' | 'config' | 'news';
+type Page = 'dashboard' | 'tick' | 'all-sectors' | 'generate' | 'preview' | 'market' | 'config' | 'news' | 'fund';
 
 const allNavItems: { key: Page; label: string; icon: React.ReactNode; staticOnly?: boolean }[] = [
   { key: 'dashboard', label: '仪表盘', icon: <IconDashboard /> },
+  { key: 'fund', label: '基金宝', icon: <IconStar /> },
   { key: 'tick', label: 'Tick 采集', icon: <IconList />, staticOnly: true },
   { key: 'all-sectors', label: '全量板块', icon: <IconList /> },
   { key: 'generate', label: '视频生成', icon: <IconPlayArrow />, staticOnly: true },
@@ -116,6 +119,9 @@ export default function App() {
           </div>
           <div style={{ display: page === 'config' ? 'block' : 'none' }}>
             <ConfigPage />
+          </div>
+          <div style={{ display: page === 'fund' ? 'block' : 'none' }}>
+            <FundTab />
           </div>
         </Content>
       </Layout>
