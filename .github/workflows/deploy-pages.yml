@@ -7,7 +7,7 @@ on:
     types: [data-updated]
   # 也可以手动运行
   push:
-    branches: [main]
+    branches: [dev]
     paths:
       - 'src/**'
       - 'package.json'
@@ -59,7 +59,7 @@ jobs:
         run: |
           mkdir -p dist/data
           for file in sectors.json sectors_all.json copywriting.json tick_events.json cls_news.json; do
-            curl -sL "https://raw.githubusercontent.com/JuniperLibrary/a-share-flow-video-go/main/data/$file" \
+            curl -sL "https://raw.githubusercontent.com/JuniperLibrary/a-share-flow-video-go/dev/data/$file" \
               -o "dist/data/$file" || echo "Warning: $file not found"
           done
 
