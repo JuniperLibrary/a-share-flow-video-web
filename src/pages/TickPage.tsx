@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { Button, Tag, Input, Modal } from '@arco-design/web-react';
 import { IconPlayArrow, IconDelete, IconCopy, IconHistory } from '@arco-design/web-react/icon';
 import { apiUrl } from '../utils';
@@ -36,6 +36,10 @@ interface SectorData {
 
 function formatNet(n: number): string {
   return `${n >= 0 ? '+' : ''}${n.toFixed(2)}亿`;
+}
+
+function formatRate(r: number): string {
+  return `${r >= 0 ? '+' : ''}${r.toFixed(1)}%`;
 }
 
 function buildSectorMap(points: TickPoint[]): Map<string, TickPoint[]> {
@@ -79,6 +83,10 @@ const CHART_H = 240;
 const CHART_PAD = { top: 20, right: 20, bottom: 36, left: 60 };
 
 function SectorTrendChart({ points }: { points: TickPoint[] }) {
+  const [hoverIndex, setHoverIndex] = useState<number | null>(null);
+  const [tooltipX, setTooltipX] = useState(0);
+  const chartRef = useRef<HTMLDivElement>(null);
+
   const netValues = points.map(p => p.Net);
   const min = Math.min(...netValues);
   const max = Math.max(...netValues);
@@ -88,6 +96,25 @@ function SectorTrendChart({ points }: { points: TickPoint[] }) {
 
   const xScale = (i: number) => CHART_PAD.left + (i / (points.length - 1 || 1)) * plotW;
   const yScale = (v: number) => CHART_PAD.top + (1 - (v - min) / range) * plotH;
+
+  const handleMouseMove = useCallback((e: React.MouseEvent<SVGRectElement>) => {
+    const svg = (e.currentTarget as Element).closest('svg');
+    if (!svg) return;
+    const svgRect = svg.getBoundingClientRect();
+    const mouseX = e.clientX - svgRect.left;
+    const index = Math.round(((mouseX - CHART_PAD.left) / plotW) * (points.length - 1));
+    setHoverIndex(Math.max(0, Math.min(points.length - 1, index)));
+
+    const container = chartRef.current;
+    if (container) {
+      const containerRect = container.getBoundingClientRect();
+      setTooltipX(e.clientX - containerRect.left);
+    }
+  }, [points.length, plotW]);
+
+  const handleMouseLeave = useCallback(() => {
+    setHoverIndex(null);
+  }, []);
 
   const lineD = points.map((p, i) => `${i === 0 ? 'M' : 'L'}${xScale(i).toFixed(1)},${yScale(p.Net).toFixed(1)}`).join(' ');
   const areaD = `${lineD} L${xScale(points.length - 1)},${CHART_H - CHART_PAD.bottom} L${CHART_PAD.left},${CHART_H - CHART_PAD.bottom} Z`;
@@ -99,42 +126,88 @@ function SectorTrendChart({ points }: { points: TickPoint[] }) {
     yLabels.push(min + yStep * i);
   }
 
+  const hovered = hoverIndex !== null ? points[hoverIndex] : null;
+
   return (
-    <svg width={CHART_W} height={CHART_H} className="w-full">
-      <defs>
-        <linearGradient id="trendFill" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%" stopColor="rgba(56,189,248,0.3)" />
-          <stop offset="100%" stopColor="rgba(56,189,248,0.02)" />
-        </linearGradient>
-      </defs>
+    <div ref={chartRef} className="relative select-none">
+      <svg width={CHART_W} height={CHART_H} className="w-full">
+        <defs>
+          <linearGradient id="trendFill" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stopColor="rgba(56,189,248,0.3)" />
+            <stop offset="100%" stopColor="rgba(56,189,248,0.02)" />
+          </linearGradient>
+        </defs>
 
-      {yLabels.map((v, i) => (
-        <g key={i}>
-          <line
-            x1={CHART_PAD.left} y1={yScale(v)} x2={CHART_W - CHART_PAD.right} y2={yScale(v)}
-            stroke="rgba(255,255,255,0.06)" strokeWidth={1}
-          />
-          <text x={CHART_PAD.left - 8} y={yScale(v) + 4} textAnchor="end" fill="#6b7280" fontSize={11}>
-            {v.toFixed(1)}
-          </text>
-        </g>
-      ))}
+        {yLabels.map((v, i) => (
+          <g key={i}>
+            <line
+              x1={CHART_PAD.left} y1={yScale(v)} x2={CHART_W - CHART_PAD.right} y2={yScale(v)}
+              stroke="rgba(255,255,255,0.06)" strokeWidth={1}
+            />
+            <text x={CHART_PAD.left - 8} y={yScale(v) + 4} textAnchor="end" fill="#6b7280" fontSize={11}>
+              {v.toFixed(1)}
+            </text>
+          </g>
+        ))}
 
-      {points.map((p, i) => (
-        i % Math.max(1, Math.floor(points.length / 8)) === 0 || i === points.length - 1 ? (
-          <text key={i} x={xScale(i)} y={CHART_H - 8} textAnchor="middle" fill="#6b7280" fontSize={10}>
-            {p.Time}
-          </text>
-        ) : null
-      ))}
+        {points.map((p, i) => (
+          i % Math.max(1, Math.floor(points.length / 8)) === 0 || i === points.length - 1 ? (
+            <text key={i} x={xScale(i)} y={CHART_H - 8} textAnchor="middle" fill="#6b7280" fontSize={10}>
+              {p.Time}
+            </text>
+          ) : null
+        ))}
 
-      <path d={areaD} fill="url(#trendFill)" />
-      <path d={lineD} fill="none" stroke="#38bdf8" strokeWidth={2} strokeLinejoin="round" />
+        <path d={areaD} fill="url(#trendFill)" />
+        <path d={lineD} fill="none" stroke="#38bdf8" strokeWidth={2} strokeLinejoin="round" />
 
-      {points.map((p, i) => (
-        <circle key={i} cx={xScale(i)} cy={yScale(p.Net)} r={3} fill="#38bdf8" />
-      ))}
-    </svg>
+        {points.map((p, i) => (
+          <circle key={i} cx={xScale(i)} cy={yScale(p.Net)} r={3} fill="#38bdf8" />
+        ))}
+
+        <rect
+          x={CHART_PAD.left} y={CHART_PAD.top}
+          width={plotW} height={plotH}
+          fill="transparent"
+          className="cursor-crosshair"
+          onMouseMove={handleMouseMove}
+          onMouseLeave={handleMouseLeave}
+        />
+
+        {hovered && (
+          <g>
+            <line
+              x1={xScale(hoverIndex!)} y1={CHART_PAD.top}
+              x2={xScale(hoverIndex!)} y2={CHART_PAD.top + plotH}
+              stroke="rgba(255,255,255,0.15)" strokeWidth={1} strokeDasharray="3 2"
+            />
+            <circle
+              cx={xScale(hoverIndex!)} cy={yScale(hovered.Net)}
+              r={5} fill="#38bdf8" stroke="#0f172a" strokeWidth={2}
+            />
+          </g>
+        )}
+      </svg>
+
+      {hovered && (
+        <div
+          className="absolute pointer-events-none z-10 -translate-x-1/2"
+          style={{ left: tooltipX, top: 4 }}
+        >
+          <div className="bg-gray-900/95 backdrop-blur-md border border-white/[0.08] rounded-lg px-3 py-2 text-xs shadow-xl whitespace-nowrap">
+            <div className="text-gray-400 mb-1">{hovered.Time}</div>
+            <div className="flex items-center gap-3">
+              <span className={hovered.Net >= 0 ? 'text-rose-400' : 'text-emerald-400'}>
+                净流入 {formatNet(hovered.Net)}
+              </span>
+              <span className="text-gray-300">
+                主力占比 {formatRate(hovered.Rate)}
+              </span>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
   );
 }
 
@@ -156,6 +229,11 @@ function getNextAutoStart(now: number): { time: number; label: string } | null {
     if (now < start) return { time: start, label: w.label };
   }
   return null;
+}
+
+function isWeekend(): boolean {
+  const day = new Date().getDay();
+  return day === 0 || day === 6;
 }
 
 function isInAutoWindow(now: number): boolean {
@@ -183,21 +261,47 @@ export function TickPage() {
   }, []);
 
   useEffect(() => {
-    const doStatusCheck = async () => {
+    const initPage = async () => {
       try {
         const res = await fetch(apiUrl('/api/tick/status'));
         const data = await res.json();
         if (data.running) {
           autoStartSuppressed.current = false;
           await connectSSE();
+          return;
+        }
+
+        // 未在采集 — 尝试加载最近一个交易日的历史 tick 数据
+        const datesRes = await fetch(apiUrl('/api/tick/dates'));
+        const datesData = await datesRes.json();
+        const dates: string[] = datesData.dates || [];
+        if (dates.length === 0) return;
+
+        dates.sort();
+        const latestDate = dates[dates.length - 1];
+
+        const dataRes = await fetch(apiUrl(`/api/tick-data/${latestDate}`));
+        if (!dataRes.ok) return;
+        const tickData = await dataRes.json();
+
+        if (tickData.points?.length) {
+          const times = new Set(tickData.points.map((p: TickPoint) => p.Time));
+          setSnapshot({
+            points: tickData.points,
+            date: tickData.date,
+            running: false,
+            count: times.size,
+            lastTime: tickData.points[tickData.points.length - 1].Time,
+          });
         }
       } catch { void 0; }
     };
-    doStatusCheck();
+    initPage();
   }, []);
 
   const autoStartTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   useEffect(() => {
+    if (isWeekend()) return;
     if (autoStartSuppressed.current || connected) return;
     if (isInAutoWindow(Date.now())) {
       handleStart();
@@ -285,14 +389,26 @@ export function TickPage() {
     try {
       const res = await fetch(apiUrl('/api/tick/start'), { method: 'POST' });
       if (!res.ok) {
+        // 启动失败时清理残留的 SSE 连接和重连定时器
+        if (reconnectTimer.current) {
+          clearTimeout(reconnectTimer.current);
+          reconnectTimer.current = null;
+        }
+        if (abortRef.current) {
+          abortRef.current.abort();
+          abortRef.current = null;
+        }
+        setConnected(false);
         const body = await res.json().catch(() => ({}));
         const errMsg = body.error || '';
         if (!errMsg.includes('采集中')) {
           setError(errMsg || '启动失败');
         }
+        return;
       }
     } catch (e) {
       setError(e instanceof Error ? e.message : '启动失败');
+      return;
     }
     await connectSSE();
   }
@@ -310,7 +426,7 @@ export function TickPage() {
   }
 
   async function copyData() {
-    if (!snapshot) return;
+    if (!snapshot?.points?.length) return;
     const rows = buildSectorRows(snapshot.points);
     const text = rows.map(r =>
       `${r.name} | ${r.latest.Time} | ${formatNet(r.latest.Net)} | 趋势: ${r.direction === 'up' ? '↑' : r.direction === 'down' ? '↓' : '→'}`
@@ -320,7 +436,7 @@ export function TickPage() {
     } catch { void 0; }
   }
 
-  const sectorRows = snapshot ? buildSectorRows(snapshot.points) : [];
+  const sectorRows = snapshot?.points?.length ? buildSectorRows(snapshot.points) : [];
   const filteredRows = filterSector
     ? sectorRows.filter(r => r.name.includes(filterSector))
     : sectorRows;
@@ -513,6 +629,7 @@ export function TickPage() {
                 <tr className="border-b border-white/[0.04]">
                   <th className="text-left px-5 py-2.5 text-xs font-medium text-gray-500">板块</th>
                   <th className="text-right px-5 py-2.5 text-xs font-medium text-gray-500">最新净流入</th>
+                  <th className="text-right px-5 py-2.5 text-xs font-medium text-gray-500">主力净占比</th>
                   <th className="text-right px-5 py-2.5 text-xs font-medium text-gray-500">时段方向</th>
                   <th className="text-right px-5 py-2.5 text-xs font-medium text-gray-500 w-48">资金流向</th>
                 </tr>
@@ -520,7 +637,7 @@ export function TickPage() {
               <tbody>
                 {filteredRows.length === 0 ? (
                   <tr>
-                    <td colSpan={4} className="text-center py-16">
+                    <td colSpan={5} className="text-center py-16">
                       <div className="flex flex-col items-center">
                         <div className="w-10 h-10 rounded-full bg-white/[0.03] flex items-center justify-center mb-3">
                           <IconPlayArrow style={{ color: '#4b5563', fontSize: 18 }} />
@@ -554,6 +671,9 @@ export function TickPage() {
                         </td>
                         <td className={`px-5 py-2.5 text-right font-mono text-xs ${isUp ? 'text-rose-400' : 'text-emerald-400'}`}>
                           {formatNet(row.latest.Net)}
+                        </td>
+                        <td className="px-5 py-2.5 text-right font-mono text-xs text-gray-400">
+                          {formatRate(row.latest.Rate)}
                         </td>
                         <td className="px-5 py-2.5 text-right">
                           <span className={`text-xs font-medium ${
@@ -677,9 +797,14 @@ export function TickPage() {
               {trendSector.points.map((p, i) => (
                 <div key={i} className="flex items-center justify-between px-3 py-1.5 rounded hover:bg-white/[0.03]">
                   <span className="text-xs text-gray-500 font-mono">{p.Time}</span>
-                  <span className={`text-xs font-mono ${p.Net >= 0 ? 'text-rose-400' : 'text-emerald-400'}`}>
-                    {formatNet(p.Net)}
-                  </span>
+                  <div className="flex items-center gap-4">
+                    <span className={`text-xs font-mono ${p.Net >= 0 ? 'text-rose-400' : 'text-emerald-400'}`}>
+                      {formatNet(p.Net)}
+                    </span>
+                    <span className="text-xs font-mono text-gray-400 w-14 text-right">
+                      {formatRate(p.Rate)}
+                    </span>
+                  </div>
                 </div>
               ))}
             </div>

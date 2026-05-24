@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
-import { Input, Button, Space, Tag } from '@arco-design/web-react';
-import { IconSave, IconLock, IconSettings, IconTool } from '@arco-design/web-react/icon';
+import { Input, Button, Tag } from '@arco-design/web-react';
+import { IconSave, IconLock, IconSettings, IconTool, IconLink } from '@arco-design/web-react/icon';
 import { api } from '../api';
 
 export function ConfigPage() {
@@ -36,6 +36,9 @@ export function ConfigPage() {
     }
   }
 
+  // visual styles (bg, border, rounded, height, hover/focus) 由 index.css 中 .arco-input-inner-wrapper 覆盖控制
+  const inputBaseClasses = 'text-white text-sm transition-all duration-200';
+
   return (
     <div className="relative min-h-screen px-5 py-5">
       <div
@@ -54,7 +57,7 @@ export function ConfigPage() {
           <span className="text-sm text-gray-500">大模型 API 连接设置</span>
         </div>
 
-          <div className="rounded-2xl border border-white/[0.06] bg-black/30 backdrop-blur-xl p-6 shadow-2xl mb-4">
+        <div className="rounded-2xl border border-white/[0.06] bg-black/30 backdrop-blur-xl p-6 shadow-2xl mb-4">
           <div className="flex items-center gap-3 mb-8">
             <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-cyan-500/20 to-blue-500/20 flex items-center justify-center">
               <IconLock style={{ color: '#22d3ee', fontSize: 16 }} />
@@ -72,60 +75,53 @@ export function ConfigPage() {
 
           <div className="space-y-6">
             <div>
-              <label className="flex items-center gap-1.5 text-xs text-gray-400 mb-2">
-                <span className="w-1 h-1 rounded-full bg-cyan-400" />
-                API Key (OpenAI 协议)
+              <label className="flex flex-col gap-1 mb-2">
+                <span className="flex items-center gap-1.5 text-xs text-gray-400">
+                  <span className="w-1 h-1 rounded-full bg-cyan-400" />
+                  API Key
+                </span>
+                <span className="text-[11px] text-gray-500 ml-[10px]">你的 OpenAI 兼容 API 密钥</span>
               </label>
               <Input.Password
                 value={apiKey}
                 onChange={setApiKey}
                 placeholder={hasKey ? '已设置' : 'sk-...'}
-                style={{
-                  maxWidth: '100%',
-                  background: 'rgba(255,255,255,0.04)',
-                  border: '1px solid rgba(255,255,255,0.08)',
-                  color: '#fff',
-                  height: 42,
-                  fontSize: 14,
-                }}
+                className={inputBaseClasses}
+                prefix={<IconLock style={{ color: '#22d3ee', fontSize: 14 }} />}
               />
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
-                <label className="flex items-center gap-1.5 text-xs text-gray-400 mb-2">
-                  <span className="w-1 h-1 rounded-full bg-white/30" />
-                  <IconSettings style={{ fontSize: 12 }} />
-                  接口地址
+                <label className="flex flex-col gap-1 mb-2">
+                  <span className="flex items-center gap-1.5 text-xs text-gray-400">
+                    <span className="w-1 h-1 rounded-full bg-cyan-400/50" />
+                    <IconLink style={{ fontSize: 12 }} />
+                    接口地址
+                  </span>
+                  <span className="text-[11px] text-gray-500 ml-[10px]">API 服务地址</span>
                 </label>
                 <Input
                   value={apiBase}
                   onChange={setApiBase}
-                  style={{
-                    background: 'rgba(255,255,255,0.04)',
-                    border: '1px solid rgba(255,255,255,0.08)',
-                    color: '#fff',
-                    height: 42,
-                    fontSize: 14,
-                  }}
+                  className={inputBaseClasses}
+                  prefix={<IconSettings style={{ color: '#848e9c', fontSize: 14 }} />}
                 />
               </div>
               <div>
-                <label className="flex items-center gap-1.5 text-xs text-gray-400 mb-2">
-                  <span className="w-1 h-1 rounded-full bg-white/30" />
-                  <IconTool style={{ fontSize: 12 }} />
-                  模型
+                <label className="flex flex-col gap-1 mb-2">
+                  <span className="flex items-center gap-1.5 text-xs text-gray-400">
+                    <span className="w-1 h-1 rounded-full bg-cyan-400/50" />
+                    <IconTool style={{ fontSize: 12 }} />
+                    模型
+                  </span>
+                  <span className="text-[11px] text-gray-500 ml-[10px]">使用的模型名称</span>
                 </label>
                 <Input
                   value={model}
                   onChange={setModel}
-                  style={{
-                    background: 'rgba(255,255,255,0.04)',
-                    border: '1px solid rgba(255,255,255,0.08)',
-                    color: '#fff',
-                    height: 42,
-                    fontSize: 14,
-                  }}
+                  className={inputBaseClasses}
+                  prefix={<IconTool style={{ color: '#848e9c', fontSize: 14 }} />}
                 />
               </div>
             </div>

@@ -216,25 +216,36 @@ body {
   color: #00d4ff !important;
 }
 
-/* Input */
-.arco-input {
-  background: #1a3a5c !important;
-  border: 1px solid #2a4a6c !important;
+/* Input — inner wrapper (实际显示为输入框的区域) */
+.arco-input-inner-wrapper {
+  background: rgba(255, 255, 255, 0.04) !important;
+  border: 1px solid rgba(255, 255, 255, 0.08) !important;
+  border-radius: 0.5rem !important;
+  height: 42px;
+  transition: all 0.15s ease !important;
+}
+
+.arco-input-inner-wrapper:hover {
+  background: rgba(255, 255, 255, 0.06) !important;
+  border-color: rgba(255, 255, 255, 0.18) !important;
+}
+
+.arco-input-inner-wrapper.arco-input-inner-wrapper-focus {
+  background: rgba(255, 255, 255, 0.06) !important;
+  border-color: rgba(0, 212, 255, 0.5) !important;
+  box-shadow: 0 0 0 2px rgba(0, 212, 255, 0.15) !important;
+}
+
+/* 输入框内部的 <input> 保持透明，背景由 inner-wrapper 控制 */
+.arco-input-inner-wrapper .arco-input {
+  background: none !important;
+  border: none !important;
+  box-shadow: none !important;
   color: #fff !important;
 }
 
-.arco-input:hover {
-  border-color: #00d4ff !important;
-}
-
-.arco-input:focus {
-  border-color: #00d4ff !important;
-  box-shadow: 0 0 0 2px rgba(0, 212, 255, 0.2) !important;
-}
-
-.arco-input-wrapper {
-  background: #1a3a5c !important;
-  border: 1px solid #2a4a6c !important;
+.arco-input-inner-wrapper .arco-input::placeholder {
+  color: rgba(255, 255, 255, 0.3) !important;
 }
 
 /* Button */

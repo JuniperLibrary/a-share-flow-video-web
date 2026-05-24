@@ -1,5 +1,5 @@
 import React from 'react';
-import { AbsoluteFill, useCurrentFrame, useVideoConfig, getInputProps, interpolate } from 'remotion';
+import { AbsoluteFill, useCurrentFrame, useVideoConfig, getInputProps, interpolate, spring } from 'remotion';
 import { BarRaceChart } from './BarChartRace.tsx';
 import { FinancialBackground } from './FinancialBackground.tsx';
 import type { MultiDayVideoProps } from './types.ts';
@@ -15,21 +15,17 @@ export const MultiDayVideo: React.FC = () => {
   const totalFrames = inputProps.totalFrames || durationInFrames;
   const format = inputProps.format || 'mobile';
 
-  // Frame phases
-  const showCover = frame < 60;
-  const showRace = frame >= 60 && frame < 840;
-  const showSummary = frame >= 840;
+  // Frame phases: cover 3s, race 39s, summary 18s (= 60s total @ 30fps)
+  const showCover = frame < 90;
+  const showRace = frame >= 90 && frame < 1260;
+  const showSummary = frame >= 1260;
 
   // Cover animations
-  const coverOpacity = frame < 30 ? interpolate(frame, [0, 30], [0, 1]) : frame > 50 ? interpolate(frame, [50, 60], [1, 0]) : 1;
-  const summaryOpacity = showSummary ? interpolate(frame, [840, 860], [0, 1]) : 0;
+  const coverOpacity = frame < 40 ? interpolate(frame, [0, 40], [0, 1]) : frame > 75 ? interpolate(frame, [75, 90], [1, 0]) : 1;
+  const coverScale = frame < 40 ? interpolate(frame, [0, 40], [0.92, 1]) : 1;
+  const summaryOpacity = showSummary ? interpolate(frame, [1260, 1290], [0, 1]) : 0;
 
   const dateRange = dates.length > 0 ? `${dates[0]} → ${dates[dates.length - 1]}` : '';
-
-  // Sentiment for background
-  const inflowCount = (snapshots[0]?.bars || []).filter(s => s.net > 0).length;
-  const totalSectors = (snapshots[0]?.bars || []).length;
-  const sentiment = inflowCount > totalSectors * 0.6 ? 'bullish' : inflowCount < totalSectors * 0.4 ? 'bearish' : 'neutral';
 
   return (
     <AbsoluteFill style={{ backgroundColor: '#0a0e17' }}>
@@ -37,6 +33,7 @@ export const MultiDayVideo: React.FC = () => {
       {showCover && (
         <AbsoluteFill style={{
           opacity: coverOpacity,
+          transform: `scale(${coverScale})`,
           display: 'flex',
           flexDirection: 'column',
           alignItems: 'center',
@@ -49,7 +46,6 @@ export const MultiDayVideo: React.FC = () => {
           <div style={{ position: 'absolute', bottom: 20, left: 20, width: 40, height: 40, borderBottom: '2px solid rgba(0, 240, 255, 0.3)', borderLeft: '2px solid rgba(0, 240, 255, 0.3)' }} />
           <div style={{ position: 'absolute', bottom: 20, right: 20, width: 40, height: 40, borderBottom: '2px solid rgba(0, 240, 255, 0.3)', borderRight: '2px solid rgba(0, 240, 255, 0.3)' }} />
 
-          {/* Title */}
           <div style={{
             fontSize: 14,
             fontWeight: 600,
@@ -84,7 +80,6 @@ export const MultiDayVideo: React.FC = () => {
             BAR CHART RACE
           </div>
 
-          {/* Date range */}
           {dateRange && (
             <div style={{
               fontSize: 16,
@@ -100,7 +95,6 @@ export const MultiDayVideo: React.FC = () => {
             </div>
           )}
 
-          {/* Subtitle */}
           <div style={{
             marginTop: 40,
             fontSize: 11,
@@ -114,7 +108,7 @@ export const MultiDayVideo: React.FC = () => {
         </AbsoluteFill>
       )}
 
-      {/* Bar Chart Race — full height */}
+      {/* Bar Chart Race */}
       {showRace && (
         <div style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }}>
           <BarRaceChart

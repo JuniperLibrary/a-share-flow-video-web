@@ -1,4 +1,4 @@
-import type { DateItem, Sector, ConfigData, SSEMessage } from './types';
+import type { DateItem, Sector, ConfigData, SSEMessage, NewsListResponse, NewsSearchResponse, NewsStatusResponse } from './types';
 import { apiUrl } from './utils';
 
 async function request<T>(url: string, options?: RequestInit): Promise<T> {
@@ -90,9 +90,21 @@ export const api = {
   getSectorsAllDates: () =>
     request<{ dates: string[] }>('/api/sectors-all/dates'),
 
-  getSectorsTrend: (name: string, startDate: string, endDate: string) =>
-    request<{ name: string; sectors: { date: string; code: string; name: string; net: number; rate: number }[] }>(`/api/sectors-all/trend?name=${encodeURIComponent(name)}&start_date=${startDate}&end_date=${endDate}`),
-
   getSectorsAllRange: (startDate: string, endDate: string) =>
     request<{ sectors: { date: string; code: string; name: string; net: number; rate: number }[] }>(`/api/sectors-all/range?start_date=${startDate}&end_date=${endDate}`),
+
+  getNews: (limit?: number, offset?: number) =>
+    request<NewsListResponse>(`/api/news?limit=${limit ?? 50}&offset=${offset ?? 0}`),
+
+  searchNews: (q: string, limit?: number, offset?: number) =>
+    request<NewsSearchResponse>(`/api/news/search?q=${encodeURIComponent(q)}&limit=${limit ?? 50}&offset=${offset ?? 0}`),
+
+  getNewsStatus: () =>
+    request<NewsStatusResponse>('/api/news/status'),
+
+  startNews: () =>
+    request<{ ok: boolean; message: string }>('/api/news/start', { method: 'POST' }),
+
+  stopNews: () =>
+    request<{ ok: boolean; message: string }>('/api/news/stop', { method: 'POST' }),
 };

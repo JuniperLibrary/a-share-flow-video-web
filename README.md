@@ -1,15 +1,16 @@
 # A股板块资金流向视频生成器 - 前端
 
-> React + Vite + Remotion + Tailwind CSS + shadcn/ui 前端应用，配合 Go 后端服务使用。
+> React + Vite + TypeScript + Tailwind CSS + @arco-design/web-react 前端控制台，配合 Go 后端服务使用。
 
 ## 这是什么
 
 这是 [a-share-flow-video-go](https://github.com/your-org/a-share-flow-video-go) 项目的前端部分，已分离为独立项目。提供：
 
-- **Web 控制台**：数据拉取、视频生成、文案优化、实时行情监控
-- **Remotion 视频渲染**：Bloomberg Terminal × TradingView × 科技电影 HUD 风格的资金流向视频
-- **仪表盘**：聚合展示板块资金流向、趋势分析、事件时间线
+- **控制台**：数据拉取、视频生成、文案优化、实时行情监控、新闻检索
+- **仪表盘**：聚合展示板块资金流向、市场概览、趋势分析、事件时间线
 - **Tick 采集控制**：实时采集板块资金流数据，支持历史回放
+- **实时行情**：SSE 流式推送板块资金曲线 + AI 异动事件检测
+- **新闻资讯**：财联社电报实时展示，按板块标签筛选，全文弹窗阅读
 
 ## 快速开始
 
@@ -64,32 +65,30 @@ npm run typecheck
 ```
 src/
 ├── main.tsx              # React 入口
-├── App.tsx               # 主应用（页面路由）
+├── App.tsx               # 主应用（状态路由 + 侧边栏导航）
 ├── api.ts                # API 客户端（所有后端调用）
 ├── types.ts              # 共享类型定义
 ├── utils.ts              # 工具函数（含 apiUrl 辅助函数）
-├── vite-env.d.ts         # Vite 环境变量类型
-├── index.css             # 全局样式（Tailwind CSS）
-├── components/           # shadcn/ui 组件
-│   └── ui/               # Button, Card, Tabs, Dialog, etc.
-├── hooks/
-│   └── useSSE.ts         # SSE 流式读取 Hook
+├── index.css             # 全局样式（Tailwind CSS + 暗色主题）
+├── components/
+│   └── ui/               # 自定义 UI 组件（DatePicker, Select 等暗色玻璃风格）
 ├── pages/                # Web 页面组件
-│   ├── DashboardPage.tsx # 仪表盘（聚合数据展示）
+│   ├── DashboardPage.tsx # 仪表盘（市场概览 + 板块排行 + 趋势图）
 │   ├── AllSectorsPage.tsx# 全量板块获取与展示
 │   ├── GeneratePage.tsx  # 视频生成控制台
 │   ├── PreviewPage.tsx   # 视频预览
-│   ├── MarketPage.tsx    # 实时行情（SSE 推送）
+│   ├── MarketPage.tsx    # 实时行情（SSE 推送 + SVG 资金曲线图）
+│   ├── NewsPage.tsx      # 财联社新闻（轮询状态、搜索、全文弹窗）
 │   ├── ConfigPage.tsx    # AI 配置
-│   └── TickPage.tsx      # Tick 采集控制 + 回放
-└── renderer/             # Remotion 视频组件
+│   └── TickPage.tsx      # Tick 采集控制 + 历史回放
+└── renderer/             # Remotion 视频渲染组件
     ├── index.ts          # Remotion 入口
     ├── Root.tsx          # 根组件注册
     ├── BloombergVideo.tsx        # 主视频（移动端 1080×1920）
-    ├── BloombergVideoTick.tsx    # Tick 视频
-    ├── MultiDayVideo.tsx         # 多日视频
-    ├── types.ts                  # RenderProps 类型
-    └── ...               # 20+ 子组件
+    ├── BloombergVideoTick.tsx    # Tick 曲线视频
+    ├── MultiDayVideo.tsx         # 多日 Bar Chart Race 视频
+    ├── types.ts                  # RenderProps 类型（需与 Go 侧同步）
+    └── ...               # 20+ 子组件（Header, Chart, Timeline, ...
 ```
 
 ## API 契约
@@ -101,30 +100,34 @@ src/
 | `/api/dates` | GET | 获取所有有数据的日期 |
 | `/api/data/:date` | GET | 获取指定日期数据 |
 | `/api/generate` | POST | SSE 流式生成视频 |
-| `/api/generate-multiday` | POST | 多日视频生成（Bar Chart Race） |
+| `/api/generate-multiday` | POST | 多日视频生成 |
+| `/api/generate-tick` | POST | Tick 曲线视频生成 |
 | `/api/config` | GET/POST | AI 配置读写 |
 | `/api/optimize-copy` | POST | AI 文案优化 |
 | `/api/files/:date` | GET | 文件列表 |
 | `/api/export-all/:date` | GET | 全量板块导出 |
-| `/api/export-all/status/:task_id` | GET | 导出任务状态 |
-| `/api/export-all/file/:task_id` | GET | 下载导出文件 |
+| `/api/export-hot-sectors/:date` | GET | Top21 热门板块 |
 | `/api/tick/stream` | GET | SSE 实时行情流 |
 | `/api/tick/status` | GET | Tick 采集状态 |
 | `/api/tick/start` | POST | 启动 Tick 采集 |
 | `/api/tick/stop` | POST | 停止 Tick 采集 |
 | `/api/tick/enable` | POST | 启用/禁用定时采集 |
 | `/api/tick/interval` | GET/POST | 采集频率 |
-| `/api/tick/dates` | GET | 获取所有有 Tick 数据的日期 |
-| `/api/tick/replay-stream` | GET | SSE 回放历史 Tick 数据 |
-| `/api/tick/events/:date` | GET | Tick 事件分析数据 |
+| `/api/tick/dates` | GET | 获取所有 Tick 日期 |
+| `/api/tick/replay-stream` | GET | SSE 回放历史 Tick |
+| `/api/tick/events/:date` | GET | Tick 事件分析 |
 | `/api/tick-data/:date` | GET | Tick 历史数据 |
 | `/api/dashboard` | GET | 仪表盘聚合数据 |
 | `/api/sectors-all/save/:date` | POST | 获取全量板块并保存 |
 | `/api/sectors-all/status/:task_id` | GET | 全量板块任务状态 |
 | `/api/sectors-all/dates` | GET | 全量板块数据日期 |
-| `/api/sectors-all/trend` | GET | 板块资金流向趋势 |
-| `/api/sectors-all/range` | GET | 指定日期范围板块数据 |
-| `/api/sectors-all/names` | GET | 所有板块名称列表 |
+| `/api/sectors-all/range` | GET | 日期范围板块数据 |
+| `/api/sectors-all/names` | GET | 板块名称列表 |
+| `/api/news` | GET | 新闻列表（分页） |
+| `/api/news/search` | GET | 搜索新闻 |
+| `/api/news/status` | GET | 新闻轮询状态 |
+| `/api/news/start` | POST | 启动新闻轮询 |
+| `/api/news/stop` | POST | 停止新闻轮询 |
 | `/output/:date/:file` | GET | 视频文件下载 |
 
 ## 技术栈
@@ -135,9 +138,24 @@ src/
 | Vite | 构建工具 |
 | TypeScript | 类型安全 |
 | Tailwind CSS | 样式系统 |
-| shadcn/ui | UI 组件库 |
-| Remotion | 视频渲染 |
-| React Router | 页面路由 |
+| @arco-design/web-react | UI 组件库（Layout, Menu, Button, Input, Pagination 等） |
+| lucide-react | 图标库 |
+| Remotion | 视频渲染（React 组件生成 MP4） |
+
+## 页面导航
+
+应用使用**状态路由**（非 react-router），通过 `useState<Page>` 切换页面：
+
+| 页面 | 功能 |
+|------|------|
+| 仪表盘 | 市场概览、板块排行、趋势图、事件时间线 |
+| Tick 采集 | 启动/停止实时采集、查看采集数据 |
+| 全量板块 | 异步获取并浏览全量板块资金数据 |
+| 视频生成 | 单日 Tick 视频 + 多日 Bar Chart Race 视频 |
+| 视频预览 | 浏览生成的视频文件 |
+| 实时行情 | SSE 资金曲线图表 + 市场事件列表 |
+| 新闻资讯 | 财联社电报轮询控制、搜索、全文弹窗 |
+| AI 配置 | API Key / Base URL / Model 配置 |
 
 ## 环境变量
 

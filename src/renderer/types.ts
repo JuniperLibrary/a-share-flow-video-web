@@ -56,6 +56,7 @@ export interface BloombergVideoProps {
 // Multi-day Bar Chart Race types
 export interface BarSnapshot {
   date: string;
+  time?: string; // "09:30" — tick 时间点
   bars: SectorData[];
 }
 

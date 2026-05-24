@@ -27,3 +27,34 @@ export interface SSEMessage {
   type: string;
   text: string;
 }
+
+export interface CLSNewsRecord {
+  id: number;
+  title: string;
+  content: string;
+  brief: string;
+  level: string;
+  reading_num: number;
+  ctime: string;
+  shareurl: string;
+  sectors: string; // JSON array string
+  created_at: string;
+}
+
+export interface NewsListResponse {
+  records: CLSNewsRecord[];
+  total: number;
+  limit: number;
+  offset: number;
+}
+
+export interface NewsSearchResponse extends NewsListResponse {
+  q: string;
+}
+
+export interface NewsStatusResponse {
+  status: string;
+  total_news: number;
+  last_poll: string;
+  last_count: number;
+}

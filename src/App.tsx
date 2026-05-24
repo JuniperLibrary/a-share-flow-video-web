@@ -6,6 +6,7 @@ import {
   IconEye,
   IconList,
   IconSettings,
+  IconFile,
 } from '@arco-design/web-react/icon';
 import DashboardPage from './pages/DashboardPage';
 import { TickPage } from './pages/TickPage';
@@ -14,12 +15,13 @@ import { GeneratePage } from './pages/GeneratePage';
 import { PreviewPage } from './pages/PreviewPage';
 import { MarketPage } from './pages/MarketPage';
 import { ConfigPage } from './pages/ConfigPage';
+import { NewsPage } from './pages/NewsPage';
 import { api } from './api';
 
 const { Sider, Content } = Layout;
 const { Title } = Typography;
 
-type Page = 'dashboard' | 'tick' | 'all-sectors' | 'generate' | 'preview' | 'market' | 'config';
+type Page = 'dashboard' | 'tick' | 'all-sectors' | 'generate' | 'preview' | 'market' | 'config' | 'news';
 
 const navItems: { key: Page; label: string; icon: React.ReactNode }[] = [
   { key: 'dashboard', label: '仪表盘', icon: <IconDashboard /> },
@@ -28,6 +30,7 @@ const navItems: { key: Page; label: string; icon: React.ReactNode }[] = [
   { key: 'generate', label: '视频生成', icon: <IconPlayArrow /> },
   { key: 'preview', label: '视频预览', icon: <IconEye /> },
   { key: 'market', label: '实时行情', icon: <IconList /> },
+  { key: 'news', label: '新闻资讯', icon: <IconFile /> },
   { key: 'config', label: 'AI 配置', icon: <IconSettings /> },
 ];
 
@@ -98,6 +101,9 @@ export default function App() {
           </div>
           <div style={{ display: page === 'market' ? 'block' : 'none' }}>
             <MarketPage />
+          </div>
+          <div style={{ display: page === 'news' ? 'block' : 'none' }}>
+            <NewsPage />
           </div>
           <div style={{ display: page === 'config' ? 'block' : 'none' }}>
             <ConfigPage />
