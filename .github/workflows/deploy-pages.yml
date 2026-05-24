@@ -1,0 +1,70 @@
+name: 部署 GitHub Pages
+
+on:
+  # 数据采集完成后自动触发部署
+  workflow_dispatch:
+  repository_dispatch:
+    types: [data-updated]
+  # 也可以手动运行
+  push:
+    branches: [main]
+    paths:
+      - 'src/**'
+      - 'package.json'
+      - 'vite.config.ts'
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: TypeScript check
+        run: npm run typecheck
+
+      - name: Build
+        run: npm run build
+        env:
+          VITE_API_BASE_URL: ${{ vars.VITE_API_BASE_URL || '' }}
+
+      # 从 Go 后端仓库拉取最新 JSON 数据
+      - name: Fetch JSON data
+        run: |
+          mkdir -p dist/data
+          for file in sectors.json sectors_all.json copywriting.json tick_events.json cls_news.json; do
+            curl -sL "https://raw.githubusercontent.com/JuniperLibrary/a-share-flow-video-go/main/data/$file" \
+              -o "dist/data/$file" || echo "Warning: $file not found"
+          done
+
+      - name: Setup Pages
+        uses: actions/configure-pages@v5
+
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: dist
+
+      - name: Deploy to Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
