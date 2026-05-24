@@ -161,7 +161,7 @@ src/
 
 | 变量 | 说明 | 默认值 |
 |------|------|--------|
-| `VITE_API_BASE_URL` | Go 后端 API 地址 | `http://localhost:8084` |
+| `VITE_API_BASE_URL` | Go 后端 API 地址 | `http://localhost:8084`（空字符串=同源） |
 
 ## 部署
 
@@ -173,7 +173,29 @@ npm run dev
 
 前端直接请求后端 API，后端通过 CORS 中间件允许跨域访问。
 
-### 生产部署
+### GitHub Pages 部署（静态模式）
+
+前端已内置 **静态数据模式**：当后端 API 不可达时，自动从 `data/*.json` 文件读取数据。
+
+```bash
+# 构建生产版本
+npm run build
+
+# 将 JSON 数据文件复制到构建输出
+mkdir -p dist/data
+cp ../a-share-flow-video-go/data/*.json dist/data/
+
+# 部署 dist/ 到 GitHub Pages
+```
+
+**自动部署流程**（通过 GitHub Actions）：
+1. [Go 后端仓库](https://github.com/JuniperLibrary/a-share-flow-video-go) 定时采集数据 → 导出 JSON → 提交到仓库
+2. 通过 `repository_dispatch` 触发前端仓库部署
+3. 前端构建时自动拉取最新 JSON 数据 → 部署到 Pages
+
+> 详细部署步骤见后端仓库的 [DEPLOY.md](https://github.com/JuniperLibrary/a-share-flow-video-go/blob/main/DEPLOY.md)
+
+### 传统生产部署（有后端 API）
 
 将 `dist/` 部署到 Nginx/Caddy 等静态文件服务器，设置 `VITE_API_BASE_URL` 为后端地址：
 
@@ -186,6 +208,21 @@ VITE_API_BASE_URL=https://your-backend-host.com
 ```env
 CORS_ALLOWED_ORIGINS=https://your-frontend-host.com
 ```
+
+## 静态数据说明
+
+在 GitHub Pages 模式下（无后端 API），以下页面正常工作：
+
+| 页面 | 状态 | 数据来源 |
+|------|------|----------|
+| 仪表盘 | ✅ 完整 | `data/sectors.json` |
+| 全量板块 | ✅ 完整 | `data/sectors_all.json` |
+| 新闻资讯 | ✅ 完整（仅展示，不支持轮询控制） | `data/cls_news.json` |
+| Tick 采集 | ❌ 需后端 | — |
+| 视频生成 | ❌ 需后端 | — |
+| 视频预览 | ❌ 需后端 | — |
+| 实时行情 | ❌ 需后端 | — |
+| AI 配置 | ❌ 需后端 | — |
 
 ## License
 
