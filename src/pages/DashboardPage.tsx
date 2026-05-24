@@ -18,11 +18,8 @@ import {
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { cn, formatNet, netColor, getSectorColor } from '@/lib/utils';
-import {
-  fetchDashboardData,
-  type TickEvent,
-  type TrendPoint,
-} from '@/lib/api-dashboard';
+import type { TickEvent, TrendPoint } from '@/lib/api-dashboard';
+import { api, isStaticMode } from '@/api';
 
 function LoadingSkeleton() {
   return (
@@ -215,7 +212,7 @@ function TimelineEventCard({ event, index }: TimelineEventCardProps) {
 
 export default function DashboardPage() {
   const [loading, setLoading] = useState(true);
-  const [dashboardData, setDashboardData] = useState<Awaited<ReturnType<typeof fetchDashboardData>> | null>(null);
+  const [dashboardData, setDashboardData] = useState<Awaited<ReturnType<typeof api.getDashboard>> | null>(null);
   const [events, setEvents] = useState<TickEvent[]>([]);
   const [trendData, setTrendData] = useState<Record<string, TrendPoint[]>>({});
   const [error, setError] = useState<string | null>(null);
@@ -224,7 +221,7 @@ export default function DashboardPage() {
     setLoading(true);
     setError(null);
     try {
-      const data = await fetchDashboardData();
+      const data = await api.getDashboard();
       setDashboardData(data);
 
       if (data.dates.length > 0) {
@@ -317,8 +314,14 @@ export default function DashboardPage() {
             <div className="flex items-center gap-3 text-sm text-muted-foreground">
               <span className="font-mono">{latestDate}</span>
               <span className="flex items-center gap-1.5">
-                <LiveDot />
-                <span>实时</span>
+                {isStaticMode() ? (
+                  <span className="text-xs text-muted-foreground">静态数据</span>
+                ) : (
+                  <>
+                    <LiveDot />
+                    <span>实时</span>
+                  </>
+                )}
               </span>
             </div>
           </div>
