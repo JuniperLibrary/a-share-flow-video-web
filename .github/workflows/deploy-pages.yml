@@ -43,9 +43,14 @@ jobs:
       - name: TypeScript check
         run: npm run typecheck
 
+      - name: Setup Pages
+        id: pages
+        uses: actions/configure-pages@v5
+
       - name: Build
         run: npm run build
         env:
+          VITE_BASE_URL: ${{ steps.pages.outputs.base_path }}
           VITE_API_BASE_URL: ${{ vars.VITE_API_BASE_URL || '' }}
 
       # 从 Go 后端仓库拉取最新 JSON 数据
@@ -56,9 +61,6 @@ jobs:
             curl -sL "https://raw.githubusercontent.com/JuniperLibrary/a-share-flow-video-go/main/data/$file" \
               -o "dist/data/$file" || echo "Warning: $file not found"
           done
-
-      - name: Setup Pages
-        uses: actions/configure-pages@v5
 
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v3
