@@ -655,10 +655,8 @@ body::before {
 }
 
 .navbar {
-  position: fixed;
+  position: sticky;
   top: 0;
-  left: 16px;
-  right: 16px;
   z-index: 50;
   padding: 12px 16px;
   display: flex;
@@ -856,7 +854,6 @@ body::before {
 
 @media (max-width: 640px) {
   .content {
-    padding-top: 140px;
     overflow-x: clip;
   }
 
