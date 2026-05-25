@@ -362,7 +362,7 @@ export default function MarketIndexAccordion({navbarHeight = 0,
       className="market-index-accordion-root mt-2 mb-2 rounded-lg border border-[var(--border)] bg-[var(--card)] market-index-accordion"
       style={stickyStyle}
     >
-      <style jsx>{`
+      <style>{`
         .market-index-accordion :global([data-slot="accordion-trigger"] > svg:last-of-type) {
           display: none;
         }
