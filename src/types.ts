@@ -58,3 +58,7 @@ export interface NewsStatusResponse {
   last_poll: string;
   last_count: number;
 }
+
+export interface NewsDateResponse extends NewsListResponse {
+  date: string;
+}

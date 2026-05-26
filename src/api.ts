@@ -1,4 +1,4 @@
-import type { DateItem, Sector, ConfigData, NewsListResponse, NewsSearchResponse, NewsStatusResponse } from './types';
+import type { DateItem, Sector, ConfigData, NewsListResponse, NewsSearchResponse, NewsStatusResponse, NewsDateResponse } from './types';
 import { apiUrl } from './utils';
 import * as staticData from './lib/staticData';
 
@@ -111,6 +111,16 @@ export const api = {
       return { records, total: filtered.length, limit: limit || 50, offset: offset || 0, q };
     }
     return request<NewsSearchResponse>(`/api/news/search?q=${encodeURIComponent(q)}&limit=${limit ?? 50}&offset=${offset ?? 0}`);
+  },
+
+  getNewsByDate: async (date: string, limit?: number, offset?: number): Promise<NewsDateResponse> => {
+    if (staticMode) {
+      const all = await staticData.getCLSNews();
+      const filtered = all.filter(n => n.ctime.startsWith(date));
+      const records = filtered.slice(offset || 0, (offset || 0) + (limit || 50));
+      return { records, total: filtered.length, limit: limit || 50, offset: offset || 0, date };
+    }
+    return request<NewsDateResponse>(`/api/news/date?date=${date}&limit=${limit ?? 50}&offset=${offset ?? 0}`);
   },
 
   // ---- Below: endpoints that require a live backend, will fail in static mode ----
