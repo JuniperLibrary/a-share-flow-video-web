@@ -7,9 +7,28 @@ export const Root: React.FC = () => {
   return (
     <>
       <Composition
+        id="BloombergVideo"
+        component={BloombergVideo}
+        durationInFrames={2700}
+        fps={30}
+        width={1080}
+        height={1920}
+        defaultProps={{
+          dateStr: '2026-05-11',
+          displayDate: '05-11',
+          sectors: [],
+          timelineEvents: [],
+          tickerItems: [],
+          events: [],
+          format: 'mobile',
+          width: 1080,
+          height: 1920,
+        }}
+      />
+      <Composition
         id="BloombergVideoTV"
         component={BloombergVideo}
-        durationInFrames={1800}
+        durationInFrames={2700}
         fps={30}
         width={1920}
         height={1080}
@@ -28,7 +47,7 @@ export const Root: React.FC = () => {
       <Composition
         id="BloombergVideo3DayTV"
         component={MultiDayVideo}
-        durationInFrames={1800}
+        durationInFrames={2700}
         fps={30}
         width={1920}
         height={1080}
@@ -40,13 +59,32 @@ export const Root: React.FC = () => {
           format: 'tv',
           width: 1920,
           height: 1080,
-          totalFrames: 1800,
+          totalFrames: 2700,
+        }}
+      />
+      <Composition
+        id="BloombergVideoTick"
+        component={BloombergVideoTick}
+        durationInFrames={2700}
+        fps={30}
+        width={1080}
+        height={1920}
+        defaultProps={{
+          dateStr: '2026-05-11',
+          displayDate: '05-11',
+          sectorTicks: [],
+          timelineEvents: [],
+          tickerItems: [],
+          events: [],
+          format: 'mobile',
+          width: 1080,
+          height: 1920,
         }}
       />
       <Composition
         id="BloombergVideoTickTV"
         component={BloombergVideoTick}
-        durationInFrames={1800}
+        durationInFrames={2700}
         fps={30}
         width={1920}
         height={1080}
