@@ -147,14 +147,15 @@ export function GeneratePage({ dates, onDone }: GeneratePageProps) {
   // ---- Tick state ----
   const [tickDate, setTickDate] = useState('');
   const [tickSession, setTickSession] = useState('full');
-  const [tickCopyMode, setTickCopyMode] = useState('template');
+  const [tickCopyMode, setTickCopyMode] = useState('ai');
+  const [tickFormat, setTickFormat] = useState('all');
   const tickSSE = useSSE();
   const [tickStatus, setTickStatus] = useState<{ type: 'success' | 'error' | 'info' | ''; text: string }>({ type: '', text: '' });
 
   // ---- Multiday state ----
   const [mdDate, setMdDate] = useState('');
   const [mdDays, setMdDays] = useState(3);
-  const [mdCopyMode, setMdCopyMode] = useState('template');
+  const [mdCopyMode, setMdCopyMode] = useState('ai');
   const mdSSE = useSSE();
   const [mdStatus, setMdStatus] = useState<{ type: 'success' | 'error' | 'info' | ''; text: string }>({ type: '', text: '' });
 
@@ -173,7 +174,7 @@ export function GeneratePage({ dates, onDone }: GeneratePageProps) {
     setTickStatus({ type: 'info', text: '正在生成 Tick 视频...' });
     try {
       await tickSSE.startStream(
-        () => api.generateTick(tickDate, tickSession, tickCopyMode),
+        () => api.generateTick(tickDate, tickSession, tickCopyMode, tickFormat),
         (msg: SSEMessage) => {
           if (msg.type === 'done') {
             setTickStatus({ type: 'success', text: msg.text });
@@ -244,6 +245,22 @@ export function GeneratePage({ dates, onDone }: GeneratePageProps) {
           options={[
             { label: '模板文案', value: 'template' },
             { label: 'AI文案', value: 'ai' },
+          ]}
+        />
+      </div>
+      <div>
+        <div className="flex items-center gap-1.5 mb-1.5">
+          <span className="w-1 h-1 rounded-full bg-white/30" />
+          <span className="text-xs text-gray-500">视频格式</span>
+        </div>
+        <Select
+          value={tickFormat}
+          onChange={v => setTickFormat(v as string)}
+          style={{ width: 120 }}
+          options={[
+            { label: '全部', value: 'all' },
+            { label: '横版 16:9', value: 'tv' },
+            { label: '竖版 9:16', value: 'mobile' },
           ]}
         />
       </div>

@@ -158,11 +158,11 @@ export const api = {
   exportHotSectors: (date: string) =>
     request<{ date: string; sectors: Sector[] }>(`/api/export-hot-sectors/${date}`),
 
-  generateTick: (date: string, session: string, copy_mode: string) =>
+  generateTick: (date: string, session: string, copy_mode: string, format: string) =>
     fetch(apiUrl('/api/generate-tick'), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ date, session, copy_mode }),
+      body: JSON.stringify({ date, session, copy_mode, format }),
     }),
 
   getTickInterval: () =>
@@ -211,4 +211,7 @@ export const api = {
 
   stopNews: () =>
     request<{ ok: boolean; message: string }>('/api/news/stop', { method: 'POST' }),
+
+  replayNews: () =>
+    request<{ ok: boolean; count: number; message: string }>('/api/news/replay', { method: 'POST' }),
 };
