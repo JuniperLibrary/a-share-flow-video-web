@@ -2,6 +2,9 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import { Button, Tag, Input, Modal } from '@arco-design/web-react';
 import { IconPlayArrow, IconDelete, IconCopy, IconHistory } from '@arco-design/web-react/icon';
 import { apiUrl } from '../utils';
+import { api } from '../api';
+import type { CLSNewsRecord } from '../types';
+import { DatePicker } from '../components/ui/date-picker';
 
 interface TickPoint {
   Time: string;
@@ -251,6 +254,12 @@ export function TickPage() {
   const [connected, setConnected] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [trendSector, setTrendSector] = useState<SectorData | null>(null);
+  const [sectorNews, setSectorNews] = useState<CLSNewsRecord[]>([]);
+  const [newsLoading, setNewsLoading] = useState(false);
+  const [mode, setMode] = useState<'live' | 'history'>('live');
+  const [historyDate, setHistoryDate] = useState('');
+  const [availableDates, setAvailableDates] = useState<string[]>([]);
+  const [tickDataLoading, setTickDataLoading] = useState(false);
   const abortRef = useRef<AbortController | null>(null);
   const autoStartSuppressed = useRef(false);
   const reconnectTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -260,9 +269,41 @@ export function TickPage() {
     return () => clearInterval(interval);
   }, []);
 
+  const loadDateData = useCallback(async (date: string) => {
+    setTickDataLoading(true);
+    try {
+      const dataRes = await fetch(apiUrl(`/api/tick-data/${date}`));
+      if (!dataRes.ok) return;
+      const tickData = await dataRes.json();
+      if (tickData.points?.length) {
+        const times = new Set(tickData.points.map((p: TickPoint) => p.Time));
+        setSnapshot({
+          points: tickData.points,
+          date: tickData.date,
+          running: false,
+          count: times.size,
+          lastTime: tickData.points[tickData.points.length - 1].Time,
+        });
+      } else {
+        setSnapshot(null);
+      }
+    } catch { void 0; }
+    setTickDataLoading(false);
+  }, []);
+
   useEffect(() => {
     const initPage = async () => {
       try {
+        const datesRes = await fetch(apiUrl('/api/dates'));
+        const datesData = await datesRes.json();
+        const dates: string[] = (datesData.dates || []).map((d: any) => d.date);
+        dates.sort();
+        setAvailableDates(dates);
+        if (dates.length === 0) return;
+
+        const latest = dates[dates.length - 1];
+        setHistoryDate(latest);
+
         const res = await fetch(apiUrl('/api/tick/status'));
         const data = await res.json();
         if (data.running) {
@@ -271,37 +312,15 @@ export function TickPage() {
           return;
         }
 
-        // 未在采集 — 尝试加载最近一个交易日的历史 tick 数据
-        const datesRes = await fetch(apiUrl('/api/dates'));
-        const datesData = await datesRes.json();
-        const dates: string[] = (datesData.dates || []).map((d: any) => d.date);
-        if (dates.length === 0) return;
-
-        dates.sort();
-        const latestDate = dates[dates.length - 1];
-
-        const dataRes = await fetch(apiUrl(`/api/tick-data/${latestDate}`));
-        if (!dataRes.ok) return;
-        const tickData = await dataRes.json();
-
-        if (tickData.points?.length) {
-          const times = new Set(tickData.points.map((p: TickPoint) => p.Time));
-          setSnapshot({
-            points: tickData.points,
-            date: tickData.date,
-            running: false,
-            count: times.size,
-            lastTime: tickData.points[tickData.points.length - 1].Time,
-          });
-        }
+        await loadDateData(latest);
       } catch { void 0; }
     };
     initPage();
-  }, []);
+  }, [loadDateData]);
 
   const autoStartTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   useEffect(() => {
-    if (isWeekend()) return;
+    if (isWeekend() || mode !== 'live') return;
     if (autoStartSuppressed.current || connected) return;
     if (isInAutoWindow(Date.now())) {
       handleStart();
@@ -317,6 +336,32 @@ export function TickPage() {
       if (autoStartTimerRef.current) clearInterval(autoStartTimerRef.current);
     };
   }, [connected]);
+
+  useEffect(() => {
+    if (!trendSector) {
+      setSectorNews([]);
+      return;
+    }
+    setNewsLoading(true);
+    const fiveDaysAgo = new Date();
+    fiveDaysAgo.setDate(fiveDaysAgo.getDate() - 5);
+    const cutoff = fiveDaysAgo.toISOString().slice(0, 10);
+    api.searchNews(trendSector.name, 200, 0).then(res => {
+      const filtered = (res.records || []).filter(n => n.ctime >= cutoff);
+      filtered.sort((a, b) => b.ctime.localeCompare(a.ctime));
+      setSectorNews(filtered);
+    }).catch(() => {
+      setSectorNews([]);
+    }).finally(() => {
+      setNewsLoading(false);
+    });
+  }, [trendSector]);
+
+  useEffect(() => {
+    if (mode === 'history' && historyDate) {
+      loadDateData(historyDate);
+    }
+  }, [mode, historyDate, loadDateData]);
 
   async function connectSSE() {
     if (abortRef.current) abortRef.current.abort();
@@ -466,159 +511,237 @@ export function TickPage() {
 
       <div className="relative">
         <div className="flex items-center justify-between mb-6">
-          <div className="flex items-baseline gap-3">
+          <div className="flex items-center gap-4">
             <h1 className="text-2xl font-bold bg-gradient-to-r from-cyan-400 via-emerald-300 to-lime-400 bg-clip-text text-transparent">
               Tick 采集
             </h1>
-            <span className="text-sm text-gray-500">实时板块资金流采集</span>
-          </div>
-          <div className="flex items-center gap-3">
-            <Tag
-              style={{
-                borderRadius: 999,
-                padding: '2px 14px',
-                fontSize: 11,
-                background: connected ? 'rgba(52,211,153,0.12)' : 'rgba(107,114,128,0.12)',
-                border: `1px solid ${connected ? 'rgba(52,211,153,0.3)' : 'rgba(107,114,128,0.2)'}`,
-                color: connected ? '#34d399' : '#6b7280',
-              }}
-            >
-              <span className={`inline-block w-1.5 h-1.5 rounded-full mr-1.5 ${connected ? 'bg-emerald-400 animate-pulse' : 'bg-gray-500'}`} />
-              {connected ? '采集中' : '已停止'}
-            </Tag>
-            {showAutoCountdown && (
-              <span className="text-xs text-gray-600">
-                {nextAutoStart.label} {autoStartMin > 0 ? `${autoStartMin}m ` : ''}{autoStartSec}s 后自动采集
-              </span>
-            )}
-          </div>
-        </div>
-
-        <div className="grid grid-cols-4 gap-3 mb-4">
-          <div className="rounded-xl border border-white/[0.06] bg-black/40 backdrop-blur-md p-4 transition-all duration-300 hover:border-white/[0.12]">
-            <div className="flex items-center gap-2 mb-2">
-              <span className="relative flex h-2 w-2">
-                <span className={`inline-flex h-2 w-2 rounded-full ${connected ? 'bg-emerald-400 animate-pulse' : 'bg-gray-500'}`} />
-              </span>
-              <span className="text-xs text-gray-500">采集状态</span>
-            </div>
-            <div className={`text-lg font-semibold ${connected ? 'text-emerald-400' : 'text-gray-500'}`}>
-              {connected ? '运行中' : '未启动'}
-            </div>
-            <div className="flex items-center gap-3 text-xs text-gray-500 mt-0.5 min-h-[16px]">
-              <span className="font-mono tabular-nums w-16 text-right">{snapshot?.count ?? 0} 轮</span>
-              {snapshot?.lastTime && <span>最新 {snapshot.date} {snapshot.lastTime}</span>}
-              {!connected && <span>{error ?? '等待自动采集'}</span>}
-            </div>
-          </div>
-          <div className="rounded-xl border border-white/[0.06] bg-black/40 backdrop-blur-md p-4 transition-all duration-300 hover:border-white/[0.12]" style={{ borderLeftColor: 'rgb(244 63 94)', borderLeftWidth: 2 }}>
-            <div className="text-xs text-gray-500 mb-2">资金流入</div>
-            <div className="text-lg font-semibold text-rose-400">{upCount}</div>
-            <div className="text-xs text-gray-600 mt-0.5">
-              {sectorRows.length > 0 ? `${(upCount / sectorRows.length * 100).toFixed(1)}%` : '-'}
-            </div>
-          </div>
-          <div className="rounded-xl border border-white/[0.06] bg-black/40 backdrop-blur-md p-4 transition-all duration-300 hover:border-white/[0.12]" style={{ borderLeftColor: 'rgb(52 211 153)', borderLeftWidth: 2 }}>
-            <div className="text-xs text-gray-500 mb-2">资金流出</div>
-            <div className="text-lg font-semibold text-emerald-400">{downCount}</div>
-            <div className="text-xs text-gray-600 mt-0.5">
-              {sectorRows.length > 0 ? `${(downCount / sectorRows.length * 100).toFixed(1)}%` : '-'}
-            </div>
-          </div>
-          <div className="rounded-xl border border-white/[0.06] bg-black/40 backdrop-blur-md p-4 transition-all duration-300 hover:border-white/[0.12]" style={{ borderLeftColor: 'rgb(56 189 248)', borderLeftWidth: 2 }}>
-            <div className="text-xs text-gray-500 mb-2">最强流入</div>
-            <div className="text-lg font-semibold text-white truncate">
-              {topSector ? topSector.name : '-'}
-            </div>
-            <div className="text-xs mt-0.5 text-rose-400">
-              {topSector ? formatNet(topSector.latest.Net) : '-'}
-            </div>
-          </div>
-        </div>
-
-        <div className="rounded-xl border border-white/[0.06] bg-black/30 backdrop-blur-xl p-4 shadow-2xl mb-3">
-          <div className="flex flex-wrap items-center gap-2">
-            {!connected ? (
-              <Button
-                type="primary"
-                onClick={handleStart}
-                icon={<IconPlayArrow />}
+            <div className="flex items-center gap-1.5 rounded-lg border border-white/[0.06] bg-black/20 p-0.5">
+              <button
+                onClick={() => setMode('live')}
+                className="px-4 py-1.5 text-xs font-semibold rounded-lg transition-all"
                 style={{
-                  background: 'linear-gradient(135deg, #059669, #0d9488)',
-                  border: 'none',
-                  height: 32,
-                  fontWeight: 600,
-                  fontSize: 12,
+                  background: mode === 'live'
+                    ? 'linear-gradient(135deg, #2563eb, #0891b2)'
+                    : 'rgba(255,255,255,0.04)',
+                  color: mode === 'live' ? '#fff' : '#6b7280',
+                  border: mode === 'live' ? 'none' : '1px solid rgba(255,255,255,0.06)',
+                  boxShadow: mode === 'live' ? '0 0 12px rgba(59,130,246,0.15)' : 'none',
                 }}
               >
-                开始采集
-              </Button>
-            ) : (
-              <Button
-                status="warning"
-                onClick={handleStop}
+                实时
+              </button>
+              <button
+                onClick={() => setMode('history')}
+                className="px-4 py-1.5 text-xs font-semibold rounded-lg transition-all"
                 style={{
-                  background: 'rgba(239,68,68,0.15)',
-                  border: '1px solid rgba(239,68,68,0.3)',
-                  color: '#f87171',
-                  height: 32,
-                  fontWeight: 600,
-                  fontSize: 12,
+                  background: mode === 'history'
+                    ? 'linear-gradient(135deg, #2563eb, #0891b2)'
+                    : 'rgba(255,255,255,0.04)',
+                  color: mode === 'history' ? '#fff' : '#6b7280',
+                  border: mode === 'history' ? 'none' : '1px solid rgba(255,255,255,0.06)',
+                  boxShadow: mode === 'history' ? '0 0 12px rgba(59,130,246,0.15)' : 'none',
                 }}
               >
-                停止采集
-              </Button>
+                历史
+              </button>
+            </div>
+            {mode === 'live' && (
+              <Tag
+                style={{
+                  borderRadius: 999,
+                  padding: '2px 14px',
+                  fontSize: 11,
+                  background: connected ? 'rgba(52,211,153,0.12)' : 'rgba(107,114,128,0.12)',
+                  border: `1px solid ${connected ? 'rgba(52,211,153,0.3)' : 'rgba(107,114,128,0.2)'}`,
+                  color: connected ? '#34d399' : '#6b7280',
+                }}
+              >
+                <span className={`inline-block w-1.5 h-1.5 rounded-full mr-1.5 ${connected ? 'bg-emerald-400 animate-pulse' : 'bg-gray-500'}`} />
+                {connected ? '采集中' : '已停止'}
+              </Tag>
             )}
-            <Button
-              onClick={() => setSnapshot(null)}
-              icon={<IconDelete />}
-              style={{
-                background: 'rgba(255,255,255,0.06)',
-                border: '1px solid rgba(255,255,255,0.08)',
-                color: '#9ca3af',
-                height: 32,
-                fontSize: 12,
-              }}
-            >
-              清空
-            </Button>
-            <Button
-              onClick={copyData}
-              icon={<IconCopy />}
-              style={{
-                background: 'rgba(255,255,255,0.06)',
-                border: '1px solid rgba(255,255,255,0.08)',
-                color: '#9ca3af',
-                height: 32,
-                fontSize: 12,
-              }}
-            >
-              复制数据
-            </Button>
-            <div className="flex items-center gap-3 ml-auto">
-              <div className="w-44">
-                <Input
-                  value={filterSector}
-                  onChange={setFilterSector}
-                  placeholder="筛选板块..."
-                  style={{
-                    background: 'rgba(255,255,255,0.04)',
-                    border: '1px solid rgba(255,255,255,0.08)',
-                    color: '#fff',
-                    height: 32,
-                    fontSize: 12,
-                  }}
-                />
+          </div>
+          {mode === 'live' && showAutoCountdown && (
+            <span className="text-xs text-gray-600">
+              {nextAutoStart.label} {autoStartMin > 0 ? `${autoStartMin}m ` : ''}{autoStartSec}s 后自动采集
+            </span>
+          )}
+          {mode === 'history' && (
+            <div className="flex items-center gap-2">
+              <DatePicker
+                value={historyDate}
+                onChange={d => d && setHistoryDate(d)}
+                disabledDate={date => {
+                  const ds = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+                  return !availableDates.includes(ds);
+                }}
+              />
+            </div>
+          )}
+        </div>
+
+        {mode === 'live' && (
+          <div className="grid grid-cols-4 gap-3 mb-4">
+            <div className="rounded-xl border border-white/[0.06] bg-black/40 backdrop-blur-md p-4 transition-all duration-300 hover:border-white/[0.12]">
+              <div className="flex items-center gap-2 mb-2">
+                <span className="relative flex h-2 w-2">
+                  <span className={`inline-flex h-2 w-2 rounded-full ${connected ? 'bg-emerald-400 animate-pulse' : 'bg-gray-500'}`} />
+                </span>
+                <span className="text-xs text-gray-500">采集状态</span>
+              </div>
+              <div className={`text-lg font-semibold ${connected ? 'text-emerald-400' : 'text-gray-500'}`}>
+                {connected ? '运行中' : '未启动'}
+              </div>
+              <div className="flex items-center gap-3 text-xs text-gray-500 mt-0.5 min-h-[16px]">
+                <span className="font-mono tabular-nums w-16 text-right">{snapshot?.count ?? 0} 轮</span>
+                {snapshot?.lastTime && <span>最新 {snapshot.date} {snapshot.lastTime}</span>}
+                {!connected && <span>{error ?? '等待自动采集'}</span>}
+              </div>
+            </div>
+            <div className="rounded-xl border border-white/[0.06] bg-black/40 backdrop-blur-md p-4 transition-all duration-300 hover:border-white/[0.12]" style={{ borderLeftColor: 'rgb(244 63 94)', borderLeftWidth: 2 }}>
+              <div className="text-xs text-gray-500 mb-2">资金流入</div>
+              <div className="text-lg font-semibold text-rose-400">{upCount}</div>
+              <div className="text-xs text-gray-600 mt-0.5">
+                {sectorRows.length > 0 ? `${(upCount / sectorRows.length * 100).toFixed(1)}%` : '-'}
+              </div>
+            </div>
+            <div className="rounded-xl border border-white/[0.06] bg-black/40 backdrop-blur-md p-4 transition-all duration-300 hover:border-white/[0.12]" style={{ borderLeftColor: 'rgb(52 211 153)', borderLeftWidth: 2 }}>
+              <div className="text-xs text-gray-500 mb-2">资金流出</div>
+              <div className="text-lg font-semibold text-emerald-400">{downCount}</div>
+              <div className="text-xs text-gray-600 mt-0.5">
+                {sectorRows.length > 0 ? `${(downCount / sectorRows.length * 100).toFixed(1)}%` : '-'}
+              </div>
+            </div>
+            <div className="rounded-xl border border-white/[0.06] bg-black/40 backdrop-blur-md p-4 transition-all duration-300 hover:border-white/[0.12]" style={{ borderLeftColor: 'rgb(56 189 248)', borderLeftWidth: 2 }}>
+              <div className="text-xs text-gray-500 mb-2">最强流入</div>
+              <div className="text-lg font-semibold text-white truncate">
+                {topSector ? topSector.name : '-'}
+              </div>
+              <div className="text-xs mt-0.5 text-rose-400">
+                {topSector ? formatNet(topSector.latest.Net) : '-'}
               </div>
             </div>
           </div>
-        </div>
+        )}
+
+        {mode === 'live' && (
+          <div className="rounded-xl border border-white/[0.06] bg-black/30 backdrop-blur-xl p-4 shadow-2xl mb-3">
+            <div className="flex flex-wrap items-center gap-2">
+              {!connected ? (
+                <Button
+                  type="primary"
+                  onClick={handleStart}
+                  icon={<IconPlayArrow />}
+                  style={{
+                    background: 'linear-gradient(135deg, #059669, #0d9488)',
+                    border: 'none',
+                    height: 32,
+                    fontWeight: 600,
+                    fontSize: 12,
+                  }}
+                >
+                  开始采集
+                </Button>
+              ) : (
+                <Button
+                  status="warning"
+                  onClick={handleStop}
+                  style={{
+                    background: 'rgba(239,68,68,0.15)',
+                    border: '1px solid rgba(239,68,68,0.3)',
+                    color: '#f87171',
+                    height: 32,
+                    fontWeight: 600,
+                    fontSize: 12,
+                  }}
+                >
+                  停止采集
+                </Button>
+              )}
+              <Button
+                onClick={() => setSnapshot(null)}
+                icon={<IconDelete />}
+                style={{
+                  background: 'rgba(255,255,255,0.06)',
+                  border: '1px solid rgba(255,255,255,0.08)',
+                  color: '#9ca3af',
+                  height: 32,
+                  fontSize: 12,
+                }}
+              >
+                清空
+              </Button>
+              <Button
+                onClick={copyData}
+                icon={<IconCopy />}
+                style={{
+                  background: 'rgba(255,255,255,0.06)',
+                  border: '1px solid rgba(255,255,255,0.08)',
+                  color: '#9ca3af',
+                  height: 32,
+                  fontSize: 12,
+                }}
+              >
+                复制数据
+              </Button>
+              <div className="flex items-center gap-3 ml-auto">
+                <div className="w-44">
+                  <Input
+                    value={filterSector}
+                    onChange={setFilterSector}
+                    placeholder="筛选板块..."
+                    style={{
+                      background: 'rgba(255,255,255,0.04)',
+                      border: '1px solid rgba(255,255,255,0.08)',
+                      color: '#fff',
+                      height: 32,
+                      fontSize: 12,
+                    }}
+                  />
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {mode === 'history' && (
+          <div className="rounded-xl border border-white/[0.06] bg-black/30 backdrop-blur-xl p-4 shadow-2xl mb-3">
+            <div className="flex flex-wrap items-center gap-2">
+              <div className="flex items-center gap-2">
+                <span className="text-xs text-gray-500">当前查看</span>
+                <span className="text-xs font-mono text-cyan-300">{historyDate || '-'}</span>
+                <span className="text-xs text-gray-600">
+                  {snapshot ? `${filteredRows.length} 个板块 / ${snapshot.count} 轮` : '加载中...'}
+                </span>
+              </div>
+              <div className="flex items-center gap-3 ml-auto">
+                <div className="w-44">
+                  <Input
+                    value={filterSector}
+                    onChange={setFilterSector}
+                    placeholder="筛选板块..."
+                    style={{
+                      background: 'rgba(255,255,255,0.04)',
+                      border: '1px solid rgba(255,255,255,0.08)',
+                      color: '#fff',
+                      height: 32,
+                      fontSize: 12,
+                    }}
+                  />
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
 
         <div className="rounded-xl border border-white/[0.06] bg-black/30 backdrop-blur-xl shadow-2xl overflow-hidden">
           <div className="flex items-center justify-between px-5 py-3 border-b border-white/[0.04]">
             <div className="flex items-center gap-2">
               <IconHistory style={{ color: '#6b7280', fontSize: 14 }} />
               <span className="text-sm text-gray-400">板块资金流</span>
+              {tickDataLoading && (
+                <span className="text-[10px] text-gray-600 animate-pulse">加载中...</span>
+              )}
             </div>
             <span className="text-xs text-gray-600">{filteredRows.length} 个板块 ({snapshot?.count ?? 0} 轮)</span>
           </div>
@@ -793,20 +916,43 @@ export function TickPage() {
               <SectorTrendChart points={trendSector.points} />
             </div>
 
-            <div className="max-h-40 overflow-y-auto space-y-1">
-              {trendSector.points.map((p, i) => (
-                <div key={i} className="flex items-center justify-between px-3 py-1.5 rounded hover:bg-white/[0.03]">
-                  <span className="text-xs text-gray-500 font-mono">{p.Time}</span>
-                  <div className="flex items-center gap-4">
-                    <span className={`text-xs font-mono ${p.Net >= 0 ? 'text-rose-400' : 'text-emerald-400'}`}>
-                      {formatNet(p.Net)}
-                    </span>
-                    <span className="text-xs font-mono text-gray-400 w-14 text-right">
-                      {formatRate(p.Rate)}
-                    </span>
-                  </div>
+            <div className="rounded-lg bg-white/[0.03] p-4">
+              <div className="flex items-center justify-between mb-3">
+                <span className="text-xs text-gray-500">相关板块新闻</span>
+                {newsLoading && (
+                  <span className="text-[10px] text-gray-600 animate-pulse">搜索中...</span>
+                )}
+              </div>
+              {sectorNews.length === 0 && !newsLoading ? (
+                <p className="text-xs text-gray-600 py-3 text-center">暂无相关新闻</p>
+              ) : (
+                <div className="max-h-40 overflow-y-auto space-y-2">
+                  {sectorNews.map((news) => (
+                    <div key={news.id} className="px-2 py-1.5 rounded hover:bg-white/[0.03] transition-colors">
+                      <div className="flex items-baseline gap-2">
+                        <span className="text-[10px] text-gray-500 font-mono shrink-0">{news.ctime.replace('T', ' ').slice(5, 16)}</span>
+                        <span className="text-xs text-gray-300 leading-snug line-clamp-2">{news.title || news.brief}</span>
+                      </div>
+                      {news.sectors && (() => {
+                        try {
+                          const tags = JSON.parse(news.sectors);
+                          return Array.isArray(tags) && tags.length > 0 ? (
+                            <div className="flex flex-wrap gap-1 mt-1 ml-8">
+                              {tags.map((s: string) => (
+                                <span key={s} className="text-[9px] px-1 rounded" style={{
+                                  background: 'rgba(34,211,238,0.06)',
+                                  border: '1px solid rgba(34,211,238,0.1)',
+                                  color: '#22d3ee',
+                                }}>{s}</span>
+                              ))}
+                            </div>
+                          ) : null;
+                        } catch { return null; }
+                      })()}
+                    </div>
+                  ))}
                 </div>
-              ))}
+              )}
             </div>
           </div>
         )}
