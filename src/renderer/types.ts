@@ -51,6 +51,14 @@ export interface BloombergVideoProps {
   height?: number;
   session?: 'morning' | 'full';
   xLim?: [number, number];
+  // Voiceover TTS fields — set by Go backend when AI copywriting is available
+  titleText?: string;
+  contentText?: string;
+  titleAudioFile?: string;
+  contentAudioFile?: string;
+  titleAudioFrames?: number;
+  contentAudioFrames?: number;
+  baseAnimationFrames?: number;
 }
 
 // Multi-day Bar Chart Race types
