@@ -3,7 +3,7 @@ import {
   TrendingUp, TrendingDown, BarChart3, Activity, Clock,
   RefreshCw, Dot, ChevronRight, AlertTriangle,
   ArrowUpRight, ArrowDownRight, LineChart,
-  Download,
+  Download, X,
 } from 'lucide-react';
 import {
   LineChart as RechartsLineChart,
@@ -70,9 +70,22 @@ interface KPICardProps {
   trend?: 'up' | 'down' | 'neutral';
   icon: React.ReactNode;
   accentColor?: string;
+  onIconClick?: () => void;
 }
 
-function KPICard({ title, value, subtitle, trend, icon, accentColor }: KPICardProps) {
+function KPICard({ title, value, subtitle, trend, icon, accentColor, onIconClick }: KPICardProps) {
+  const iconEl = (
+    <div
+      className={cn(
+        'rounded-lg bg-white/5 p-2.5 text-muted-foreground',
+        onIconClick && 'cursor-pointer transition-colors hover:bg-white/10 hover:text-white',
+      )}
+      onClick={onIconClick}
+    >
+      {icon}
+    </div>
+  );
+
   return (
     <div
       className="relative overflow-hidden rounded-xl border border-white/[0.06] bg-black/40 backdrop-blur-md p-5 transition-all duration-300 hover:border-white/[0.12] hover:bg-black/50"
@@ -90,7 +103,7 @@ function KPICard({ title, value, subtitle, trend, icon, accentColor }: KPICardPr
             </p>
           )}
         </div>
-        <div className="rounded-lg bg-white/5 p-2.5 text-muted-foreground">{icon}</div>
+        {iconEl}
       </div>
     </div>
   );
@@ -219,6 +232,8 @@ export default function DashboardPage() {
   const [trendData, setTrendData] = useState<Record<string, TrendPoint[]>>({});
   const [error, setError] = useState<string | null>(null);
 
+  const [showAllSectors, setShowAllSectors] = useState(false);
+  const [sectorCategoryTab, setSectorCategoryTab] = useState<'all' | 'industry' | 'concept'>('all');
   const [sectorDate, setSectorDate] = useState('');
   const [sectorLoading, setSectorLoading] = useState(false);
   const [saveProgress, setSaveProgress] = useState('');
@@ -279,6 +294,7 @@ export default function DashboardPage() {
             clearInterval(pollRef.current!);
             setSaveProgress('');
             setSectorLoading(false);
+            loadData();
           } else if (status.status === 'error') {
             clearInterval(pollRef.current!);
             setSaveProgress('');
@@ -299,6 +315,15 @@ export default function DashboardPage() {
     marketOverview: { totalSectors: 0, inflowCount: 0, outflowCount: 0, totalNet: 0, topSector: null, worstSector: null },
     ranking: [],
   };
+
+  const industrySectors = useMemo(() => ranking.filter(s => !s.category || s.category === 'industry'), [ranking]);
+  const conceptSectors = useMemo(() => ranking.filter(s => s.category === 'concept'), [ranking]);
+
+  const filteredSectors = useMemo(() => {
+    if (sectorCategoryTab === 'industry') return industrySectors;
+    if (sectorCategoryTab === 'concept') return conceptSectors;
+    return ranking;
+  }, [ranking, industrySectors, conceptSectors, sectorCategoryTab]);
 
   const maxAbsFlow = useMemo(
     () => Math.max(...ranking.map(s => Math.abs(s.net)), 1),
@@ -429,8 +454,9 @@ export default function DashboardPage() {
           <KPICard
             title="总板块数"
             value={marketOverview.totalSectors}
-            subtitle="全市场监控"
+            subtitle={`行业 ${industrySectors.length} · 概念 ${conceptSectors.length}`}
             icon={<BarChart3 className="h-5 w-5" />}
+            onIconClick={() => setShowAllSectors(true)}
           />
           <KPICard
             title="资金净流入"
@@ -584,29 +610,61 @@ export default function DashboardPage() {
           </Card>
         </div>
 
-        {/* Row 3: Capital Flow Ranking - Full Width */}
-        <Card className="overflow-hidden border-white/[0.06] bg-black/40 backdrop-blur-md">
-          <CardHeader className="pb-2 flex flex-row items-center justify-between">
-            <CardTitle className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
-              <TrendingUp className="h-4 w-4 text-primary" />
-              资金流排行榜
-            </CardTitle>
-            <span className="text-xs text-muted-foreground font-mono">
-              共 {ranking.length} 个板块
-            </span>
-          </CardHeader>
-          <CardContent>
-            {ranking.length === 0 ? (
-              <p className="text-sm text-muted-foreground py-8 text-center">暂无数据，请先获取板块数据</p>
-            ) : (
-              <div className="grid gap-1">
-                {ranking.slice(0, 15).map((s, i) => (
-                  <RankingItem key={s.name} rank={i + 1} name={s.name} net={s.net} maxAbs={maxAbsFlow} />
-                ))}
-              </div>
-            )}
-          </CardContent>
-        </Card>
+        <div className="grid gap-4 lg:grid-cols-2">
+          <Card className="overflow-hidden border-white/[0.06] bg-black/40 backdrop-blur-md">
+            <CardHeader className="pb-2 flex flex-row items-center justify-between">
+              <CardTitle className="flex items-center gap-2 text-sm font-medium">
+                <TrendingUp className="h-4 w-4 text-rose-400" />
+                资金流入榜
+              </CardTitle>
+              <span className="text-xs text-muted-foreground font-mono">
+                {marketOverview.inflowCount} 个板块
+              </span>
+            </CardHeader>
+            <CardContent>
+              {ranking.length === 0 ? (
+                <p className="text-sm text-muted-foreground py-8 text-center">暂无数据</p>
+              ) : (
+                <div className="grid gap-1">
+                  {ranking
+                    .filter(s => s.net >= 0)
+                    .sort((a, b) => b.net - a.net)
+                    .slice(0, 10)
+                    .map((s, i) => (
+                      <RankingItem key={s.name} rank={i + 1} name={s.name} net={s.net} maxAbs={maxAbsFlow} />
+                    ))}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          <Card className="overflow-hidden border-white/[0.06] bg-black/40 backdrop-blur-md">
+            <CardHeader className="pb-2 flex flex-row items-center justify-between">
+              <CardTitle className="flex items-center gap-2 text-sm font-medium">
+                <TrendingDown className="h-4 w-4 text-emerald-400" />
+                资金流出榜
+              </CardTitle>
+              <span className="text-xs text-muted-foreground font-mono">
+                {marketOverview.outflowCount} 个板块
+              </span>
+            </CardHeader>
+            <CardContent>
+              {ranking.length === 0 ? (
+                <p className="text-sm text-muted-foreground py-8 text-center">暂无数据</p>
+              ) : (
+                <div className="grid gap-1">
+                  {ranking
+                    .filter(s => s.net < 0)
+                    .sort((a, b) => a.net - b.net)
+                    .slice(0, 10)
+                    .map((s, i) => (
+                      <RankingItem key={s.name} rank={i + 1} name={s.name} net={s.net} maxAbs={maxAbsFlow} />
+                    ))}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </div>
 
         {/* Row 4: Timeline + Sector Heat Grid */}
         <div className="grid gap-4 lg:grid-cols-2">
@@ -741,6 +799,89 @@ export default function DashboardPage() {
           <span className="font-mono">数据来源: 东方财富</span>
         </div>
       </div>
+
+      {/* 全板块弹窗 */}
+      {showAllSectors && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-4"
+          onClick={() => setShowAllSectors(false)}
+        >
+          <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" />
+          <div
+            className="relative w-full max-w-2xl max-h-[80vh] overflow-hidden rounded-2xl border border-white/[0.08] bg-[#0d1f3c] shadow-2xl"
+            onClick={e => e.stopPropagation()}
+          >
+            {/* Header */}
+            <div className="flex items-center justify-between px-6 py-4 border-b border-white/[0.06]">
+              <div className="flex items-center gap-3">
+                <BarChart3 className="h-5 w-5 text-primary" />
+                <h2 className="text-lg font-semibold text-white">全板块数据</h2>
+              </div>
+              <button
+                onClick={() => setShowAllSectors(false)}
+                className="rounded-lg p-1.5 text-muted-foreground transition-all hover:bg-white/10 hover:text-white"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+
+            {/* Category tabs */}
+            <div className="flex items-center gap-3 px-6 py-3 border-b border-white/[0.04] bg-white/[0.01]">
+              {[
+                { key: 'all' as const, label: '全部', count: ranking.length },
+                { key: 'industry' as const, label: '行业板块', count: industrySectors.length },
+                { key: 'concept' as const, label: '概念板块', count: conceptSectors.length },
+              ].map(tab => (
+                <button
+                  key={tab.key}
+                  onClick={() => setSectorCategoryTab(tab.key)}
+                  className={cn(
+                    'flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all',
+                    sectorCategoryTab === tab.key
+                      ? 'bg-primary/15 text-primary border border-primary/25'
+                      : 'text-muted-foreground hover:text-white hover:bg-white/5 border border-transparent',
+                  )}
+                >
+                  {tab.label}
+                  <span className="font-mono">{tab.count}</span>
+                </button>
+              ))}
+            </div>
+
+            {/* List */}
+            <div className="overflow-y-auto max-h-[calc(80vh-112px)] custom-scrollbar">
+              {filteredSectors.length === 0 ? (
+                <p className="text-sm text-muted-foreground py-12 text-center">暂无数据</p>
+              ) : (
+                <div className="p-2">
+                  {filteredSectors.map((s, i) => (
+                    <div key={s.name} className="group flex items-center gap-2 px-1">
+                      <RankingItem
+                        rank={i + 1}
+                        name={s.name}
+                        net={s.net}
+                        maxAbs={maxAbsFlow}
+                      />
+                      {s.category && (
+                        <span
+                          className={cn(
+                            'shrink-0 text-[10px] px-1.5 py-0.5 rounded font-medium',
+                            s.category === 'industry'
+                              ? 'text-cyan-400 bg-cyan-400/10'
+                              : 'text-amber-400 bg-amber-400/10',
+                          )}
+                        >
+                          {s.category === 'industry' ? '行' : '概'}
+                        </span>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

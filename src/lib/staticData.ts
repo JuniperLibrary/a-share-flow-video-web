@@ -114,7 +114,7 @@ export async function getDashboardData() {
 
   // Sort by net to get ranking
   const sorted = [...latestSectors].sort((a, b) => b.net - a.net);
-  const ranking = sorted.map(s => ({ name: s.name, net: s.net, rate: s.rate }));
+  const ranking = sorted.map(s => ({ name: s.name, net: s.net, rate: s.rate, category: '' }));
 
   const inflowCount = ranking.filter(s => s.net > 0).length;
   const outflowCount = ranking.filter(s => s.net < 0).length;

@@ -4,11 +4,12 @@ interface HeaderProps {
   displayDate: string;
   frame?: number;
   totalFrames?: number;
-  sentiment?: 'bullish' | 'bearish' | 'neutral';
+  sentiment?: 'bullish' | 'bearish' | 'neutral' | 'mainline';
   width?: number;
   height?: number;
   format?: 'mobile' | 'tv';
   session?: 'morning' | 'full';
+  hookText?: string;
 }
 
 const TOTAL_MINS: Record<string, number> = { morning: 120, full: 330 };
@@ -32,6 +33,7 @@ export const Header: React.FC<HeaderProps> = ({
   height = 1920,
   format = 'mobile',
   session = 'full',
+  hookText,
 }) => {
   const isTV = format === 'tv';
   const scale = isTV ? 1.2 : 1.55;
@@ -59,7 +61,7 @@ export const Header: React.FC<HeaderProps> = ({
   };
 
   const phase = getMarketPhase();
-  const sentimentColor = sentiment === 'bullish' ? '#4ade80' : sentiment === 'bearish' ? '#f87171' : '#8899aa';
+  const sentimentColor = sentiment === 'bullish' ? '#4ade80' : sentiment === 'bearish' ? '#f87171' : sentiment === 'mainline' ? '#FFD700' : '#8899aa';
   const livePulse = Math.sin(frame * 0.15) * 0.4 + 0.6;
   const blinkOpacity = Math.sin(frame * 0.3) > 0.3 ? 1 : 0.3;
 
@@ -195,6 +197,51 @@ export const Header: React.FC<HeaderProps> = ({
 
       {/* Separator line */}
       <div style={{ height: 1, background: 'linear-gradient(90deg, transparent, #2a3550, transparent)', margin: `0 ${40 * scale}px` }} />
+
+      {/* 封面钩子文字 — 前5秒大标题显示 */}
+      {hookText && frame < 150 && (
+        <div
+          style={{
+            position: 'absolute',
+            top: '45%',
+            left: 0,
+            right: 0,
+            textAlign: 'center',
+            transform: 'translateY(-50%)',
+            opacity: frame < 30 ? frame / 30 : frame > 120 ? Math.max(0, (150 - frame) / 30) : 1,
+            zIndex: 20,
+            padding: '0 40px',
+          }}
+        >
+          <div
+            style={{
+              fontSize: isTV ? 36 * scale : 48 * scale,
+              fontWeight: 700,
+              color: '#ffffff',
+              fontFamily: '"PingFang SC", "Helvetica Neue", sans-serif',
+              letterSpacing: 4,
+              lineHeight: 1.4,
+              textShadow: `0 4px 24px rgba(0,0,0,0.6), 0 0 60px ${sentimentColor}22`,
+            }}
+          >
+            {hookText}
+          </div>
+          {/* Slogan */}
+          <div
+            style={{
+              marginTop: 20 * scale,
+              fontSize: isTV ? 16 * scale : 20 * scale,
+              color: sentimentColor,
+              fontWeight: 400,
+              fontFamily: '"PingFang SC", "Helvetica Neue", sans-serif',
+              letterSpacing: 3,
+              opacity: 0.7,
+            }}
+          >
+            资金不会说谎，主线都会留下痕迹
+          </div>
+        </div>
+      )}
     </div>
   );
 };

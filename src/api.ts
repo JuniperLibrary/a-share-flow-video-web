@@ -39,10 +39,18 @@ interface DashboardResponse {
     topSector: { name: string; net: number } | null;
     worstSector: { name: string; net: number } | null;
   };
-  ranking: { name: string; net: number }[];
+  ranking: { name: string; net: number; category?: string }[];
   events: { time: string; sector: string; title: string; description: string; sentiment: string }[];
   trend: Record<string, { date: string; net: number }[]>;
   trendDates: string[];
+}
+
+interface Note {
+  id: number;
+  type: 'completed' | 'planned';
+  content: string;
+  created_at: string;
+  updated_at: string;
 }
 
 export const api = {
@@ -212,6 +220,27 @@ export const api = {
 
   getSectorsAllRange: (startDate: string, endDate: string) =>
     request<{ sectors: { date: string; code: string; name: string; net: number; rate: number }[] }>(`/api/sectors-all/range?start_date=${startDate}&end_date=${endDate}`),
+
+  getNotes: async () => {
+    return request<{ notes: Note[] }>('/api/notes');
+  },
+
+  createNote: (type: string, content: string) =>
+    request<{ ok: boolean; id: number }>('/api/notes', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ type, content }),
+    }),
+
+  updateNote: (id: number, type: string, content: string) =>
+    request<{ ok: boolean }>(`/api/notes/${id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ type, content }),
+    }),
+
+  deleteNote: (id: number) =>
+    request<{ ok: boolean }>(`/api/notes/${id}`, { method: 'DELETE' }),
 
   getNewsStatus: () =>
     request<NewsStatusResponse>('/api/news/status'),

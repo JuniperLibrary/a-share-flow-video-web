@@ -10,7 +10,7 @@ interface ChartProps {
   width?: number;
   height?: number;
   format?: 'mobile' | 'tv';
-  sentiment?: 'bullish' | 'bearish' | 'neutral';
+  sentiment?: 'bullish' | 'bearish' | 'neutral' | 'mainline';
   session?: 'morning' | 'full';
   xLim?: [number, number];
 }
@@ -314,7 +314,7 @@ export const Chart: React.FC<ChartProps> = ({
     const endX = currentIdx > 0 ? xScale(xValues[currentIdx]) : 0;
     const endY = currentIdx > 0 ? yScale(yValues[currentIdx]) : 0;
 
-    const visibleRankLimit = currentIdx < 20 ? 5 : currentIdx < 45 ? 10 : currentIdx < 80 ? 15 : 999;
+    const visibleRankLimit = currentIdx < 4 ? 10 : currentIdx < 10 ? 15 : 999;
     const showLabel = currentIdx > 8 && rankIdx < visibleRankLimit && pointR > 0;
     const showValueLabel = currentIdx > 12 && rankIdx < visibleRankLimit && pointR > 0;
     const labelPos = labelPositions.get(sector.name);

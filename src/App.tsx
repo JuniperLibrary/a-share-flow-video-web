@@ -8,6 +8,7 @@ import {
   IconSettings,
   IconFile,
   IconStar,
+  IconEdit,
 } from '@arco-design/web-react/icon';
 import DashboardPage from './pages/DashboardPage';
 import { TickPage } from './pages/TickPage';
@@ -15,17 +16,19 @@ import { GeneratePage } from './pages/GeneratePage';
 import { PreviewPage } from './pages/PreviewPage';
 import { ConfigPage } from './pages/ConfigPage';
 import { NewsPage } from './pages/NewsPage';
+import { NotesPage } from './pages/NotesPage';
 import FundTab from './fund/FundTab';
 import { api } from './api';
 
 const { Sider, Content } = Layout;
 const { Title } = Typography;
 
-type Page = 'dashboard' | 'tick' | 'generate' | 'preview' | 'config' | 'news' | 'fund';
+type Page = 'dashboard' | 'tick' | 'generate' | 'preview' | 'config' | 'news' | 'fund' | 'notes';
 
 const allNavItems: { key: Page; label: string; icon: React.ReactNode; staticOnly?: boolean }[] = [
   { key: 'dashboard', label: '仪表盘', icon: <IconDashboard /> },
   { key: 'fund', label: '基金宝', icon: <IconStar /> },
+  { key: 'notes', label: '开发笔记', icon: <IconEdit /> },
   { key: 'tick', label: 'Tick 采集', icon: <IconList />, staticOnly: true },
   { key: 'generate', label: '视频生成', icon: <IconPlayArrow />, staticOnly: true },
   { key: 'preview', label: '视频预览', icon: <IconEye />, staticOnly: true },
@@ -112,6 +115,9 @@ export default function App() {
           </div>
           <div style={{ display: page === 'fund' ? 'block' : 'none' }}>
             <FundTab />
+          </div>
+          <div style={{ display: page === 'notes' ? 'block' : 'none' }}>
+            <NotesPage />
           </div>
         </Content>
       </Layout>

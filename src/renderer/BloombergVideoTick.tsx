@@ -27,10 +27,28 @@ export const BloombergVideoTick: React.FC = () => {
     if (sectorTicks.length === 0) return 'neutral' as const;
     const lastValues = sectorTicks.map(s => s.data[s.data.length - 1] || 0);
     const negativeRatio = lastValues.filter(v => v < 0).length / lastValues.length;
+    // 主线爆发模式：龙头板块累计净流入占比超过40%
+    const topTick = [...sectorTicks].sort((a, b) => Math.abs(b.data.reduce((x, y) => x + y, 0)) - Math.abs(a.data.reduce((x, y) => x + y, 0)))[0];
+    const topNet = topTick.data.reduce((x, y) => x + y, 0);
+    const totalInflow = sectorTicks.filter(s => s.data.reduce((x, y) => x + y, 0) > 0).reduce((sum, s) => sum + s.data.reduce((x, y) => x + y, 0), 0);
+    const mainlineRatio = totalInflow > 0 ? (topNet / totalInflow) : 0;
+    if (topNet > 0 && mainlineRatio > 0.4) return 'mainline' as const;
     if (negativeRatio > 0.65) return 'bearish' as const;
     if (negativeRatio < 0.35) return 'bullish' as const;
     return 'neutral' as const;
   }, [sectorTicks]);
+
+  const hookText = React.useMemo(() => {
+    if (sectorTicks.length === 0) return undefined;
+    const sorted = [...sectorTicks].sort((a, b) => Math.abs(b.data.reduce((x, y) => x + y, 0)) - Math.abs(a.data.reduce((x, y) => x + y, 0)));
+    const top = sorted[0];
+    const totalNet = sectorTicks.reduce((sum, s) => sum + s.data.reduce((x, y) => x + y, 0), 0);
+    if (sentiment === 'mainline') {
+      const topNet = top.data.reduce((x, y) => x + y, 0);
+      return `${top.name}吸金${Math.abs(topNet).toFixed(0)}亿`;
+    }
+    return `${totalNet > 0 ? '净流入' : '净流出'}${Math.abs(totalNet).toFixed(0)}亿`;
+  }, [sectorTicks, sentiment]);
 
   const progress = frame / totalFrames;
   const activeEventSector = React.useMemo(() => {
@@ -56,7 +74,7 @@ export const BloombergVideoTick: React.FC = () => {
   return (
     <AbsoluteFill>
       <Background frame={frame} totalFrames={totalFrames} sentiment={sentiment} width={width} height={height} format={format} />
-      <Header displayDate={displayDate} frame={frame} totalFrames={totalFrames} sentiment={sentiment} width={width} height={height} format={format} session={session} />
+      <Header displayDate={displayDate} frame={frame} totalFrames={totalFrames} sentiment={sentiment} width={width} height={height} format={format} session={session} hookText={hookText} />
       <Particles frame={frame} width={width} height={height} />
 
       <TickChart

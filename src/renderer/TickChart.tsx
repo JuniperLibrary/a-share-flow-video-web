@@ -9,7 +9,7 @@ interface TickChartProps {
   width?: number;
   height?: number;
   format?: 'mobile' | 'tv';
-  sentiment?: 'bullish' | 'bearish' | 'neutral';
+  sentiment?: 'bullish' | 'bearish' | 'neutral' | 'mainline';
   session?: 'morning' | 'full';
   xLim?: [number, number];
 }

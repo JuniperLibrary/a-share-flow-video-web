@@ -11,6 +11,12 @@ interface RankingPanelProps {
   format?: 'mobile' | 'tv';
 }
 
+const PODIUM_COLORS: Record<number, { bg: string; text: string; badge: string }> = {
+  1: { bg: 'rgba(255, 215, 0, 0.08)', text: '#FFD700', badge: '🥇' },
+  2: { bg: 'rgba(192, 192, 192, 0.08)', text: '#C0C0C0', badge: '🥈' },
+  3: { bg: 'rgba(205, 127, 50, 0.08)', text: '#CD7F32', badge: '🥉' },
+};
+
 const RankingGroup: React.FC<{
   title: string;
   sectors: SectorData[];
@@ -55,8 +61,13 @@ const RankingGroup: React.FC<{
               padding: `${5 * scale}px 0`,
               opacity: Math.max(0, opacity),
               borderBottom: '1px solid rgba(42,53,80,0.15)',
-              background: isHighlighted ? `linear-gradient(90deg, ${sector.color}18, transparent)` : undefined,
+              background: isHighlighted
+                ? `linear-gradient(90deg, ${sector.color}18, transparent)`
+                : i < 3
+                  ? `linear-gradient(90deg, ${PODIUM_COLORS[i + 1].bg}, transparent)`
+                  : undefined,
               position: 'relative',
+              borderRadius: i < 3 ? 4 : 0,
             }}
           >
             {isHighlighted && (
@@ -78,14 +89,15 @@ const RankingGroup: React.FC<{
               style={{
                 fontSize: 14 * scale,
                 fontWeight: 700,
-                color: isHighlighted ? sector.color : (i < 3 ? '#aabbcc' : '#556677'),
-                width: 22 * scale,
+                color: isHighlighted ? sector.color : (i < 3 ? PODIUM_COLORS[i + 1].text : '#556677'),
+                width: 26 * scale,
                 fontVariantNumeric: 'tabular-nums' as const,
                 position: 'relative',
                 zIndex: 1,
+                textShadow: i < 3 ? `0 0 6px ${PODIUM_COLORS[i + 1].text}44` : 'none',
               }}
             >
-              {i + 1}
+              {i < 3 ? PODIUM_COLORS[i + 1].badge : i + 1}
             </span>
 
             <span

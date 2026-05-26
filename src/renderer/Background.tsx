@@ -4,7 +4,7 @@ import { interpolate } from 'remotion';
 interface BackgroundProps {
   frame: number;
   totalFrames: number;
-  sentiment?: 'bullish' | 'bearish' | 'neutral';
+  sentiment?: 'bullish' | 'bearish' | 'neutral' | 'mainline';
   width?: number;
   height?: number;
   format?: 'mobile' | 'tv';
@@ -131,7 +131,7 @@ const CornerBrackets: React.FC<{ width: number; height: number }> = ({ width, he
 };
 
 const Vignette: React.FC<{ sentiment?: string; width: number; height: number }> = ({ sentiment, width, height }) => {
-  const baseColor = sentiment === 'bearish' ? 'rgba(100,30,30,0.08)' : sentiment === 'bullish' ? 'rgba(30,100,50,0.05)' : 'rgba(20,60,120,0.06)';
+  const baseColor = sentiment === 'bearish' ? 'rgba(100,30,30,0.08)' : sentiment === 'bullish' ? 'rgba(30,100,50,0.05)' : sentiment === 'mainline' ? 'rgba(180,150,30,0.08)' : 'rgba(20,60,120,0.06)';
 
   return (
     <div
@@ -154,6 +154,8 @@ export const Background: React.FC<BackgroundProps> = ({ frame, totalFrames, sent
     ? 'linear-gradient(180deg, #080c14 0%, #0a1018 30%, #0e1520 60%, #080c14 100%)'
     : sentiment === 'bullish'
     ? 'linear-gradient(180deg, #081018 0%, #0a1420 30%, #0e1826 60%, #080f18 100%)'
+    : sentiment === 'mainline'
+    ? 'linear-gradient(180deg, #0a0810 0%, #141008 30%, #1a1508 60%, #0a0810 100%)'
     : 'linear-gradient(180deg, #081018 0%, #0B1220 30%, #101826 60%, #0A0F18 100%)';
 
   return (
