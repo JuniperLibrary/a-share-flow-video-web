@@ -1,8 +1,9 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import {
   TrendingUp, TrendingDown, BarChart3, Activity, Clock,
   RefreshCw, Dot, ChevronRight, AlertTriangle,
   ArrowUpRight, ArrowDownRight, LineChart,
+  Download,
 } from 'lucide-react';
 import {
   LineChart as RechartsLineChart,
@@ -20,6 +21,7 @@ import { Badge } from '@/components/ui/badge';
 import { cn, formatNet, netColor, getSectorColor } from '@/lib/utils';
 import type { TickEvent, TrendPoint } from '@/lib/api-dashboard';
 import { api, isStaticMode } from '@/api';
+import { DatePicker } from '@/components/ui/date-picker';
 
 function LoadingSkeleton() {
   return (
@@ -217,6 +219,17 @@ export default function DashboardPage() {
   const [trendData, setTrendData] = useState<Record<string, TrendPoint[]>>({});
   const [error, setError] = useState<string | null>(null);
 
+  const [sectorDate, setSectorDate] = useState('');
+  const [sectorLoading, setSectorLoading] = useState(false);
+  const [saveProgress, setSaveProgress] = useState('');
+  const pollRef = useRef<ReturnType<typeof setInterval>>();
+
+  useEffect(() => {
+    return () => {
+      if (pollRef.current) clearInterval(pollRef.current);
+    };
+  }, []);
+
   async function loadData() {
     setLoading(true);
     setError(null);
@@ -237,9 +250,50 @@ export default function DashboardPage() {
 
   useEffect(() => {
     loadData();
-    const iv = setInterval(loadData, 60000);
-    return () => clearInterval(iv);
   }, []);
+
+  useEffect(() => {
+    api.getSectorsAllDates().then(res => {
+      const dates: string[] = (res.dates || []).sort();
+      const initialDate = dates.length > 0 ? dates[dates.length - 1] : new Date().toISOString().slice(0, 10);
+      setSectorDate(initialDate);
+    }).catch(() => {
+      setSectorDate(new Date().toISOString().slice(0, 10));
+    });
+  }, []);
+
+  async function handleSectorFetch() {
+    if (!sectorDate) return;
+    setSectorLoading(true);
+    setSaveProgress('正在启动获取任务...');
+    try {
+      const res = await api.saveAllSectors(sectorDate);
+      const taskId = res.task_id;
+
+      pollRef.current = setInterval(async () => {
+        try {
+          const status = await api.getSaveAllStatus(taskId);
+          setSaveProgress(status.progress);
+
+          if (status.status === 'done') {
+            clearInterval(pollRef.current!);
+            setSaveProgress('');
+            setSectorLoading(false);
+          } else if (status.status === 'error') {
+            clearInterval(pollRef.current!);
+            setSaveProgress('');
+            setSectorLoading(false);
+          }
+        } catch {
+          clearInterval(pollRef.current!);
+          setSaveProgress('');
+          setSectorLoading(false);
+        }
+      }, 1000);
+    } catch {
+      setSectorLoading(false);
+    }
+  }
 
   const { marketOverview, ranking } = dashboardData || {
     marketOverview: { totalSectors: 0, inflowCount: 0, outflowCount: 0, totalNet: 0, topSector: null, worstSector: null },
@@ -325,15 +379,40 @@ export default function DashboardPage() {
               </span>
             </div>
           </div>
-          <button
-            onClick={loadData}
-            disabled={loading}
-            className="flex items-center gap-2 rounded-lg border border-white/[0.08] bg-black/30 px-4 py-2 text-sm text-muted-foreground backdrop-blur-sm transition-all hover:border-white/[0.15] hover:text-white disabled:opacity-50"
-          >
-            <RefreshCw className={cn('h-4 w-4', loading && 'animate-spin')} />
-            刷新
-          </button>
+          <div className="flex items-center gap-3">
+            <DatePicker value={sectorDate} onChange={setSectorDate} style={{ width: 140 }} />
+            <button
+              onClick={handleSectorFetch}
+              disabled={sectorLoading}
+              className="flex items-center gap-1.5 px-4 py-2 text-xs font-semibold rounded-lg transition-all"
+              style={{
+                background: sectorLoading ? 'rgba(6,182,212,0.08)' : 'linear-gradient(135deg, #0891b2, #0d9488)',
+                color: sectorLoading ? '#22d3ee' : '#fff',
+                border: 'none',
+                boxShadow: sectorLoading ? 'none' : '0 0 16px rgba(6,182,212,0.12)',
+              }}
+            >
+              <Download className="h-3.5 w-3.5" />
+              {sectorLoading ? '获取中...' : '获取并保存'}
+            </button>
+            <button
+              onClick={loadData}
+              disabled={loading}
+              className="flex items-center gap-2 rounded-lg border border-white/[0.08] bg-black/30 px-4 py-2 text-sm text-muted-foreground backdrop-blur-sm transition-all hover:border-white/[0.15] hover:text-white disabled:opacity-50"
+            >
+              <RefreshCw className={cn('h-4 w-4', loading && 'animate-spin')} />
+              刷新
+            </button>
+          </div>
         </div>
+
+        {saveProgress && (
+          <div className="flex items-center justify-end">
+            <div className="px-4 py-2 rounded-lg text-xs" style={{ background: 'rgba(6,182,212,0.08)', border: '1px solid rgba(6,182,212,0.15)', color: '#22d3ee' }}>
+              {saveProgress}
+            </div>
+          </div>
+        )}
 
         {error && (
           <div className="flex items-center gap-3 rounded-xl border border-rose-500/20 bg-rose-500/5 px-4 py-3 text-sm text-rose-400">

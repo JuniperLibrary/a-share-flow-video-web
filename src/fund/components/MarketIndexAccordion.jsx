@@ -137,6 +137,8 @@ function MiniTrendLine({ changePercent, code, className }) {
     };
   }, [code, height, innerH, innerW, pad]);
 
+  const curveColor = isDown ? '#34d399' : '#f87171';
+
   if (!realPath) {
     return (
       <svg
@@ -157,11 +159,10 @@ function MiniTrendLine({ changePercent, code, className }) {
       <path
         d={realPath}
         fill="none"
-        stroke="currentColor"
+        stroke={curveColor}
         strokeWidth="1.5"
         strokeLinecap="round"
         strokeLinejoin="round"
-        className={isDown ? 'text-[var(--success)]' : 'text-[var(--danger)]'}
       />
     </svg>
   );
@@ -169,20 +170,25 @@ function MiniTrendLine({ changePercent, code, className }) {
 
 function IndexCard({ item }) {
   const isUp = item.change >= 0;
+  const accentVar = isUp ? 'var(--danger)' : 'var(--success)';
   const colorClass = isUp ? 'text-[var(--danger)]' : 'text-[var(--success)]';
   return (
     <div
-      className="rounded-lg border border-[var(--border)] bg-[var(--card)] p-1.5 flex flex-col gap-0.5 w-full"
+      className="relative rounded-xl border border-[var(--border)] bg-[var(--card)] p-3 flex flex-col gap-1.5 w-full overflow-hidden transition-all duration-200 hover:shadow-[0_4px_20px_-4px_rgba(0,0,0,0.3)] hover:border-[var(--muted-foreground)]/30 hover:-translate-y-0.5"
     >
-      <div className="text-xs font-medium text-[var(--foreground)] truncate">{item.name}</div>
-      <div className={cn('text-sm font-semibold tabular-nums', colorClass)}>
+      <div
+        className="absolute top-0 left-0 right-0 h-[2px]"
+        style={{ backgroundColor: accentVar }}
+      />
+      <div className="text-xs font-semibold text-[var(--foreground)]/80 tracking-wide truncate uppercase">{item.name}</div>
+      <div className={cn('text-lg font-bold tabular-nums leading-none tracking-tight', colorClass)}>
         {item.price.toFixed(2)}
       </div>
-      <div className={cn('text-xs tabular-nums', colorClass)}>
+      <div className={cn('text-xs font-medium tabular-nums', colorClass)}>
         {(item.change >= 0 ? '+' : '') + item.change.toFixed(2)}{' '}
         {(item.changePercent >= 0 ? '+' : '') + item.changePercent.toFixed(2)}%
       </div>
-      <div className="mt-0.5 flex items-center justify-center opacity-80">
+      <div className="mt-0.5 flex items-center justify-center">
         <MiniTrendLine changePercent={item.changePercent} code={item.code} />
       </div>
     </div>
@@ -348,10 +354,13 @@ export default function MarketIndexAccordion({navbarHeight = 0,
     return (
       <div
         ref={rootRef}
-        className="market-index-accordion-root mt-2 mb-2 rounded-lg border border-[var(--border)] bg-[var(--card)] px-4 py-3 flex items-center justify-between"
+        className="market-index-accordion-root mt-2 mb-2 rounded-xl border border-[var(--border)] bg-[var(--card)] px-4 py-3 flex items-center justify-between"
         style={stickyStyle}
       >
-        <span className="text-sm text-[var(--muted-foreground)]">加载大盘指数…</span>
+        <div className="flex items-center gap-2">
+          <div className="w-2 h-2 rounded-full bg-[var(--primary)] animate-pulse" />
+          <span className="text-sm text-[var(--muted-foreground)]">加载大盘指数…</span>
+        </div>
       </div>
     );
   }
@@ -359,15 +368,20 @@ export default function MarketIndexAccordion({navbarHeight = 0,
   return (
     <div
       ref={rootRef}
-      className="market-index-accordion-root mt-2 mb-2 rounded-lg border border-[var(--border)] bg-[var(--card)] market-index-accordion"
+      className="market-index-accordion-root mt-2 mb-2 rounded-xl border border-[var(--border)] bg-[var(--card)] market-index-accordion"
+      data-expanded={openValue === 'indices' ? 'true' : 'false'}
       style={stickyStyle}
     >
       <style>{`
         .market-index-accordion :global([data-slot="accordion-trigger"] > svg:last-of-type) {
           display: none;
         }
-        :global([data-theme='dark'] .market-index-accordion-root) {
-          background-color: rgba(15, 23, 42);
+        .market-index-accordion-root {
+          backdrop-filter: blur(2px);
+          transition: box-shadow 0.25s ease, border-color 0.25s ease;
+        }
+        .market-index-accordion-root[data-expanded="true"] {
+          box-shadow: 0 4px 24px -8px rgba(0,0,0,0.25);
         }
         .market-index-ticker {
           overflow: hidden;
@@ -376,7 +390,7 @@ export default function MarketIndexAccordion({navbarHeight = 0,
           display: inline-flex;
           align-items: center;
           gap: 0.75rem;
-          animation: market-index-ticker-slide 0.35s ease-out;
+          animation: market-index-ticker-slide 0.4s cubic-bezier(0.16, 1, 0.3, 1);
         }
         @keyframes market-index-ticker-slide {
           0% {
@@ -388,6 +402,33 @@ export default function MarketIndexAccordion({navbarHeight = 0,
             opacity: 1;
           }
         }
+        .change-pill {
+          display: inline-flex;
+          align-items: center;
+          padding: 0 6px;
+          border-radius: 4px;
+          font-weight: 600;
+          font-size: 0.75rem;
+          line-height: 1.4;
+        }
+        .accordion-trigger-collapsed:hover {
+          background: color-mix(in srgb, var(--card) 80%, transparent);
+        }
+        .accordion-content-grid {
+          display: flex;
+          flex-wrap: wrap;
+          gap: 12px;
+        }
+        @media (max-width: 640px) {
+          .accordion-content-grid > * {
+            flex: 0 0 calc((100% - 24px) / 3);
+          }
+        }
+        @media (min-width: 641px) {
+          .accordion-content-grid > * {
+            flex: 0 0 calc((100% - 48px) / 5);
+          }
+        }
       `}</style>
       <Accordion
         type="single"
@@ -397,7 +438,7 @@ export default function MarketIndexAccordion({navbarHeight = 0,
       >
         <AccordionItem value="indices" className="border-b-0">
           <AccordionTrigger
-            className="py-2 px-4 hover:no-underline hover:bg-[var(--card)] [&[data-state=open]>svg]:rotate-90"
+            className="py-2.5 px-4 hover:no-underline [&[data-state=open]>svg]:rotate-90 accordion-trigger-collapsed rounded-xl"
             style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}
           >
             <div className="flex flex-1 items-center gap-3 min-w-0">
@@ -407,16 +448,13 @@ export default function MarketIndexAccordion({navbarHeight = 0,
                     key={current.code || current.name}
                     className="market-index-ticker-item"
                   >
-                    <span className="text-sm font-medium text-[var(--foreground)] shrink-0">
+                    <span className="text-sm font-semibold text-[var(--foreground)] shrink-0">
                       {current.name}
                     </span>
-                    <span className={cn('tabular-nums font-medium', colorClass)}>
+                    <span className={cn('tabular-nums font-semibold text-sm', colorClass)}>
                       {current.price.toFixed(2)}
                     </span>
-                    <span className={cn('tabular-nums text-sm', colorClass)}>
-                      {(current.change >= 0 ? '+' : '') + current.change.toFixed(2)}
-                    </span>
-                    <span className={cn('tabular-nums text-sm', colorClass)}>
+                    <span className={cn('change-pill', colorClass, isUp ? 'bg-[var(--danger)]/10' : 'bg-[var(--success)]/10')}>
                       {(current.changePercent >= 0 ? '+' : '') + current.changePercent.toFixed(2)}%
                     </span>
                   </div>
@@ -425,11 +463,11 @@ export default function MarketIndexAccordion({navbarHeight = 0,
                 <span className="text-sm text-[var(--muted-foreground)]">暂无指数数据</span>
               )}
             </div>
-            <div className="flex items-center gap-4 shrink-0 pl-3">
+            <div className="flex items-center gap-3 shrink-0 pl-3">
               <div
                 role="button"
                 tabIndex={openValue === 'indices' ? 0 : -1}
-                className="icon-button"
+                className="icon-button rounded-lg transition-colors duration-150"
                 style={{
                   border: 'none',
                   width: '28px',
@@ -443,8 +481,10 @@ export default function MarketIndexAccordion({navbarHeight = 0,
                   justifyContent: 'center',
                   opacity: openValue === 'indices' ? 1 : 0,
                   pointerEvents: openValue === 'indices' ? 'auto' : 'none',
-                  transition: 'opacity 0.2s ease',
+                  transition: 'opacity 0.2s ease, background-color 0.15s ease',
                 }}
+                onMouseEnter={(e) => { if (openValue === 'indices') e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.06)'; }}
+                onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = 'transparent'; }}
                 onClick={(e) => {
                   e.stopPropagation();
                   setSettingOpen(true);
@@ -469,20 +509,10 @@ export default function MarketIndexAccordion({navbarHeight = 0,
               />
             </div>
           </AccordionTrigger>
-          <AccordionContent className="px-3 pb-4 pt-0">
-            <div
-              className="flex flex-wrap w-full min-w-0"
-              style={{ gap: 12 }}
-            >
+          <AccordionContent className="px-3 pb-4 pt-1">
+            <div className="accordion-content-grid">
               {visibleIndices.map((item, i) => (
-                <div
-                  key={item.code || i}
-                  style={{
-                    flex: isMobile
-                      ? '0 0 calc((100% - 24px) / 3)'
-                      : '0 0 calc((100% - 48px) / 5)',
-                  }}
-                >
+                <div key={item.code || i}>
                   <IndexCard item={item} />
                 </div>
               ))}

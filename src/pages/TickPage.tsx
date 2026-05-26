@@ -272,9 +272,9 @@ export function TickPage() {
         }
 
         // 未在采集 — 尝试加载最近一个交易日的历史 tick 数据
-        const datesRes = await fetch(apiUrl('/api/tick/dates'));
+        const datesRes = await fetch(apiUrl('/api/dates'));
         const datesData = await datesRes.json();
-        const dates: string[] = datesData.dates || [];
+        const dates: string[] = (datesData.dates || []).map((d: any) => d.date);
         if (dates.length === 0) return;
 
         dates.sort();

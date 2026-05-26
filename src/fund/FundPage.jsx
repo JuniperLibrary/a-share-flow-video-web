@@ -33,17 +33,14 @@ import {
   CloseIcon,
   GridIcon,
   ListIcon,
-  MoonIcon,
   PlusIcon,
   SettingsIcon,
   SortIcon,
-  SunIcon,
 } from "./components/Icons";
 import UserMenu from "./components/UserMenu";
 import RefreshButton from "./components/RefreshButton";
 const UpdateChecker = dynamic(() => import('./components/UpdateChecker'), { ssr: false });
 import MarketIndexAccordion from "./components/MarketIndexAccordion";
-import { supabase, isSupabaseConfigured } from './lib/supabase';
 import { recordValuation, setValuationSeries as persistValuationSeries, getAllValuationSeries, clearFund } from './lib/valuationTimeseries';
 import {
   DAILY_EARNINGS_SCOPE_ALL,
@@ -57,14 +54,12 @@ import MobileFundTable from './components/MobileFundTable';
 import MobileBottomNav from './components/MobileBottomNav';
 import MineTab from './components/MineTab';
 import SearchFund from './components/SearchFund';
-import { useTheme } from './hooks/useTheme';
 import { useTradingDay } from './hooks/useTradingDay';
 import { useNavHeights } from './hooks/useNavHeights';
 import { useScanImport } from './hooks/useScanImport';
 import { useRefreshManager } from './hooks/useRefreshManager';
-import { useSyncManager, normalizeFundDailyEarningsScoped } from './hooks/useSyncManager';
 import { useIsMobile } from './hooks/useIsMobile';
-import {useUserStore, clearAuthUser, setAuthUser, useStorageStore, storageStore, getFundCodesSignature, DEFAULT_SORT_RULES, SORT_DISPLAY_MODES, useModalStore, useIsAnyModalOpen} from './stores';
+import {useStorageStore, storageStore, getFundCodesSignature, DEFAULT_SORT_RULES, SORT_DISPLAY_MODES, useModalStore, useIsAnyModalOpen} from './stores';
 import ModalsLayer from './components/ModalsLayer';
 
 dayjs.extend(utc);
@@ -155,144 +150,10 @@ export default function HomePage() {
   }, [fundTagRecords, funds]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-  const isLoggingOutRef = useRef(false);
-  const isExplicitLoginRef = useRef(false);
-
-  // 刷新频率状态
-  const [tempSeconds, setTempSeconds] = useState(60);
-  const [containerWidth, setContainerWidth] = useState(1200);
-  const [showMarketIndexPc, setShowMarketIndexPc] = useState(true);
-  const [showMarketIndexMobile, setShowMarketIndexMobile] = useState(true);
-  const [showGroupFundSearchPc, setShowGroupFundSearchPc] = useState(true);
-  const [showGroupFundSearchMobile, setShowGroupFundSearchMobile] = useState(true);
-  const [dynamicStylePc, setDynamicStylePc] = useState(true);
-  const [dynamicStyleMobile, setDynamicStyleMobile] = useState(true);
-  const [isGroupSummarySticky, setIsGroupSummarySticky] = useState(false);
-
-  useEffect(() => {
-    if (typeof window === 'undefined') return;
-    try {
-      const parsed = customSettings;
-      if (!parsed || typeof parsed !== 'object') return;
-      const w = parsed?.pcContainerWidth;
-      const num = Number(w);
-      if (Number.isFinite(num)) {
-        // 在移动端时不使用 window.innerWidth 裁剪，防止覆盖 PC 端个性化宽度
-        const maxWidth = window.matchMedia('(max-width: 640px)').matches ? 99999 : window.innerWidth;
-        setContainerWidth(Math.min(maxWidth, Math.max(600, num)));
-      }
-      if (typeof parsed?.showMarketIndexPc === 'boolean') setShowMarketIndexPc(parsed.showMarketIndexPc);
-      if (typeof parsed?.showMarketIndexMobile === 'boolean') setShowMarketIndexMobile(parsed.showMarketIndexMobile);
-      if (typeof parsed?.showGroupFundSearchPc === 'boolean') setShowGroupFundSearchPc(parsed.showGroupFundSearchPc);
-      if (typeof parsed?.showGroupFundSearchMobile === 'boolean') setShowGroupFundSearchMobile(parsed.showGroupFundSearchMobile);
-      if (typeof parsed?.dynamicStylePc === 'boolean') setDynamicStylePc(parsed.dynamicStylePc);
-      if (typeof parsed?.dynamicStyleMobile === 'boolean') setDynamicStyleMobile(parsed.dynamicStyleMobile);
-    } catch { }
-  }, [customSettings]);
-
-  // 自选状态
   const [currentTab, setCurrentTab] = useState('all');
-  const [isPending, startTransition] = useTransition();
-  const hasLocalTabInitRef = useRef(false);
-
-  // 调用 store 的 initSort，在 mount 时恢复持久化的排序偏好
-  useEffect(() => {
-    if (typeof window !== 'undefined') {
-      initSort();
-    }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  // 当用户关闭某个排序规则时，如果当前 sortBy 不再可用，则自动切换到第一个启用的规则
-  useEffect(() => {
-    const enabledRules = (sortRules || []).filter((r) => r.enabled);
-    const enabledIds = enabledRules.map((r) => r.id);
-    if (!enabledIds.length) {
-      // 至少保证默认存在
-      setSortRules(DEFAULT_SORT_RULES);
-      setSortBy('default');
-      return;
-    }
-    if (!enabledIds.includes(sortBy)) {
-      setSortBy(enabledIds[0]);
-    }
-  }, [sortRules, sortBy]);
-
-  // 视图模式
-  const [viewMode, setViewMode] = useState('list'); // card, list
-  // 全局隐藏金额状态（影响分组汇总、列表和卡片）
-  const [maskAmounts, setMaskAmounts] = useState(false);
-
-  // 用户认证状态（Supabase 会话仍由客户端持久化；用户信息由 zustand 全局管理）
-  const user = useUserStore((s) => s.user);
-  const userAvatar = useMemo(() => {
-    if (!user?.id) return '';
-    return createAvatar(identicon, {
-      seed: user.id,
-      size: 80
-    }).toDataUri();
-  }, [user?.id]);
-
-  // 搜索相关状态
-  const [searchTerm, setSearchTerm] = useState('');
-  const deferredSearchTerm = useDeferredValue(searchTerm);
-  const [isSearchFocused, setIsSearchFocused] = useState(false);
-  const [searchResults, setSearchResults] = useState([]);
-  const [selectedFunds, setSelectedFunds] = useState([]);
-  const [isSearching, setIsSearching] = useState(false);
-  const searchTimeoutRef = useRef(null);
-  const dropdownRef = useRef(null);
-  const inputRef = useRef(null);
-  const [showDropdown, setShowDropdown] = useState(false);
-
-  // 分组内基金列表搜索（点击按钮后才应用）
-  const [groupFundSearchTerm, setGroupFundSearchTerm] = useState('');
-  const deferredGroupFundSearchTerm = useDeferredValue(groupFundSearchTerm);
-
-  // --- 主题管理（抽离到 useTheme）---
-  const { theme, showThemeTransition, setShowThemeTransition, handleThemeToggle } = useTheme();
-
-  // 动态计算 Navbar 和 FilterBar 高度（抽离到 useNavHeights）
-  // 注意：isMobile 在此处尚未声明，shouldShowMarketIndex 由 page.jsx 内独立 useEffect 处理
-  const containerRef = useRef(null);
-  const {
-    navbarRef,
-    filterBarRef,
-    navbarHeight,
-    filterBarHeight,
-  } = useNavHeights({ groups, currentTab });
-
-  const handleMobileSearchClick = (e) => {
-    e?.preventDefault();
-    e?.stopPropagation();
-    setIsSearchFocused(true);
-    // 等待动画完成后聚焦，避免 iOS 键盘弹出问题
-    setTimeout(() => {
-      inputRef.current?.focus();
-    }, 350);
-  };
-
-  const [percentModes, setPercentModes] = useState({}); // { [code]: boolean }
-  const [todayPercentModes, setTodayPercentModes] = useState({}); // { [code]: boolean }
-
-
-  const tabsRef = useRef(null);
-
-  // ---- Modal store setter compatibility wrappers ----
-  const _ms = useModalStore.setState;
-  const _gs = useModalStore.getState;
-  const setSettingsOpen = (v) => _ms({ settingsOpen: typeof v === 'function' ? v(_gs().settingsOpen) : v });
-  const setGroupModalOpen = (v) => _ms({ groupModalOpen: typeof v === 'function' ? v(_gs().groupModalOpen) : v });
-  const setGroupManageOpen = (v) => _ms({ groupManageOpen: typeof v === 'function' ? v(_gs().groupManageOpen) : v });
-  const setAddFundToGroupOpen = (v) => _ms({ addFundToGroupOpen: typeof v === 'function' ? v(_gs().addFundToGroupOpen) : v });
-  const setSortSettingOpen = (v) => _ms({ sortSettingOpen: typeof v === 'function' ? v(_gs().sortSettingOpen) : v });
-  const setLoginModalOpen = (v) => _ms({ loginModalOpen: typeof v === 'function' ? v(_gs().loginModalOpen) : v });
-  const setLoginInitialError = (v) => _ms({ loginInitialError: typeof v === 'function' ? v(_gs().loginInitialError) : v });
-  const setFeedbackOpen = (v) => _ms({ feedbackOpen: typeof v === 'function' ? v(_gs().feedbackOpen) : v });
-  const setFeedbackNonce = (v) => _ms({ feedbackNonce: typeof v === 'function' ? v(_gs().feedbackNonce) : v });
-  const setWeChatOpen = (v) => _ms({ weChatOpen: typeof v === 'function' ? v(_gs().weChatOpen) : v });
-  const setDonateOpen = (v) => _ms({ donateOpen: typeof v === 'function' ? v(_gs().donateOpen) : v });
-  const setIsLogoutConfirmOpen = (v) => _ms({ isLogoutConfirmOpen: typeof v === 'function' ? v(_gs().isLogoutConfirmOpen) : v });
+  const { navbarRef, filterBarRef, navbarHeight, filterBarHeight } = useNavHeights({ groups, currentTab });
+  const [feedbackOpen, setFeedbackOpen] = useState(false);
+  const [feedbackNonce, setFeedbackNonce] = useState(0);
   const setPortfolioEarningsOpen = (v) => _ms({ portfolioEarningsOpen: typeof v === 'function' ? v(_gs().portfolioEarningsOpen) : v });
   const setMobileFundDrawerOpen = (v) => _ms({ mobileFundDrawerOpen: typeof v === 'function' ? v(_gs().mobileFundDrawerOpen) : v });
   const setTutorialDrawerOpen = (v) => _ms({ tutorialDrawerOpen: typeof v === 'function' ? v(_gs().tutorialDrawerOpen) : v });
@@ -322,10 +183,45 @@ export default function HomePage() {
   const mobileBatchClearSelectionRef = useRef(null); // 由 MobileFundTable 注入，批量删除二次确认成功后退出编辑态
 
   const isSchedulingDcaRef = useRef(false);
+  const hasLocalTabInitRef = useRef(false);
 
   const todayStr = formatDate();
 
+  const [dynamicStylePc, setDynamicStylePc] = useState(true);
+  const [dynamicStyleMobile, setDynamicStyleMobile] = useState(true);
+  const [showMarketIndexPc, setShowMarketIndexPc] = useState(true);
+  const [showMarketIndexMobile, setShowMarketIndexMobile] = useState(true);
+  const [showGroupFundSearchPc, setShowGroupFundSearchPc] = useState(false);
+  const [showGroupFundSearchMobile, setShowGroupFundSearchMobile] = useState(false);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [deferredSearchTerm, setDeferredSearchTerm] = useState('');
+  const [searchResults, setSearchResults] = useState([]);
+  const [isSearching, setIsSearching] = useState(false);
+  const [showDropdown, setShowDropdown] = useState(false);
+  const [groupFundSearchTerm, setGroupFundSearchTerm] = useState('');
+  const [deferredGroupFundSearchTerm, setDeferredGroupFundSearchTerm] = useState('');
+  const [isSearchFocused, setIsSearchFocused] = useState(false);
+  const [selectedFunds, setSelectedFunds] = useState([]);
+  const inputRef = useRef(null);
+  const containerRef = useRef(null);
+  const dropdownRef = useRef(null);
+  const tabsRef = useRef(null);
+  const [containerWidth, setContainerWidth] = useState(1200);
+  const [tempSeconds, setTempSeconds] = useState(Math.round(30000 / 1000));
+  const [viewMode, setViewMode] = useState('card');
+  const [percentModes, setPercentModes] = useState({});
+  const [todayPercentModes, setTodayPercentModes] = useState({});
+  const [groupManageOpen, setGroupManageOpen] = useState(false);
+  const [sortSettingOpen, setSortSettingOpen] = useState(false);
+  const [donateOpen, setDonateOpen] = useState(false);
+  const [isGroupSummarySticky, setIsGroupSummarySticky] = useState(false);
+  const [maskAmounts, setMaskAmounts] = useState(false);
+  const [groupModalOpen, setGroupModalOpen] = useState(false);
+  const [addFundToGroupOpen, setAddFundToGroupOpen] = useState(false);
+  const _ms = useModalStore.setState;
+  const _gs = useModalStore.getState;
   const isMobile = useIsMobile();
+  const setSettingsOpen = (v) => _ms({ settingsOpen: typeof v === 'function' ? v(_gs().settingsOpen) : v });
 
   useEffect(() => {
     if (typeof document !== 'undefined') {
@@ -2247,14 +2143,6 @@ export default function HomePage() {
 
   // 定投计划自动生成买入队列的逻辑会在 storageHelper 定义之后实现
 
-  const handleOpenLogin = () => {
-    if (!isSupabaseConfigured) {
-      showToast('未配置 Supabase，无法登录', 'error');
-      return;
-    }
-    setLoginModalOpen(true);
-  };
-
   const {
     setScanConfirmModalOpen,
     scannedFunds, setScannedFunds,
@@ -2280,24 +2168,19 @@ export default function HomePage() {
   });
 
   const refreshAllRef = useRef(null);
-  const {
-    isSyncing,
-    lastSyncTime,
-    scheduleSync,
-    syncUserConfig,
-    fetchCloudConfig,
-    applyCloudConfig,
-    handleSyncLocalConfig,
-    triggerCustomSettingsSync,
-    skipSyncRef,
-    deviceConflictModalOpenRef,
-    storageHelper,
-  } = useSyncManager({
-    showToast,
-    refreshAllRef,
-    setTempSeconds,
-    setFundTagRecords,
-  });
+  const deviceConflictModalOpenRef = useRef(false);
+  const storageHelper = {
+    getItem: (key, defaultValue) => {
+      try { const v = localStorage.getItem(key); return v ? JSON.parse(v) : defaultValue; } catch { return defaultValue; }
+    },
+    setItem: (key, value) => {
+      try { localStorage.setItem(key, JSON.stringify(value)); } catch {}
+    },
+    removeItem: (key) => {
+      try { localStorage.removeItem(key); } catch {}
+    },
+  };
+  const triggerCustomSettingsSync = useCallback(() => {}, []);
 
   useEffect(() => {
     const handleClickOutside = (event) => {
@@ -3123,14 +3006,7 @@ export default function HomePage() {
       initDcaPlans();
       initCustomSettings();
       initFundDailyEarnings();
-      try {        // 已登录用户：不在此处调用 refreshAll，等 fetchCloudConfig 完成后由 applyCloudConfig 统一刷新
-        let shouldRefreshFromLocal = true;
-        if (isSupabaseConfigured) {
-          const { data, error } = await supabase.auth.getSession();
-          if (!cancelled && !error && data?.session?.user) {
-            shouldRefreshFromLocal = false;
-          }
-        }
+      try {
         if (cancelled) return;
 
         const saved = storageStore.getItem('funds', []);
@@ -3156,7 +3032,7 @@ export default function HomePage() {
           const cleanedFunds = deduped.map(stripLegacyTagsFromFundObject);
           setFundTagRecords(normalizedTags);
           const codes = Array.from(new Set(cleanedFunds.map((f) => f.code)));
-          if (codes.length && shouldRefreshFromLocal) refreshAll(codes);
+          if (codes.length) refreshAll(codes);
         } else {
           try {
             const t = storageStore.getItem('tags', []);
@@ -3219,10 +3095,6 @@ export default function HomePage() {
       if (JSON.stringify(migratedDca) !== JSON.stringify(dcaPlans)) {
         setDcaPlans(migratedDca);
       }
-      const savedTheme = storageStore.getItem('theme');
-      if (savedTheme === 'light' || savedTheme === 'dark') {
-        setTheme(savedTheme);
-      }
       } catch { }
       if (!cancelled) {
         hasLocalTabInitRef.current = true;
@@ -3230,7 +3102,7 @@ export default function HomePage() {
     };
     init();
     return () => { cancelled = true; };
-  }, [isSupabaseConfigured]);
+  }, []);
 
   // 切换分组后，页面自动回到顶部（跳过首次初始化恢复）
   useEffect(() => {
@@ -3248,6 +3120,27 @@ export default function HomePage() {
     });
   }, [holdings, groups]);
 
+  // 搜索防抖
+  useEffect(() => {
+    const t = setTimeout(() => setDeferredSearchTerm(searchTerm), 300);
+    return () => clearTimeout(t);
+  }, [searchTerm]);
+
+  // 分组内搜索防抖
+  useEffect(() => {
+    const t = setTimeout(() => setDeferredGroupFundSearchTerm(groupFundSearchTerm), 300);
+    return () => clearTimeout(t);
+  }, [groupFundSearchTerm]);
+
+  useEffect(() => {
+    if (!hasLocalTabInitRef.current) return;
+    setGroupHoldings((prev) => {
+      const { next, changed } = seedGroupHoldingsFromGlobal(holdings, groups, prev);
+      if (!changed) return prev;
+      return next;
+    });
+  }, [holdings, groups]);
+
   // 记录用户当前选择的分组（仅本地存储，不同步云端）
   useEffect(() => {
     if (!hasLocalTabInitRef.current) return;
@@ -3256,155 +3149,7 @@ export default function HomePage() {
     } catch { }
   }, [currentTab]);
 
-  // 主题同步：已由 useTheme hook 内部的 useEffect 处理，此处无需重复
-
-  // 初始化认证状态监听
-  useEffect(() => {
-    if (!isSupabaseConfigured) {
-      clearAuthUser();
-      return;
-    }
-    const clearAuthState = () => {
-      clearAuthUser();
-      skipSyncRef.current = false;
-    };
-
-    const handleSession = async (session, event, isExplicitLogin = false) => {
-      if (!session?.user) {
-        if (event === 'SIGNED_OUT' && !isLoggingOutRef.current) {
-          setLoginInitialError('会话已过期，请重新登录');
-          setLoginModalOpen(true);
-        }
-        isLoggingOutRef.current = false;
-        clearAuthState();
-        skipSyncRef.current = false;
-        return;
-      }
-      if (session.expires_at && session.expires_at * 1000 <= Date.now()) {
-        isLoggingOutRef.current = true;
-        await supabase.auth.signOut({ scope: 'local' });
-        try {
-          const storageKeys = Object.keys(localStorage);
-          storageKeys.forEach((key) => {
-            if (key === 'supabase.auth.token' || (key.startsWith('sb-') && key.endsWith('-auth-token'))) {
-              storageHelper.removeItem(key);
-            }
-          });
-        } catch { }
-        try {
-          const sessionKeys = Object.keys(sessionStorage);
-          sessionKeys.forEach((key) => {
-            if (key === 'supabase.auth.token' || (key.startsWith('sb-') && key.endsWith('-auth-token'))) {
-              sessionStorage.removeItem(key);
-            }
-          });
-        } catch { }
-        clearAuthState();
-        setLoginInitialError('会话已过期，请重新登录');
-        showToast('会话已过期，请重新登录', 'error');
-        setLoginModalOpen(true);
-        return;
-      }
-      setAuthUser(session.user);
-      if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED' || event === 'INITIAL_SESSION') {
-        setLoginModalOpen(false);
-        setLoginInitialError('');
-      }
-      // 仅在明确的登录动作（SIGNED_IN）时检查冲突；INITIAL_SESSION（刷新页面等）不检查，直接以云端为准
-      fetchCloudConfig(session.user.id, isExplicitLogin);
-    };
-
-    supabase.auth.getSession().then(async ({ data, error }) => {
-      if (error) {
-        clearAuthState();
-        return;
-      }
-      await handleSession(data?.session ?? null, 'INITIAL_SESSION');
-    });
-
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
-      // INITIAL_SESSION 会由 getSession() 主动触发，这里不再重复处理
-      if (event === 'INITIAL_SESSION') return;
-      const isExplicitLogin = event === 'SIGNED_IN' && isExplicitLoginRef.current;
-      await handleSession(session ?? null, event, isExplicitLogin);
-      if (event === 'SIGNED_IN') {
-        isExplicitLoginRef.current = false;
-      }
-    });
-
-    return () => subscription.unsubscribe();
-  }, []);
-
-  // // 实时同步
-  // useEffect(() => {
-  //   if (!isSupabaseConfigured || !user?.id) return;
-  //   const deviceId = deviceIdRef.current;
-  //   if (!deviceId) return; // 确保设备ID已初始化
-  //
-  //   const channel = supabase
-  //     .channel(`user-configs-${user.id}`)
-  //     .on('postgres_changes', { event: '*', schema: 'public', table: 'user_configs', filter: `last_device_id=neq.${deviceId}` }, async (payload) => {
-  //       if (deviceConflictModalOpenRef.current) return; // 如果有拦截弹窗，忽略实时推送，防止覆盖本地数据
-  //       if (payload.eventType !== 'INSERT' && payload.eventType !== 'UPDATE') return;
-  //       const incoming = payload?.new?.data;
-  //       if (!isPlainObject(incoming)) return;
-  //       const incomingDeviceId = incoming?._syncMeta?.deviceId ? String(incoming._syncMeta.deviceId) : '';
-  //       if (incomingDeviceId && deviceIdRef.current && incomingDeviceId === deviceIdRef.current) return;
-  //       const incomingComparable = getComparablePayload(incoming);
-  //       if (!incomingComparable || incomingComparable === lastSyncedRef.current) return;
-  //       await applyCloudConfig(incoming, payload.new.updated_at);
-  //     })
-  //     .subscribe();
-  //   return () => {
-  //     supabase.removeChannel(channel);
-  //   };
-  // }, [user?.id]);
-
-  // 登出
-  const handleLogout = async () => {
-    isLoggingOutRef.current = true;
-    if (!isSupabaseConfigured) {
-      setLoginModalOpen(false);
-      setLoginInitialError('');
-      clearAuthUser();
-      return;
-    }
-    try {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (session) {
-        const { error } = await supabase.auth.signOut({ scope: 'local' });
-        if (error && error.code !== 'session_not_found') {
-          throw error;
-        }
-      }
-    } catch (err) {
-      showToast(err.message, 'error')
-      console.error('登出失败', err);
-    } finally {
-      try {
-        await supabase.auth.signOut({ scope: 'local' });
-      } catch { }
-      try {
-        const storageKeys = Object.keys(localStorage);
-        storageKeys.forEach((key) => {
-          if (key === 'supabase.auth.token' || (key.startsWith('sb-') && key.endsWith('-auth-token'))) {
-            storageHelper.removeItem(key);
-          }
-        });
-      } catch { }
-      try {
-        const sessionKeys = Object.keys(sessionStorage);
-        sessionKeys.forEach((key) => {
-          if (key === 'supabase.auth.token' || (key.startsWith('sb-') && key.endsWith('-auth-token'))) {
-            sessionStorage.removeItem(key);
-          }
-        });
-      } catch { }
-      setLoginModalOpen(false);
-      setLoginInitialError('');
-      clearAuthUser();
-    }
-  };
+      // 主题固定为暗色，已移除主题切换功能
 
   useEffect(() => {
     const val = String(deferredSearchTerm ?? '').trim();
@@ -4842,7 +4587,6 @@ export default function HomePage() {
       collapsedTrends,
       collapsedEarnings,
       transactions: transactionsForTab,
-      theme,
       isTradingDay,
       getHoldingProfit: getHoldingProfitForTab,
       onToggleFavorite: toggleFavorite,
@@ -4876,7 +4620,6 @@ export default function HomePage() {
     collapsedTrends,
     collapsedEarnings,
     transactionsForTab,
-    theme,
     isTradingDay,
     getHoldingProfitForTab,
     toggleFavorite,
@@ -4908,7 +4651,6 @@ export default function HomePage() {
     handleUpdateGroups,
     handleAddFundsToGroup,
     handleDataSourceSelect,
-    handleSyncLocalConfig,
     handleSaveFundTags,
     handleAddPoolTag,
     handleDeleteGlobalTag,
@@ -4919,9 +4661,6 @@ export default function HomePage() {
     removeFund,
     removeFundsBulk,
     stripManyFundsFromGroupScope,
-    applyCloudConfig: (data) => { applyCloudConfig(data); },
-    syncUserConfig,
-    fetchCloudConfig: (userId, isInitialSync, remoteData, isPartial, opts) => fetchCloudConfig?.(userId, isInitialSync, remoteData, isPartial, opts),
     refreshAll: (codes) => refreshAll?.(codes),
     showToast,
     cancelScan,
@@ -4949,7 +4688,6 @@ export default function HomePage() {
     selectedScannedCodes: selectedScannedCodes ?? new Set(),
     isOcrScan: isOcrScan ?? false,
     refreshing,
-    user,
     portfolioDailySeries,
     currentTab,
     // Settings
@@ -4977,9 +4715,7 @@ export default function HomePage() {
     fundDetailDialogCloseRef,
     pcBatchClearSelectionRef,
     mobileBatchClearSelectionRef,
-    skipSyncRef,
     refreshCycleStartRef,
-    isExplicitLoginRef,
     // Setters
     setPendingTrades,
     setHoldings,
@@ -4993,24 +4729,6 @@ export default function HomePage() {
 
   return (
     <div ref={containerRef} className={containerClassName} style={{ width: isMobile ? '100%' : containerWidth }}>
-      <AnimatePresence>
-        {showThemeTransition && (
-          <motion.div
-            className="theme-transition-overlay"
-            initial={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            transition={{ duration: 0.2 }}
-          >
-            <motion.div
-              className="theme-transition-circle"
-              initial={{ scale: 0, opacity: 0.5 }}
-              animate={{ scale: 2.5, opacity: 0 }}
-              transition={{ duration: 1, ease: [0.22, 1, 0.36, 1] }}
-              onAnimationComplete={() => setShowThemeTransition(false)}
-            />
-          </motion.div>
-        )}
-      </AnimatePresence>
       <div
         className="mobile-main-tab-panel mobile-main-tab-panel--home"
         style={{ display: mobileHomeTabVisible ? 'contents' : 'none' }}
@@ -5026,51 +4744,16 @@ export default function HomePage() {
               width: 24,
               height: 24,
               marginRight: 4,
-              position: 'relative',
               display: 'inline-flex',
               alignItems: 'center',
               justifyContent: 'center',
-              overflow: 'hidden',
             }}
-            title={isSyncing ? '正在同步到云端...' : undefined}
           >
-            {/* 同步中图标 */}
-            <svg
-              width="20"
-              height="20"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              style={{
-                position: 'absolute',
-                inset: 0,
-                margin: 'auto',
-                opacity: isSyncing ? 1 : 0,
-                transform: isSyncing ? 'translateY(0px)' : 'translateY(4px)',
-                transition: 'opacity 0.25s ease, transform 0.25s ease',
-              }}
-            >
-              <path d="M4 14.899A7 7 0 1 1 15.71 8h1.79a4.5 4.5 0 0 1 2.5 8.242" stroke="var(--primary)" />
-              <path d="M12 12v9" stroke="var(--accent)" />
-              <path d="m16 16-4-4-4 4" stroke="var(--accent)" />
-            </svg>
-            {/* 默认图标 */}
             <svg
               width="24"
               height="24"
               viewBox="0 0 24 24"
               fill="none"
-              style={{
-                position: 'absolute',
-                inset: 0,
-                margin: 'auto',
-                opacity: isSyncing ? 0 : 1,
-                transform: isSyncing ? 'translateY(-4px)' : 'translateY(0px)',
-                transition: 'opacity 0.25s ease, transform 0.25s ease',
-              }}
             >
               <circle cx="12" cy="12" r="10" stroke="var(--accent)" strokeWidth="2" />
               <path d="M5 14c2-4 7-6 14-5" stroke="var(--primary)" strokeWidth="2" />
@@ -5203,26 +4886,9 @@ export default function HomePage() {
             fundsLength={funds.length}
             refreshCycleStartRef={refreshCycleStartRef}
           />
-          <button
-            className="icon-button"
-            aria-label={theme === 'dark' ? '切换到亮色主题' : '切换到暗色主题'}
-            onClick={handleThemeToggle}
-            title={theme === 'dark' ? '亮色' : '暗色'}
-          >
-            {theme === 'dark' ? <SunIcon width="18" height="18" /> : <MoonIcon width="18" height="18" />}
-          </button>
           <UserMenu
-            user={user}
-            userAvatar={userAvatar}
-            navbarHeight={navbarHeight}
-            lastSyncTime={lastSyncTime}
-            isSyncing={isSyncing}
-            onSync={() => user?.id && syncUserConfig(user.id)}
             onOpenSettings={() => setSettingsOpen(true)}
             onOpenPortfolioEarnings={() => setPortfolioEarningsOpen(true)}
-            onOpenLogin={handleOpenLogin}
-            onLogout={handleLogout}
-            onLogoutConfirmOpenChange={setIsLogoutConfirmOpen}
             onTutorial={() => {
               if (isMobile) {
                 setTutorialDrawerOpen(true);
@@ -5582,7 +5248,6 @@ export default function HomePage() {
                               <PcFundTable
                                 stickyTop={navbarHeight + filterBarHeight}
                                 data={pcFundTableData}
-                                relatedSectorSessionKey={user?.id ?? ''}
                                 currentTab={currentTab}
                                 groups={groups}
                                 favorites={favorites}
@@ -5622,7 +5287,6 @@ export default function HomePage() {
                     {viewMode === 'list' && isMobile && (
                       <MobileFundTable
                         data={pcFundTableData}
-                        relatedSectorSessionKey={user?.id ?? ''}
                         currentTab={currentTab}
                         groups={groups}
                         onMoveFunds={handleMoveFunds}
@@ -5689,7 +5353,6 @@ export default function HomePage() {
                               collapsedTrends={collapsedTrends}
                               collapsedEarnings={collapsedEarnings}
                               transactions={transactionsForTab}
-                              theme={theme}
                               isTradingDay={isTradingDay}
                               getHoldingProfit={getHoldingProfitForTab}
                               onToggleFavorite={toggleFavorite}
@@ -5769,69 +5432,11 @@ export default function HomePage() {
         onChange={handleFilesUpload}
       />
 
-      <div className="footer">
-          {!isMobile && (
-            <>
-              <p style={{ marginBottom: 8 }}>数据源：实时估值与重仓直连东方财富，仅供个人学习及参考使用。数据可能存在延迟，不作为任何投资建议</p>
-              <p style={{ marginBottom: 12 }}>注：估算数据与真实结算数据会有1%左右误差，非股票型基金误差较大</p>
-              <div style={{ marginTop: 12, opacity: 0.8, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8 }}>
-                <p style={{ margin: 0 }}>
-                  遇到任何问题或需求建议可
-                  <button
-                    className="link-button"
-                    onClick={() => {
-                      if (!user?.id) {
-                        sonnerToast.error('请先登录后再提交反馈');
-                        return;
-                      }
-                      setFeedbackNonce((n) => n + 1);
-                      setFeedbackOpen(true);
-                    }}
-                    style={{ background: 'none', border: 'none', color: 'var(--primary)', cursor: 'pointer', padding: '0 4px', textDecoration: 'underline', fontSize: 'inherit', fontWeight: 600 }}
-                  >
-                    点此提交反馈
-                  </button>
-                </p>
-                <button
-                  onClick={() => setDonateOpen(true)}
-                  style={{
-                    background: 'transparent',
-                    border: 'none',
-                    color: 'var(--muted)',
-                    fontSize: '12px',
-                    cursor: 'pointer',
-                    display: 'inline-flex',
-                    alignItems: 'center',
-                    gap: 4,
-                    padding: '4px 8px',
-                    borderRadius: '6px',
-                    transition: 'all 0.2s ease'
-                  }}
-                  onMouseEnter={(e) => {
-                    e.currentTarget.style.color = 'var(--primary)';
-                    e.currentTarget.style.background = 'rgba(255, 255, 255, 0.05)';
-                  }}
-                  onMouseLeave={(e) => {
-                    e.currentTarget.style.color = 'var(--muted)';
-                    e.currentTarget.style.background = 'transparent';
-                  }}
-                >
-                  <span>☕</span>
-                  <span>点此请作者喝杯咖啡</span>
-                </button>
-              </div>
-            </>
-          )}
-        </div>
       </>
       </div>
       {isMobile && (
         <MineTab
           visible={mobileMainTab === 'mine'}
-          user={user}
-          userAvatar={userAvatar}
-          lastSyncDisplay={lastSyncTime ? dayjs(lastSyncTime).format('MM-DD HH:mm') : null}
-          onLogin={handleOpenLogin}
           onMyEarnings={() => setPortfolioEarningsOpen(true)}
           onTutorial={() => {
             if (isMobile) {
@@ -5842,10 +5447,6 @@ export default function HomePage() {
           }}
           onUpdateLog={() => setUpdateLogOpen(true)}
           onFeedback={() => {
-            if (!user?.id) {
-              sonnerToast.error('请先登录后再提交反馈');
-              return;
-            }
             setFeedbackNonce((n) => n + 1);
             setFeedbackOpen(true);
           }}

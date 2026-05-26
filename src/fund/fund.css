@@ -21,6 +21,7 @@ html {
 :root {
   --bg: #0f172a;
   --card: #111827;
+  --card-hover: #1a1f32;
   --text: #e5e7eb;
   --muted: #9ca3af;
   --primary: #22d3ee;
@@ -28,10 +29,16 @@ html {
   --success: #34d399;
   --danger: #f87171;
   --border: #1f2937;
+  --border-accent: #2a3a4a;
   --table-pinned-header-bg: #2a394b;
   --table-row-hover-bg: #2a394b;
   --table-row-alt-bg: #1a2535;
-  --radius: 0.625rem;
+  --radius: 0.65rem;
+  --radius-lg: 0.85rem;
+  --radius-xl: 1rem;
+  --shadow-sm: 0 1px 3px rgba(0,0,0,0.3);
+  --shadow-md: 0 4px 16px rgba(0,0,0,0.3);
+  --shadow-lg: 0 8px 32px rgba(0,0,0,0.35);
   --background: #0f172a;
   --foreground: #e5e7eb;
   --card-foreground: #e5e7eb;
@@ -62,7 +69,7 @@ html {
   --dialog-overlay: rgba(2, 6, 23, 0.6);
   --tabs-list-bg: rgba(255, 255, 255, 0.04);
   --tabs-list-border: transparent;
-  --tabs-trigger-active-bg: rgba(34, 211, 238, 0.12);
+  --tabs-trigger-active-bg: rgba(34, 211, 238, 0.15);
   --tabs-trigger-active-text: var(--primary);
   --switch-thumb: var(--foreground);
   /* 我的收益 Drawer：随主题切换，玻璃拟态 + 主色点缀（ui-ux-pro-max：层次、对比度、blur） */
@@ -89,6 +96,7 @@ html {
 [data-theme="light"] {
   --bg: #f1f5f9;
   --card: #ffffff;
+  --card-hover: #f8fafc;
   --text: #0f172a;
   --muted: #475569;
   --primary: #0891b2;
@@ -96,6 +104,7 @@ html {
   --success: #059669;
   --danger: #dc2626;
   --border: #e2e8f0;
+  --border-accent: #cbd5e1;
   --table-pinned-header-bg: #e2e8f0;
   --table-row-hover-bg: #e2e8f0;
   --table-row-alt-bg: #f8fafc;
@@ -110,6 +119,12 @@ html {
   --muted-foreground: #475569;
   --accent-foreground: #ffffff;
   --destructive: #dc2626;
+  --radius: 0.65rem;
+  --radius-lg: 0.85rem;
+  --radius-xl: 1rem;
+  --shadow-sm: 0 1px 3px rgba(0,0,0,0.06);
+  --shadow-md: 0 4px 16px rgba(0,0,0,0.08);
+  --shadow-lg: 0 8px 32px rgba(0,0,0,0.1);
   --input: #f1f5f9;
   --ring: #0891b2;
   --chart-1: #0891b2;
@@ -396,9 +411,10 @@ body::before {
 
 /* 亮色主题：filter-bar 区域 */
 [data-theme="light"] .filter-bar {
-  background: rgba(255, 255, 255, 0.9);
+  background: color-mix(in srgb, var(--card) 85%, transparent);
   border: 1px solid var(--border);
-  backdrop-filter: blur(12px);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
   box-shadow: 0 2px 12px rgba(0, 0, 0, 0.04);
 }
 
@@ -408,11 +424,11 @@ body::before {
 
 [data-theme="light"] .tab:hover {
   color: var(--primary);
-  background: rgba(8, 145, 178, 0.1);
+  background: color-mix(in srgb, var(--primary) 10%, transparent);
 }
 
 [data-theme="light"] .tab.active {
-  background: rgba(8, 145, 178, 0.15);
+  background: color-mix(in srgb, var(--primary) 15%, transparent);
   color: var(--primary);
 }
 
@@ -581,26 +597,6 @@ body::before {
 
 [data-theme="light"] .chart-overlay {
   background: rgba(0, 0, 0, 0.03);
-}
-
-/* 主题切换时屏幕中心动画 */
-.theme-transition-overlay {
-  position: fixed;
-  inset: 0;
-  z-index: 99999;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  pointer-events: none;
-}
-
-.theme-transition-circle {
-  width: 120px;
-  height: 120px;
-  border-radius: 50%;
-  background: var(--primary);
-  opacity: 0.5;
-  transform-origin: center;
 }
 
 .card .title {
@@ -1186,14 +1182,6 @@ input[type="number"] {
 .link-button:hover {
   color: var(--accent) !important;
   opacity: 0.8;
-}
-
-.footer {
-  margin-top: 24px;
-  font-size: 12px;
-  color: var(--muted);
-  text-align: center;
-  padding-bottom: 60px;
 }
 
 .actions {
@@ -1943,11 +1931,13 @@ html::-webkit-scrollbar-thumb:active,
   transition: all 0.3s ease;
   position: sticky;
   z-index: 40;
-  background: rgba(15, 23, 42, 0.85);
-  backdrop-filter: blur(12px);
+  background: color-mix(in srgb, var(--card) 80%, transparent);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
   padding: 8px 12px;
   border-radius: 12px;
-  border: 1px solid rgba(255, 255, 255, 0.05);
+  border: 1px solid var(--border);
+  box-shadow: 0 4px 20px -8px rgba(0,0,0,0.25);
 }
 
 .group-summary-sticky {
@@ -2006,30 +1996,43 @@ html::-webkit-scrollbar-thumb:active,
 }
 
 .tab {
-  padding: 0 10px;
+  padding: 0 12px;
   border-radius: 8px;
   border: none;
   background: transparent;
   color: var(--muted);
-  font-size: 14px;
+  font-size: 0.8125rem;
   font-weight: 600;
   cursor: pointer;
   transition: all 0.2s ease;
-  height: 32px;
-  line-height: 32px;
+  height: 30px;
   display: inline-flex;
   align-items: center;
+  position: relative;
+  letter-spacing: 0.01em;
 }
 
 .tab:hover {
   color: var(--primary);
-  background: rgba(34, 211, 238, 0.08);
+  background: color-mix(in srgb, var(--primary) 8%, transparent);
 }
 
 .tab.active {
-  background: rgba(34, 211, 238, 0.15);
+  background: color-mix(in srgb, var(--primary) 14%, transparent);
   color: var(--primary);
-  box-shadow: none;
+  text-shadow: 0 0 12px color-mix(in srgb, var(--primary) 30%, transparent);
+}
+
+.tab.active::after {
+  content: '';
+  position: absolute;
+  bottom: 2px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 16px;
+  height: 2px;
+  border-radius: 1px;
+  background: var(--primary);
 }
 
 @media (hover: none) {
@@ -2039,9 +2042,8 @@ html::-webkit-scrollbar-thumb:active,
   }
   .tab.active,
   .tab.active:hover {
-    background: rgba(34, 211, 238, 0.15);
+    background: color-mix(in srgb, var(--primary) 14%, transparent);
     color: var(--primary);
-    box-shadow: none;
   }
 }
 

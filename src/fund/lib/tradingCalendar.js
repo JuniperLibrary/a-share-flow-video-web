@@ -4,7 +4,7 @@
  * 调休补班日（周末变工作日）A股仍休市，故不视为交易日
  */
 
-const CDN_BASE = 'https://cdn.jsdelivr.net/npm/chinese-days@1/dist/years';
+const CDN_BASE = 'https://cdn.jsdelivr.net/npm/chinese-days@latest/dist/years';
 const yearCache = new Map(); // year -> Set<dateStr> (holidays)
 
 /**
@@ -24,7 +24,9 @@ export async function loadHolidaysForYear(year) {
     yearCache.set(year, holidays);
     return holidays;
   } catch (e) {
-    console.warn(`[tradingCalendar] 加载 ${year} 年节假日失败:`, e);
+    if (e.message !== 'HTTP 404') {
+      console.warn(`[tradingCalendar] 加载 ${year} 年节假日失败:`, e);
+    }
     yearCache.set(year, new Set());
     return yearCache.get(year);
   }

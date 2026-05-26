@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { Button, Input, Pagination } from '@arco-design/web-react';
 import { IconRefresh, IconSearch, IconStop } from '@arco-design/web-react/icon';
 import { api } from '../api';
@@ -27,7 +27,9 @@ export function NewsPage() {
   const [searchQ, setSearchQ] = useState('');
   const [status, setStatus] = useState<NewsStatusResponse | null>(null);
   const [loading, setLoading] = useState(false);
+  const [replaying, setReplaying] = useState(false);
   const [selectedNews, setSelectedNews] = useState<CLSNewsRecord | null>(null);
+  const replayingRef = useRef(false);
 
   const loadNews = useCallback(async (p: number, q?: string) => {
     setLoading(true);
@@ -56,8 +58,6 @@ export function NewsPage() {
   useEffect(() => {
     loadNews(page);
     loadStatus();
-    const interval = setInterval(loadStatus, 10000);
-    return () => clearInterval(interval);
   }, [page, loadNews, loadStatus]);
 
   const handleSearch = () => {
@@ -75,6 +75,20 @@ export function NewsPage() {
   };
 
   const isRunning = status?.status === 'running';
+
+  const handleReplay = async () => {
+    if (replayingRef.current) return;
+    replayingRef.current = true;
+    setReplaying(true);
+    try {
+      await api.replayNews();
+      loadStatus();
+      loadNews(page);
+    } catch { void 0; } finally {
+      setReplaying(false);
+      replayingRef.current = false;
+    }
+  };
 
   return (
     <div className="relative min-h-screen px-5 py-5">
@@ -118,6 +132,24 @@ export function NewsPage() {
                 </>
               )}
             </div>
+
+            <button
+              onClick={handleReplay}
+              disabled={replaying}
+              className="flex items-center gap-1.5 px-3 py-2 text-xs font-semibold rounded-lg transition-all disabled:opacity-50"
+              style={{
+                background: 'linear-gradient(135deg, #2563eb, #0891b2)',
+                color: '#fff',
+                border: 'none',
+                boxShadow: '0 0 16px rgba(59,130,246,0.12)',
+              }}
+            >
+              <IconRefresh
+                style={{ fontSize: 13 }}
+                className={replaying ? 'animate-spin' : ''}
+              />
+              {replaying ? '回放中...' : '回放'}
+            </button>
 
             <button
               onClick={handleToggleScheduler}

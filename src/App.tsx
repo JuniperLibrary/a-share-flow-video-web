@@ -11,10 +11,8 @@ import {
 } from '@arco-design/web-react/icon';
 import DashboardPage from './pages/DashboardPage';
 import { TickPage } from './pages/TickPage';
-import { AllSectorsPage } from './pages/AllSectorsPage';
 import { GeneratePage } from './pages/GeneratePage';
 import { PreviewPage } from './pages/PreviewPage';
-import { MarketPage } from './pages/MarketPage';
 import { ConfigPage } from './pages/ConfigPage';
 import { NewsPage } from './pages/NewsPage';
 import FundTab from './fund/FundTab';
@@ -23,16 +21,14 @@ import { api } from './api';
 const { Sider, Content } = Layout;
 const { Title } = Typography;
 
-type Page = 'dashboard' | 'tick' | 'all-sectors' | 'generate' | 'preview' | 'market' | 'config' | 'news' | 'fund';
+type Page = 'dashboard' | 'tick' | 'generate' | 'preview' | 'config' | 'news' | 'fund';
 
 const allNavItems: { key: Page; label: string; icon: React.ReactNode; staticOnly?: boolean }[] = [
   { key: 'dashboard', label: '仪表盘', icon: <IconDashboard /> },
   { key: 'fund', label: '基金宝', icon: <IconStar /> },
   { key: 'tick', label: 'Tick 采集', icon: <IconList />, staticOnly: true },
-  { key: 'all-sectors', label: '全量板块', icon: <IconList /> },
   { key: 'generate', label: '视频生成', icon: <IconPlayArrow />, staticOnly: true },
   { key: 'preview', label: '视频预览', icon: <IconEye />, staticOnly: true },
-  { key: 'market', label: '实时行情', icon: <IconList />, staticOnly: true },
   { key: 'news', label: '新闻资讯', icon: <IconFile /> },
   { key: 'config', label: 'AI 配置', icon: <IconSettings />, staticOnly: true },
 ];
@@ -102,17 +98,11 @@ export default function App() {
           <div style={{ display: page === 'tick' ? 'block' : 'none' }}>
             <TickPage />
           </div>
-          <div style={{ display: page === 'all-sectors' ? 'block' : 'none' }}>
-            <AllSectorsPage />
-          </div>
           <div style={{ display: page === 'generate' ? 'block' : 'none' }}>
             <GeneratePage dates={dates} onDone={handleDone} />
           </div>
           <div style={{ display: page === 'preview' ? 'block' : 'none' }}>
             <PreviewPage previewDate={previewDate} />
-          </div>
-          <div style={{ display: page === 'market' ? 'block' : 'none' }}>
-            <MarketPage />
           </div>
           <div style={{ display: page === 'news' ? 'block' : 'none' }}>
             <NewsPage />

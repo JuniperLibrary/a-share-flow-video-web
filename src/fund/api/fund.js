@@ -6,7 +6,6 @@ import { storageStore } from '../stores';
 import { withRetry } from '../lib/asyncHelper';
 import { getQueryClient } from '../lib/get-query-client';
 import * as qk from '../lib/query-keys';
-import { isSupabaseConfigured, supabase } from '../lib/supabase';
 import { isTradingDay } from '../lib/tradingCalendar';
 
 dayjs.extend(utc);
@@ -61,62 +60,7 @@ const getNetValueStaleTime = () => {
  * 批量获取基金「关联板块」
  * @param {string[]} codes
  */
-export const fetchRelatedSectorsBatch = async (codes, { cacheTime = ONE_DAY_MS, authSegment = 'anon' } = {}) => {
-  if (!Array.isArray(codes) || codes.length === 0) return {};
-  if (!isSupabaseConfigured) return {};
-
-  const seg = authSegment != null && authSegment !== '' ? String(authSegment) : 'anon';
-  const qc = getQueryClient();
-  const results = {};
-
-  // 1. 筛选出缓存中没有的数据
-  const missingCodes = [];
-  for (const c of codes) {
-    const normalized = String(c).trim();
-    if (!normalized) continue;
-    const cached = qc.getQueryData(qk.relatedSectors(normalized, seg));
-    if (cached !== undefined) {
-      results[normalized] = cached;
-    } else {
-      missingCodes.push(normalized);
-    }
-  }
-
-  if (missingCodes.length === 0) return results;
-
-  // 2. 批量从 Supabase 查询
-  try {
-    const { data, error } = await withRetry(() => supabase
-      .from('fund_related')
-      .select('fund_code, related_sector')
-      .in('fund_code', missingCodes));
-
-    if (error) throw error;
-
-    const foundMap = new Map();
-    if (Array.isArray(data)) {
-      data.forEach(item => {
-        const c = String(item.fund_code).trim();
-        const v = item.related_sector != null ? String(item.related_sector).trim() : '';
-        foundMap.set(c, v);
-      });
-    }
-
-    // 3. 填充结果并更新 React Query 缓存
-    for (const code of missingCodes) {
-      const value = foundMap.get(code) || '';
-      results[code] = value;
-      qc.setQueryData(qk.relatedSectors(code, seg), value, { staleTime: cacheTime });
-    }
-  } catch (e) {
-    // 失败时，为 missingCodes 填充空字符串避免重复查询
-    missingCodes.forEach(code => {
-      if (results[code] === undefined) results[code] = '';
-    });
-  }
-
-  return results;
-};
+export const fetchRelatedSectorsBatch = async () => ({});
 
 const SECTOR_QUOTE_CACHE_MS = 60 * 1000;
 
@@ -124,57 +68,7 @@ const SECTOR_QUOTE_CACHE_MS = 60 * 1000;
  * 批量获取板块 secid
  * @param {string[]} labels
  */
-export const fetchFundSecidsBatch = async (labels, { cacheTime = ONE_DAY_MS } = {}) => {
-  if (!Array.isArray(labels) || labels.length === 0) return {};
-  if (!isSupabaseConfigured) return {};
-
-  const qc = getQueryClient();
-  const results = {};
-
-  const missingLabels = [];
-  for (const label of labels) {
-    const normalized = String(label).trim();
-    if (!normalized) continue;
-    const cached = qc.getQueryData(qk.fundSecid(normalized));
-    if (cached !== undefined) {
-      results[normalized] = cached;
-    } else {
-      missingLabels.push(normalized);
-    }
-  }
-
-  if (missingLabels.length === 0) return results;
-
-  try {
-    const { data, error } = await withRetry(() => supabase
-      .from('fund_secid')
-      .select('related_sector, secid')
-      .in('related_sector', missingLabels));
-
-    if (error) throw error;
-
-    const foundMap = new Map();
-    if (Array.isArray(data)) {
-      data.forEach(item => {
-        const l = String(item.related_sector).trim();
-        const s = item.secid != null ? String(item.secid).trim() : '';
-        foundMap.set(l, s);
-      });
-    }
-
-    for (const label of missingLabels) {
-      const value = foundMap.get(label) || '';
-      results[label] = value;
-      qc.setQueryData(qk.fundSecid(label), value, { staleTime: cacheTime });
-    }
-  } catch (e) {
-    missingLabels.forEach(label => {
-      if (results[label] === undefined) results[label] = '';
-    });
-  }
-
-  return results;
-};
+export const fetchFundSecidsBatch = async () => ({});
 
 /**
  * 批量获取东方财富板块/指数行情（单次请求）
@@ -854,31 +748,7 @@ function fetchSinaEstimateNetworthResponse(code) {
 /**
  * 从 Supabase gs_qdii 表获取 QDII 基金的估值数据（作为天天基金数据源 1 的 fallback）
  */
-export const fetchQdiiValuationFromSupabase = async (code) => {
-  if (!code || !isSupabaseConfigured) return null;
-  const normalized = String(code).trim();
-  if (!normalized) return null;
-
-  try {
-    const { data, error } = await withRetry(() => supabase
-      .from('gs_qdii')
-      .select('gztime, gszzl, gzstatus')
-      .eq('fund_code', normalized)
-      .maybeSingle());
-
-    if (error || !data) return null;
-
-    // gszzl 在表中是 real，通常为百分比数值（如 1.23 表示 1.23%）
-    return {
-      gztime: data.gztime != null ? String(data.gztime).replace(/:(\d{2}):\d{2}$/, ':$1') : null,
-      gszzl: data.gszzl != null && Number.isFinite(Number(data.gszzl)) ? Number(data.gszzl) : null,
-      valuationSource: 'supabase_qdii',
-      gzstatus: data.gzstatus
-    };
-  } catch (e) {
-    return null;
-  }
-};
+export const fetchQdiiValuationFromSupabase = async () => null;
 
 /**
  * 按基金编码与数据源类型获取估值（天天基金 fundgz 或新浪估算曲线末点）。
@@ -1898,23 +1768,4 @@ export const fetchFundHistory = async (code, range = '1m') => {
   return [];
 };
 
-export const parseFundTextWithLLM = async (text) => {
-  if (!text) return null;
-  if (!isSupabaseConfigured) return null;
-  if (!supabase?.functions?.invoke) return null;
-
-  try {
-    const { data, error } = await withRetry(() => supabase.functions.invoke('analyze-fund', {
-      body: { text }
-    }));
-
-    if (error) return null;
-    if (!data || data.success !== true) return null;
-    if (!Array.isArray(data.data)) return null;
-
-    // 保持与旧实现兼容：返回 JSON 字符串，由调用方 JSON.parse
-    return JSON.stringify(data.data);
-  } catch (e) {
-    return null;
-  }
-};
+export const parseFundTextWithLLM = async () => null;

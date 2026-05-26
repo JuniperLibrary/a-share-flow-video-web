@@ -1,5 +1,6 @@
 'use client';
 
+import { Suspense } from 'react';
 import { AnimatePresence } from 'framer-motion';
 import { RefreshCw, FolderPlusIcon } from 'lucide-react';
 import { isPlainObject } from 'lodash';
@@ -8,7 +9,6 @@ import { dynamic } from '@fund/lib/next-compat';
 import { useModalStore } from '../stores';
 
 // 低频弹窗：懒加载
-const CloudConfigModal = dynamic(() => import('./CloudConfigModal'), { ssr: false });
 const DonateModal = dynamic(() => import('./DonateModal'), { ssr: false });
 const FeedbackModal = dynamic(() => import('./FeedbackModal'), { ssr: false });
 const WeChatModal = dynamic(() => import('./WeChatModal'), { ssr: false });
@@ -28,7 +28,6 @@ import GroupManageModal from './GroupManageModal';
 import GroupModal from './GroupModal';
 import HoldingEditModal from './HoldingEditModal';
 import HoldingActionModal from './HoldingActionModal';
-import LoginModal from './LoginModal';
 import SettingsModal from './SettingsModal';
 import SuccessModal from './SuccessModal';
 import TradeModal from './TradeModal';
@@ -65,8 +64,6 @@ export default function ModalsLayer({ callbacksRef }) {
   const feedbackNonce = useModalStore((s) => s.feedbackNonce);
   const weChatOpen = useModalStore((s) => s.weChatOpen);
   const donateOpen = useModalStore((s) => s.donateOpen);
-  const loginModalOpen = useModalStore((s) => s.loginModalOpen);
-  const loginInitialError = useModalStore((s) => s.loginInitialError);
   const tutorialDrawerOpen = useModalStore((s) => s.tutorialDrawerOpen);
   const updateLogOpen = useModalStore((s) => s.updateLogOpen);
   const portfolioEarningsOpen = useModalStore((s) => s.portfolioEarningsOpen);
@@ -98,8 +95,6 @@ export default function ModalsLayer({ callbacksRef }) {
 
   // Cloud/sync
   const successModal = useModalStore((s) => s.successModal);
-  const cloudConfigModal = useModalStore((s) => s.cloudConfigModal);
-  const deviceConflictModal = useModalStore((s) => s.deviceConflictModal);
 
   // Scan
   const scanModalOpen = useModalStore((s) => s.scanModalOpen);
@@ -114,8 +109,6 @@ export default function ModalsLayer({ callbacksRef }) {
   const setFeedbackOpen = (v) => _ms({ feedbackOpen: typeof v === 'function' ? v(_gs().feedbackOpen) : v });
   const setWeChatOpen = (v) => _ms({ weChatOpen: typeof v === 'function' ? v(_gs().weChatOpen) : v });
   const setDonateOpen = (v) => _ms({ donateOpen: typeof v === 'function' ? v(_gs().donateOpen) : v });
-  const setLoginModalOpen = (v) => _ms({ loginModalOpen: typeof v === 'function' ? v(_gs().loginModalOpen) : v });
-  const setLoginInitialError = (v) => _ms({ loginInitialError: typeof v === 'function' ? v(_gs().loginInitialError) : v });
   const setTutorialDrawerOpen = (v) => _ms({ tutorialDrawerOpen: typeof v === 'function' ? v(_gs().tutorialDrawerOpen) : v });
   const setUpdateLogOpen = (v) => _ms({ updateLogOpen: typeof v === 'function' ? v(_gs().updateLogOpen) : v });
   const setSortSettingOpen = (v) => _ms({ sortSettingOpen: typeof v === 'function' ? v(_gs().sortSettingOpen) : v });
@@ -124,8 +117,6 @@ export default function ModalsLayer({ callbacksRef }) {
   const setAddFundToGroupOpen = (v) => _ms({ addFundToGroupOpen: typeof v === 'function' ? v(_gs().addFundToGroupOpen) : v });
   const setPortfolioEarningsOpen = (v) => _ms({ portfolioEarningsOpen: typeof v === 'function' ? v(_gs().portfolioEarningsOpen) : v });
   const setSuccessModal = (v) => _ms({ successModal: typeof v === 'function' ? v(_gs().successModal) : v });
-  const setCloudConfigModal = (v) => _ms({ cloudConfigModal: typeof v === 'function' ? v(_gs().cloudConfigModal) : v });
-  const setDeviceConflictModal = (v) => _ms({ deviceConflictModal: typeof v === 'function' ? v(_gs().deviceConflictModal) : v });
   const setFundDeleteConfirm = (v) => _ms({ fundDeleteConfirm: typeof v === 'function' ? v(_gs().fundDeleteConfirm) : v });
   const setFundDeleteBulkConfirm = (v) => _ms({ fundDeleteBulkConfirm: typeof v === 'function' ? v(_gs().fundDeleteBulkConfirm) : v });
   const setHoldingModal = (v) => _ms({ holdingModal: typeof v === 'function' ? v(_gs().holdingModal) : v });
@@ -240,12 +231,14 @@ export default function ModalsLayer({ callbacksRef }) {
       {/* ===== Modal: 反馈 ===== */}
       <AnimatePresence>
         {feedbackOpen && (
-          <FeedbackModal
-            key={feedbackNonce}
-            onClose={() => setFeedbackOpen(false)}
-            user={cb.current.user}
-            onOpenWeChat={() => setWeChatOpen(true)}
-          />
+          <Suspense fallback={null}>
+            <FeedbackModal
+              key={feedbackNonce}
+              onClose={() => setFeedbackOpen(false)}
+              user={cb.current.user}
+              onOpenWeChat={() => setWeChatOpen(true)}
+            />
+          </Suspense>
         )}
       </AnimatePresence>
 
@@ -263,7 +256,9 @@ export default function ModalsLayer({ callbacksRef }) {
       {/* ===== Modal: 微信 ===== */}
       <AnimatePresence>
         {weChatOpen && (
-          <WeChatModal onClose={() => setWeChatOpen(false)} />
+          <Suspense fallback={null}>
+            <WeChatModal onClose={() => setWeChatOpen(false)} />
+          </Suspense>
         )}
       </AnimatePresence>
 
@@ -299,17 +294,19 @@ export default function ModalsLayer({ callbacksRef }) {
       {/* ===== Modal: 选择持仓分组 ===== */}
       <AnimatePresence>
         {selectHoldingGroupModal.open && (
-          <SelectHoldingGroupModal
-            fund={selectHoldingGroupModal.fund}
-            groups={cb.current.groups}
-            groupHoldings={cb.current.groupHoldings}
-            onClose={() => setSelectHoldingGroupModal({ open: false, fund: null })}
-            onNext={(groupId) => {
-              const fund = selectHoldingGroupModal.fund;
-              setSelectHoldingGroupModal({ open: false, fund: null });
-              setActionModal({ open: true, fund, groupId });
-            }}
-          />
+          <Suspense fallback={null}>
+            <SelectHoldingGroupModal
+              fund={selectHoldingGroupModal.fund}
+              groups={cb.current.groups}
+              groupHoldings={cb.current.groupHoldings}
+              onClose={() => setSelectHoldingGroupModal({ open: false, fund: null })}
+              onNext={(groupId) => {
+                const fund = selectHoldingGroupModal.fund;
+                setSelectHoldingGroupModal({ open: false, fund: null });
+                setActionModal({ open: true, fund, groupId });
+              }}
+            />
+          </Suspense>
         )}
       </AnimatePresence>
 
@@ -370,7 +367,8 @@ export default function ModalsLayer({ callbacksRef }) {
       {/* ===== Modal: 定投 ===== */}
       <AnimatePresence>
         {dcaModal.open && (
-          <DcaModal
+          <Suspense fallback={null}>
+            <DcaModal
             fund={dcaModal.fund}
             plan={cb.current.getScopedDcaPlan?.(dcaModal.fund?.code, dcaModal.groupId)}
             onClose={() => setDcaModal({ open: false, fund: null })}
@@ -418,13 +416,15 @@ export default function ModalsLayer({ callbacksRef }) {
               cb.current.showToast?.('已保存定投计划', 'success');
             }}
           />
+          </Suspense>
         )}
       </AnimatePresence>
 
       {/* ===== Modal: 基金转换 ===== */}
       <AnimatePresence>
         {convertModal.open && (
-          <FundConvertModal
+          <Suspense fallback={null}>
+            <FundConvertModal
             fund={convertModal.fund}
             allFunds={cb.current.funds}
             nestedModalOpen={selectFundSingleModal.open}
@@ -517,13 +517,15 @@ export default function ModalsLayer({ callbacksRef }) {
               cb.current.showToast?.('已加入待处理队列（转换）', 'info');
             }}
           />
+          </Suspense>
         )}
       </AnimatePresence>
 
       {/* ===== Modal: 单选选基 ===== */}
       <AnimatePresence>
         {selectFundSingleModal.open && (
-          <SelectFundSingleModal
+          <Suspense fallback={null}>
+            <SelectFundSingleModal
             title="选择转入基金"
             allFunds={(cb.current.funds || []).filter((f) => f?.code && f.code !== convertModal.fund?.code)}
             excludeCodes={selectFundSingleModal.excludeCodes}
@@ -541,17 +543,20 @@ export default function ModalsLayer({ callbacksRef }) {
               setSelectFundSingleModal({ open: false, excludeCodes: [], initialSelectedCode: '' });
             }}
           />
+          </Suspense>
         )}
       </AnimatePresence>
 
       {/* ===== Modal: 添加历史交易 ===== */}
       <AnimatePresence>
         {addHistoryModal.open && (
-          <AddHistoryModal
+          <Suspense fallback={null}>
+            <AddHistoryModal
             fund={addHistoryModal.fund}
             onClose={() => setAddHistoryModal({ open: false, fund: null })}
             onConfirm={cb.current.handleAddHistory}
           />
+          </Suspense>
         )}
       </AnimatePresence>
 
@@ -685,7 +690,9 @@ export default function ModalsLayer({ callbacksRef }) {
       {/* ===== Modal: 打赏 ===== */}
       <AnimatePresence>
         {donateOpen && (
-          <DonateModal onClose={() => setDonateOpen(false)} />
+          <Suspense fallback={null}>
+            <DonateModal onClose={() => setDonateOpen(false)} />
+          </Suspense>
         )}
       </AnimatePresence>
 
@@ -720,64 +727,25 @@ export default function ModalsLayer({ callbacksRef }) {
         )}
       </AnimatePresence>
 
-      {/* ===== Modal: 设备冲突 ===== */}
-      <AnimatePresence>
-        {deviceConflictModal.open && (
-          <ConfirmModal
-            onCancel={() => {
-              setDeviceConflictModal({ ...deviceConflictModal, open: false });
-              if (cb.current.skipSyncRef) cb.current.skipSyncRef.current = false;
-              if (cb.current.refreshCycleStartRef) cb.current.refreshCycleStartRef.current = Date.now();
-            }}
-            onConfirm={async () => {
-              const { userId } = deviceConflictModal;
-              setDeviceConflictModal({ ...deviceConflictModal, open: false });
-              if (cb.current.refreshCycleStartRef) cb.current.refreshCycleStartRef.current = Date.now();
-              await cb.current.fetchCloudConfig?.(userId, false, { forceTakeover: true });
-            }}
-            title="其它设备登录提示"
-            message={deviceConflictModal.message}
-            confirmText="确认接管"
-            icon={<RefreshCw width="20" height="20" className="shrink-0 text-[var(--primary)]" />}
-          />
-        )}
-      </AnimatePresence>
-
-      {/* ===== Modal: 云配置同步 ===== */}
-      <AnimatePresence>
-        {cloudConfigModal.open && (
-          <CloudConfigModal
-            type={cloudConfigModal.type}
-            onConfirm={cb.current.handleSyncLocalConfig}
-            onCancel={() => {
-              if (cloudConfigModal.type === 'conflict' && cloudConfigModal.cloudData) {
-                cb.current.applyCloudConfig?.(cloudConfigModal.cloudData);
-                cb.current.syncUserConfig?.(cloudConfigModal.userId, false, cloudConfigModal.cloudData, false, { forceTakeover: true });
-              } else {
-                if (cb.current.skipSyncRef) cb.current.skipSyncRef.current = false;
-              }
-              setCloudConfigModal({ open: false, userId: null });
-            }}
-          />
-        )}
-      </AnimatePresence>
-
       {/* ===== Modal: 扫描识别 - 选择 ===== */}
       <AnimatePresence>
         {scanModalOpen && (
-          <ScanPickModal
+          <Suspense fallback={null}>
+            <ScanPickModal
             onClose={() => setScanModalOpen(false)}
             onPick={cb.current.handleScanPick}
             onFilesDrop={cb.current.handleFilesDrop}
             isScanning={isScanning}
           />
+          </Suspense>
         )}
       </AnimatePresence>
 
       {/* ===== Modal: 扫描识别 - 确认 ===== */}
       <AnimatePresence>
         {scanConfirmModalOpen && (
-          <ScanImportConfirmModal
+          <Suspense fallback={null}>
+            <ScanImportConfirmModal
             scannedFunds={cb.current.scannedFunds}
             selectedScannedCodes={cb.current.selectedScannedCodes}
             onClose={() => setScanConfirmModalOpen(false)}
@@ -790,6 +758,7 @@ export default function ModalsLayer({ callbacksRef }) {
             isOcrScan={cb.current.isOcrScan}
             currentGroup={cb.current.currentTab === 'summary' ? 'all' : cb.current.currentTab}
           />
+          </Suspense>
         )}
       </AnimatePresence>
 
@@ -821,29 +790,18 @@ export default function ModalsLayer({ callbacksRef }) {
       {/* ===== Modal: 扫描进度 ===== */}
       <AnimatePresence>
         {isScanning && (
-          <ScanProgressModal scanProgress={cb.current.scanProgress} onCancel={cb.current.cancelScan} />
+          <Suspense fallback={null}>
+            <ScanProgressModal scanProgress={cb.current.scanProgress} onCancel={cb.current.cancelScan} />
+          </Suspense>
         )}
       </AnimatePresence>
 
       {/* ===== Modal: 扫描导入进度 ===== */}
       <AnimatePresence>
         {isScanImporting && (
-          <ScanImportProgressModal scanImportProgress={cb.current.scanImportProgress} />
-        )}
-      </AnimatePresence>
-
-      {/* ===== Modal: 登录 ===== */}
-      <AnimatePresence>
-        {loginModalOpen && (
-          <LoginModal
-            onClose={() => {
-              setLoginModalOpen(false);
-              setLoginInitialError('');
-            }}
-            showToast={cb.current.showToast}
-            isExplicitLoginRef={cb.current.isExplicitLoginRef}
-            initialError={loginInitialError}
-          />
+          <Suspense fallback={null}>
+            <ScanImportProgressModal scanImportProgress={cb.current.scanImportProgress} />
+          </Suspense>
         )}
       </AnimatePresence>
 

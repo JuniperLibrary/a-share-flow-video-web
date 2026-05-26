@@ -72,7 +72,7 @@ export default function FundCard({
   collapsedTrends,
   collapsedEarnings,
   transactions,
-  theme,
+  theme = 'dark',
   isTradingDay,
   getHoldingProfit,
   onToggleFavorite,

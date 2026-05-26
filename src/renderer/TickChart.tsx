@@ -349,14 +349,14 @@ export const TickChart: React.FC<TickChartProps> = ({
               <line x1={endX + pointR + 2} y1={endY} x2={endX + pointR + 8} y2={labelY} stroke={sector.color} strokeWidth={1} opacity={0.4} />
             )}
             <line x1={endX + pointR + 8} y1={labelY} x2={endX + pointR + 16} y2={labelY} stroke={sector.color} strokeWidth={1} opacity={0.4} />
-            <text x={endX + pointR + 19} y={labelY + 1} fill={sector.color} fontSize={isTV ? 12 : 18} fontWeight={500} textAnchor="start" dominantBaseline="middle" style={{ textShadow: `0 0 4px ${sector.color}33`, fontFamily: '"PingFang SC", "Helvetica Neue", sans-serif' }}>
+            <text x={endX + pointR + 19} y={labelY + 1} fill={sector.color} fontSize={isTV ? 16 : 22} fontWeight={500} textAnchor="start" dominantBaseline="middle" style={{ textShadow: `0 0 4px ${sector.color}33`, fontFamily: '"PingFang SC", "Helvetica Neue", sans-serif' }}>
               {sector.name}
             </text>
           </g>
         )}
 
         {showValueLabel && (
-          <text x={endX + pointR + 100} y={labelY + 1} fill={visibleCum[currentIdx] >= 0 ? '#f87171' : '#4ade80'} fontSize={isTV ? 12 : 18} fontWeight={500} textAnchor="start" dominantBaseline="middle" style={{ fontFamily: '"Helvetica Neue", Arial, sans-serif', fontVariantNumeric: 'tabular-nums' }}>
+          <text x={endX + pointR + 120} y={labelY + 1} fill={visibleCum[currentIdx] >= 0 ? '#f87171' : '#4ade80'} fontSize={isTV ? 16 : 22} fontWeight={500} textAnchor="start" dominantBaseline="middle" style={{ fontFamily: '"Helvetica Neue", Arial, sans-serif', fontVariantNumeric: 'tabular-nums' }}>
             {visibleCum[currentIdx] >= 0 ? '+' : ''}{visibleCum[currentIdx].toFixed(1)}
           </text>
         )}

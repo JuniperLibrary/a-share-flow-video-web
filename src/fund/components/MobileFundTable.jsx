@@ -357,7 +357,6 @@ function SortableRow({ row, children, disabled }) {
  * @param {(oldIndex: number, newIndex: number) => void} [props.onReorder] - 编辑模式下「拖动」列排序回调
  * @param {(row: any) => Object} [props.getFundCardProps] - 给定行返回 FundCard 的 props；传入后点击基金名称将用底部弹框展示卡片视图
  * @param {boolean} [props.masked] - 是否隐藏持仓相关金额
- * @param {string} [props.relatedSectorSessionKey] - 登录用户 id（未登录传空），用于关联板块查询缓存与登录后重新拉取
  * @param {(codes: string[]) => boolean|void} [props.onRemoveFunds] - 批量删除（与 PcFundTable 一致）；返回 false 表示父级已弹出二次确认，勿退出编辑态
  * @param {React.MutableRefObject<(() => void) | null>} [props.batchSelectionClearRef] - 父级批量删除二次确认成功后调用，用于退出移动端编辑态
  * @param {Array<{ id: string; name?: string; codes?: string[] }>} [props.groups] - 自定义分组列表（移动分组弹框用）
@@ -386,7 +385,6 @@ export default function MobileFundTable({
   getFundCardProps,
   closeDrawerRef,
   masked = false,
-  relatedSectorSessionKey = '',
   onRemoveFunds,
   batchSelectionClearRef,
   onFundCardDrawerOpenChange,
@@ -915,7 +913,7 @@ export default function MobileFundTable({
   const [relatedSectorByCode, setRelatedSectorByCode] = useState({});
   const [sectorQuoteByLabel, setSectorQuoteByLabel] = useState({});
 
-  const sectorAuthSegment = relatedSectorSessionKey || 'anon';
+  const sectorAuthSegment = 'anon';
 
   useEffect(() => {
     relatedSectorCacheRef.current.clear();

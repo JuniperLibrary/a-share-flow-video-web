@@ -216,7 +216,6 @@ function SortableRow({ row, children, disabled, enableAnimation = true }) {
  * @param {boolean} [props.blockDialogClose] - 为 true 时阻止点击遮罩关闭弹框（如删除确认弹框打开时）
  * @param {number} [props.stickyTop] - 表头固定时的 top 偏移（与 MobileFundTable 一致，用于适配导航栏、筛选栏等）
  * @param {boolean} [props.masked] - 是否隐藏持仓相关金额
- * @param {string} [props.relatedSectorSessionKey] - 登录用户 id（未登录传空），用于关联板块查询缓存与登录后重新拉取
  * @param {(row: any) => void} [props.onFundTagsClick] - 点击标签列时打开编辑标签
  */
 export default function PcFundTable({
@@ -241,7 +240,6 @@ export default function PcFundTable({
   batchSelectionClearRef,
   stickyTop = 0,
   masked = false,
-  relatedSectorSessionKey,
   onFundTagsClick,
   fundExtraDataByCode = {},
   }) {
@@ -746,7 +744,7 @@ export default function PcFundTable({
   const [relatedSectorByCode, setRelatedSectorByCode] = useState({});
   const [sectorQuoteByLabel, setSectorQuoteByLabel] = useState({});
 
-  const sectorAuthSegment = relatedSectorSessionKey || 'anon';
+  const sectorAuthSegment = 'anon';
   const dataCodes = useMemo(
     () => Array.from(new Set((data || []).map((d) => d?.code).filter(Boolean))),
     [data],

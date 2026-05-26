@@ -68,6 +68,14 @@ export function PreviewPage({ previewDate: propPreviewDate }: { previewDate?: st
   const [copiedKey, setCopiedKey] = useState<string | null>(null);
   const [copyTab, setCopyTab] = useState<'template' | 'ai'>('template');
 
+  // 数据加载后，优先显示 AI 文案 tab（如果有）
+  const copyData = data?.['文案'] || { template: {}, ai: {} };
+  useEffect(() => {
+    if (Object.keys(copyData.ai ?? {}).length > 0) {
+      setCopyTab('ai');
+    }
+  }, [copyData]);
+
   useEffect(() => {
     api.getSectorsAllDates().then(r => {
       const sorted = (r.dates || []).sort();
@@ -99,7 +107,6 @@ export function PreviewPage({ previewDate: propPreviewDate }: { previewDate?: st
   }
 
   const videos = data?.videos || {};
-  const copyData = data?.['文案'] || { template: {}, ai: {} };
   const activeCopy = copyData[copyTab] || {};
   const hasData = Object.keys(videos).length > 0
     || Object.keys(copyData.template).length > 0

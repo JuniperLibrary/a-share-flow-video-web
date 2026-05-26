@@ -4,7 +4,7 @@ import { toast as sonnerToast } from 'sonner';
 import { parseFundTextWithLLM, fetchFundData, searchFunds } from '../api/fund';
 import { recordValuation } from '../lib/valuationTimeseries';
 import { useFundFuzzyMatcher } from './useFundFuzzyMatcher';
-import { useStorageStore, useUserStore, useModalStore } from '../stores';
+import { useStorageStore, useModalStore } from '../stores';
 
 /**
  * OCR 扫描导入基金的完整流程
@@ -25,7 +25,6 @@ export function useScanImport({
   dedupeByCode,
 }) {
   const setSuccessModal = (state) => useModalStore.setState({ successModal: state });
-  const user = useUserStore((s) => s.user);
   const funds = useStorageStore((s) => s.funds);
   const favorites = useStorageStore((s) => s.favorites);
   const groups = useStorageStore((s) => s.groups);
@@ -59,10 +58,6 @@ export function useScanImport({
   const { resolveFundCodeByFuzzy } = useFundFuzzyMatcher();
 
   const handleScanClick = () => {
-    if (!user?.id) {
-      sonnerToast.error('该功能需登录后使用');
-      return;
-    }
     setScanModalOpen(true);
   };
 

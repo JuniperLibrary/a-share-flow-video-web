@@ -30,12 +30,9 @@ export const useModalStore = create((set, get) => ({
   feedbackNonce: 0,
   weChatOpen: false,
   donateOpen: false,
-  loginModalOpen: false,
-  loginInitialError: '',
   tutorialDrawerOpen: false,
   updateLogOpen: false,
   isUpdateModalOpen: false,
-  isLogoutConfirmOpen: false,
   mobileTableSettingModalOpen: false,
   mobileFundDrawerOpen: false,
   portfolioEarningsOpen: false,
@@ -153,11 +150,9 @@ const selectIsAnyModalOpen = (s) =>
   s.feedbackOpen ||
   s.weChatOpen ||
   s.donateOpen ||
-  s.loginModalOpen ||
   s.tutorialDrawerOpen ||
   s.updateLogOpen ||
   s.isUpdateModalOpen ||
-  s.isLogoutConfirmOpen ||
   s.mobileTableSettingModalOpen ||
   s.mobileFundDrawerOpen ||
   s.portfolioEarningsOpen ||
