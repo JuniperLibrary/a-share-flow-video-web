@@ -1,7 +1,24 @@
 import { Composition } from 'remotion';
+import type { CalculateMetadataFunction } from 'remotion';
 import { BloombergVideo } from './BloombergVideo.tsx';
 import { BloombergVideoTick } from './BloombergVideoTick.tsx';
 import { MultiDayVideo } from './MultiDayVideo.tsx';
+
+const tickCalculateMetadata: CalculateMetadataFunction<Record<string, unknown>> = ({ props }) => {
+  const total = props.totalFrames as number | undefined;
+  if (typeof total === 'number' && total > 0) {
+    return { durationInFrames: total };
+  }
+  return { durationInFrames: 2700 };
+};
+
+const videoCalculateMetadata: CalculateMetadataFunction<Record<string, unknown>> = ({ props }) => {
+  const total = props.totalFrames as number | undefined;
+  if (typeof total === 'number' && total > 0) {
+    return { durationInFrames: total };
+  }
+  return { durationInFrames: 6000 };
+};
 
 export const Root: React.FC = () => {
   return (
@@ -13,6 +30,7 @@ export const Root: React.FC = () => {
         fps={30}
         width={1080}
         height={1920}
+        calculateMetadata={videoCalculateMetadata}
         defaultProps={{
           dateStr: '2026-05-11',
           displayDate: '05-11',
@@ -32,6 +50,7 @@ export const Root: React.FC = () => {
         fps={30}
         width={1920}
         height={1080}
+        calculateMetadata={videoCalculateMetadata}
         defaultProps={{
           dateStr: '2026-05-11',
           displayDate: '05-11',
@@ -69,6 +88,7 @@ export const Root: React.FC = () => {
         fps={30}
         width={1080}
         height={1920}
+        calculateMetadata={tickCalculateMetadata}
         defaultProps={{
           dateStr: '2026-05-11',
           displayDate: '05-11',
@@ -88,6 +108,7 @@ export const Root: React.FC = () => {
         fps={30}
         width={1920}
         height={1080}
+        calculateMetadata={tickCalculateMetadata}
         defaultProps={{
           dateStr: '2026-05-11',
           displayDate: '05-11',

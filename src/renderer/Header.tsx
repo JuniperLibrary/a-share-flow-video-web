@@ -10,6 +10,7 @@ interface HeaderProps {
   format?: 'mobile' | 'tv';
   session?: 'morning' | 'full';
   hookText?: string;
+  timeString?: string;
 }
 
 const TOTAL_MINS: Record<string, number> = { morning: 120, full: 330 };
@@ -34,6 +35,7 @@ export const Header: React.FC<HeaderProps> = ({
   format = 'mobile',
   session = 'full',
   hookText,
+  timeString,
 }) => {
   const isTV = format === 'tv';
   const scale = isTV ? 1.2 : 1.55;
@@ -43,7 +45,7 @@ export const Header: React.FC<HeaderProps> = ({
   const mins = Math.round(progress * totalMins);
   const clock = tradingMinsToClock(mins);
   const seconds = Math.round((progress * totalMins * 60) % 60);
-  const timeStr = `${clock.h.toString().padStart(2, '0')}:${clock.m.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+  const timeStr = timeString ?? `${clock.h.toString().padStart(2, '0')}:${clock.m.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
 
   const getMarketPhase = () => {
     if (session === 'morning') {

@@ -160,8 +160,8 @@ export const RankingPanel: React.FC<RankingPanelProps> = ({
   const panelTop = isTV ? 110 : 180;
   const panelWidth = isTV ? width * 0.18 : width * 0.28;
 
-  const inflowSectors = sectors.filter((s) => s.net >= 0).sort((a, b) => Math.abs(b.rate) - Math.abs(a.rate));
-  const outflowSectors = sectors.filter((s) => s.net < 0).sort((a, b) => Math.abs(b.rate) - Math.abs(a.rate));
+  const inflowSectors = sectors.filter((s) => s.net >= 0).sort((a, b) => b.net - a.net);
+  const outflowSectors = sectors.filter((s) => s.net < 0).sort((a, b) => a.net - b.net);
 
   const progress = frame / totalFrames;
   const inflowVisible = Math.min(

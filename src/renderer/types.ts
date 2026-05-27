@@ -59,6 +59,25 @@ export interface BloombergVideoProps {
   titleAudioFrames?: number;
   contentAudioFrames?: number;
   baseAnimationFrames?: number;
+  // News scene fields
+  newsPages?: NewsPage[];
+  newsAudioFiles?: string[];
+  newsAudioFrames?: number[];
+}
+
+export interface NewsItem {
+  title: string;
+  level: string;
+  time: string;
+}
+
+export interface SectorNews {
+  sector: string;
+  news: NewsItem[];
+}
+
+export interface NewsPage {
+  sectors: SectorNews[];
 }
 
 // Multi-day Bar Chart Race types
