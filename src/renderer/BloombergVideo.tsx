@@ -5,8 +5,6 @@ import {
   useVideoConfig,
   getInputProps,
   Sequence,
-  Audio,
-  staticFile,
   spring,
 } from 'remotion';
 import { Background } from './Background.tsx';
@@ -15,7 +13,10 @@ import { Chart } from './Chart.tsx';
 import { RankingPanel } from './RankingPanel.tsx';
 import { Particles } from './Particles.tsx';
 import { Disclaimer } from './Disclaimer.tsx';
+import { TitleScene } from './TitleScene.tsx';
+import { ConclusionScene } from './ConclusionScene.tsx';
 import type { BloombergVideoProps } from './types.ts';
+import { computeCurrentSectorValues } from './chart-utils.ts';
 
 const AnimationScene: React.FC<{
   sectors: BloombergVideoProps['sectors'];
@@ -46,6 +47,11 @@ const AnimationScene: React.FC<{
     return null;
   }, [events, progress]);
 
+  const currentSectors = React.useMemo(
+    () => computeCurrentSectorValues(sectors, frame, totalFrames),
+    [sectors, frame, totalFrames],
+  );
+
   return (
     <>
       <Background frame={frame} totalFrames={totalFrames} sentiment={sentiment} width={width} height={height} format={format} />
@@ -65,7 +71,7 @@ const AnimationScene: React.FC<{
         xLim={xLim}
       />
       <RankingPanel
-        sectors={sectors}
+        sectors={currentSectors}
         frame={frame}
         totalFrames={totalFrames}
         highlightId={mainLineId || undefined}
@@ -74,172 +80,6 @@ const AnimationScene: React.FC<{
         format={format}
       />
       <Disclaimer frame={frame} totalFrames={totalFrames} width={width} height={height} format={format} />
-    </>
-  );
-};
-
-const TitleScene: React.FC<{
-  titleText: string;
-  titleAudioFile: string;
-  displayDate: string;
-  width: number;
-  height: number;
-  format: 'mobile' | 'tv';
-  totalFrames: number;
-}> = ({ titleText, titleAudioFile, displayDate, width, height, format, totalFrames }) => {
-  const frame = useCurrentFrame();
-  const isTV = format === 'tv';
-  const scale = isTV ? 1.0 : 1.55;
-
-  const fadeIn = Math.min(1, frame / 20);
-  const titleSlide = spring({ frame, fps: 30, config: { damping: 15, stiffness: 80 } });
-
-  return (
-    <>
-      <Audio src={staticFile(titleAudioFile)} />
-      <Background frame={frame} totalFrames={totalFrames} sentiment="neutral" width={width} height={height} format={format} />
-      <div
-        style={{
-          position: 'absolute',
-          top: 0,
-          left: 0,
-          width,
-          height,
-          display: 'flex',
-          flexDirection: 'column',
-          alignItems: 'center',
-          justifyContent: 'center',
-          zIndex: 20,
-          opacity: fadeIn,
-        }}
-      >
-        <div
-          style={{
-            fontSize: isTV ? 20 : 28,
-            color: '#4a80d0',
-            fontFamily: '"PingFang SC", "Helvetica Neue", sans-serif',
-            letterSpacing: 6,
-            marginBottom: isTV ? 16 : 24,
-            opacity: fadeIn * 0.8,
-          }}
-        >
-          {displayDate} · A股复盘报告
-        </div>
-        <div
-          style={{
-            fontSize: isTV ? 42 : 56,
-            fontWeight: 700,
-            color: '#ffffff',
-            fontFamily: '"PingFang SC", "Helvetica Neue", sans-serif',
-            textAlign: 'center',
-            lineHeight: 1.4,
-            padding: '0 60px',
-            textShadow: '0 4px 24px rgba(0,0,0,0.6)',
-            transform: `translateY(${(1 - titleSlide) * 20}px)`,
-          }}
-        >
-          {titleText}
-        </div>
-        <div
-          style={{
-            marginTop: isTV ? 24 : 32,
-            fontSize: isTV ? 16 : 20,
-            color: '#8899aa',
-            fontFamily: '"Helvetica Neue", "PingFang SC", sans-serif',
-            letterSpacing: 3,
-          }}
-        >
-          资金不会说谎，主线都会留下痕迹
-        </div>
-      </div>
-    </>
-  );
-};
-
-const ConclusionScene: React.FC<{
-  contentText: string;
-  contentAudioFile: string;
-  displayDate: string;
-  width: number;
-  height: number;
-  format: 'mobile' | 'tv';
-  totalFrames: number;
-}> = ({ contentText, contentAudioFile, displayDate, width, height, format, totalFrames }) => {
-  const frame = useCurrentFrame();
-  const isTV = format === 'tv';
-  const scale = isTV ? 1.0 : 1.55;
-
-  const fadeIn = Math.min(1, frame / 25);
-  const lines = contentText.split(/[。！？\n]+/).filter((l) => l.trim().length > 0);
-
-  return (
-    <>
-      <Audio src={staticFile(contentAudioFile)} />
-      <Background frame={frame} totalFrames={totalFrames} sentiment="neutral" width={width} height={height} format={format} />
-      <div
-        style={{
-          position: 'absolute',
-          top: 0,
-          left: 0,
-          width,
-          height,
-          display: 'flex',
-          flexDirection: 'column',
-          alignItems: 'center',
-          justifyContent: 'center',
-          zIndex: 20,
-          opacity: fadeIn,
-          padding: '0 60px',
-        }}
-      >
-        <div
-          style={{
-            fontSize: isTV ? 18 : 24,
-            color: '#4a80d0',
-            fontFamily: '"PingFang SC", "Helvetica Neue", sans-serif',
-            letterSpacing: 4,
-            marginBottom: isTV ? 20 : 30,
-          }}
-        >
-          板块复盘总结
-        </div>
-        <div
-          style={{
-            fontSize: isTV ? 28 : 36,
-            fontWeight: 500,
-            color: '#e0e8f0',
-            fontFamily: '"PingFang SC", "Helvetica Neue", sans-serif',
-            textAlign: 'center',
-            lineHeight: 1.7,
-            textShadow: '0 2px 12px rgba(0,0,0,0.5)',
-          }}
-        >
-          {lines.map((line, i) => (
-            <div
-              key={i}
-              style={{
-                opacity: Math.min(1, Math.max(0, (frame - i * 15) / 15)),
-                transform: `translateY(${Math.max(0, (1 - Math.min(1, (frame - i * 15) / 15)) * 15)}px)`,
-                marginBottom: 8,
-              }}
-            >
-              {line.trim()}
-              {['。', '！', '？'].some((p) => line.endsWith(p)) ? '' : '。'}
-            </div>
-          ))}
-        </div>
-        <div
-          style={{
-            marginTop: isTV ? 30 : 40,
-            fontSize: isTV ? 14 : 18,
-            color: '#667788',
-            fontFamily: '"PingFang SC", "Helvetica Neue", sans-serif',
-            letterSpacing: 2,
-          }}
-        >
-          数据仅供分析参考 · 不构成投资建议
-        </div>
-      </div>
     </>
   );
 };

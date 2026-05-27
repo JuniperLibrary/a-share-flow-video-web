@@ -1,5 +1,6 @@
 import React, { useMemo } from 'react';
 import type { SectorData } from './types.ts';
+import { NUM_POINTS, generateCurve } from './chart-utils.ts';
 
 interface ChartProps {
   sectors: SectorData[];
@@ -16,7 +17,6 @@ interface ChartProps {
 }
 
 const X_MAX = 330;
-const NUM_POINTS = 300;
 
 const SECTOR_COLORS: Record<string, string> = {
   '半导体': '#00d4ff',
@@ -52,57 +52,8 @@ function getSectorColor(name: string, fallback: string): string {
   for (const key in SECTOR_COLORS) {
     if (name.includes(key)) return SECTOR_COLORS[key];
   }
-  // Use deterministic index into palette so same sector always gets same color
   const hash = name.split('').reduce((acc, c) => acc + c.charCodeAt(0), 0);
   return FALLBACK_PALETTE[hash % FALLBACK_PALETTE.length];
-}
-
-function createRNG(seed: number) {
-  let s = seed | 0;
-  return () => {
-    s = (s * 1664525 + 1013904223) | 0;
-    return (s >>> 0) / 4294967296;
-  };
-}
-
-function generateCurve(net: number, numPts: number, seed: number): Float64Array {
-  const rng = createRNG(seed);
-  const base = new Float64Array(numPts);
-  const noise = new Float64Array(numPts);
-
-  for (let i = 0; i < numPts; i++) {
-    const t = i / (numPts - 1);
-    let rhythm: number;
-    if (net > 0) {
-      if (t < 0.25) {
-        rhythm = Math.pow(t / 0.25, 0.7) * 0.35;
-      } else if (t < 0.7) {
-        rhythm = 0.35 + (t - 0.25) / 0.45 * 0.5;
-      } else {
-        rhythm = 0.85 + Math.pow((t - 0.7) / 0.3, 1.6) * 0.15;
-      }
-      base[i] = net * rhythm;
-    } else {
-      if (t < 0.25) {
-        rhythm = Math.pow(t / 0.25, 0.6) * 0.3;
-      } else if (t < 0.65) {
-        rhythm = 0.3 + (t - 0.25) / 0.4 * 0.55;
-      } else {
-        rhythm = 0.85 + Math.pow((t - 0.65) / 0.35, 1.4) * 0.15;
-      }
-      base[i] = net * rhythm;
-    }
-    noise[i] = (rng() - 0.5) * Math.abs(net) * 0.02;
-  }
-
-  const data = new Float64Array(numPts);
-  let cumNoise = 0;
-  for (let i = 0; i < numPts; i++) {
-    cumNoise += noise[i];
-    data[i] = base[i] + cumNoise * 0.03;
-  }
-  data[0] = 0; // all curves start at 0
-  return data;
 }
 
 function pointsToPath(
