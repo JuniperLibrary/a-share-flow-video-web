@@ -734,6 +734,33 @@ export function TickPage() {
           </div>
         )}
 
+        {filteredRows.length > 0 && (
+          <div className="mb-3 rounded-xl border border-white/[0.04] bg-black/20 backdrop-blur-sm px-5 py-2.5">
+            <div className="flex items-center gap-5 text-xs">
+              <span className="text-gray-500">
+                流入: <span className="text-rose-400 font-medium">{upCount}</span>
+              </span>
+              <span className="text-gray-500">
+                流出: <span className="text-emerald-400 font-medium">{downCount}</span>
+              </span>
+              <span className="text-gray-500">
+                持平: <span className="text-gray-400 font-medium">{flatCount}</span>
+              </span>
+              <span className="text-gray-600">总计: {filteredRows.length}</span>
+              {filterSector && (
+                <span className="text-gray-600">筛选: {filteredRows.length}/{sectorRows.length}</span>
+              )}
+              {topSector && worstSector && (
+                <span className="ml-auto text-gray-500">
+                  最强流入: <span className="text-rose-400">{topSector.name} {formatNet(topSector.latest.Net)}</span>
+                  <span className="mx-2">|</span>
+                  最强流出: <span className="text-emerald-400">{worstSector.name} {formatNet(worstSector.latest.Net)}</span>
+                </span>
+              )}
+            </div>
+          </div>
+        )}
+
         <div className="rounded-xl border border-white/[0.06] bg-black/30 backdrop-blur-xl shadow-2xl overflow-hidden">
           <div className="flex items-center justify-between px-5 py-3 border-b border-white/[0.04]">
             <div className="flex items-center gap-2">
@@ -825,34 +852,7 @@ export function TickPage() {
             </table>
           </div>
         </div>
-
-        {filteredRows.length > 0 && (
-          <div className="mt-3 rounded-xl border border-white/[0.04] bg-black/20 backdrop-blur-sm px-5 py-2.5">
-            <div className="flex items-center gap-5 text-xs">
-              <span className="text-gray-500">
-                流入: <span className="text-rose-400 font-medium">{upCount}</span>
-              </span>
-              <span className="text-gray-500">
-                流出: <span className="text-emerald-400 font-medium">{downCount}</span>
-              </span>
-              <span className="text-gray-500">
-                持平: <span className="text-gray-400 font-medium">{flatCount}</span>
-              </span>
-              <span className="text-gray-600">总计: {filteredRows.length}</span>
-              {filterSector && (
-                <span className="text-gray-600">筛选: {filteredRows.length}/{sectorRows.length}</span>
-              )}
-              {topSector && worstSector && (
-                <span className="ml-auto text-gray-500">
-                  最强流入: <span className="text-rose-400">{topSector.name} {formatNet(topSector.latest.Net)}</span>
-                  <span className="mx-2">|</span>
-                  最强流出: <span className="text-emerald-400">{worstSector.name} {formatNet(worstSector.latest.Net)}</span>
-                </span>
-              )}
-            </div>
-          </div>
-        )}
-      </div>
+        </div>
 
       <Modal
         visible={trendSector !== null}
