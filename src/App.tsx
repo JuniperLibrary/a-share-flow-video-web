@@ -9,6 +9,7 @@ import {
   IconFile,
   IconStar,
   IconEdit,
+  IconSound,
 } from '@arco-design/web-react/icon';
 import DashboardPage from './pages/DashboardPage';
 import { TickPage } from './pages/TickPage';
@@ -18,16 +19,18 @@ import { ConfigPage } from './pages/ConfigPage';
 import { NewsPage } from './pages/NewsPage';
 import { NotesPage } from './pages/NotesPage';
 import FundTab from './fund/FundTab';
+import { TTSPage } from './pages/TTSPage';
 import { api } from './api';
 
 const { Sider, Content } = Layout;
 const { Title } = Typography;
 
-type Page = 'dashboard' | 'tick' | 'generate' | 'preview' | 'config' | 'news' | 'fund' | 'notes';
+type Page = 'dashboard' | 'tick' | 'generate' | 'preview' | 'config' | 'news' | 'fund' | 'notes' | 'tts';
 
 const allNavItems: { key: Page; label: string; icon: React.ReactNode; staticOnly?: boolean }[] = [
   { key: 'dashboard', label: '仪表盘', icon: <IconDashboard /> },
   { key: 'fund', label: '基金宝', icon: <IconStar /> },
+  { key: 'tts', label: 'TTS 配音', icon: <IconSound /> },
   { key: 'notes', label: '开发笔记', icon: <IconEdit /> },
   { key: 'tick', label: 'Tick 采集', icon: <IconList />, staticOnly: true },
   { key: 'generate', label: '视频生成', icon: <IconPlayArrow />, staticOnly: true },
@@ -118,6 +121,9 @@ export default function App() {
           </div>
           <div style={{ display: page === 'notes' ? 'block' : 'none' }}>
             <NotesPage />
+          </div>
+          <div style={{ display: page === 'tts' ? 'block' : 'none' }}>
+            <TTSPage />
           </div>
         </Content>
       </Layout>
