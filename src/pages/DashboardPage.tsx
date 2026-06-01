@@ -225,12 +225,27 @@ function TimelineEventCard({ event, index }: TimelineEventCardProps) {
   );
 }
 
+const AUTO_REFRESH_MS = 30_000;
+
+function formatRelativeTime(updatedAt: Date | null, nowMs: number): string {
+  if (!updatedAt) return '';
+  const sec = Math.max(0, Math.floor((nowMs - updatedAt.getTime()) / 1000));
+  if (sec < 5) return '刚刚';
+  if (sec < 60) return `${sec} 秒前`;
+  const min = Math.floor(sec / 60);
+  if (min < 60) return `${min} 分钟前`;
+  return updatedAt.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' });
+}
+
 export default function DashboardPage() {
   const [loading, setLoading] = useState(true);
   const [dashboardData, setDashboardData] = useState<Awaited<ReturnType<typeof api.getDashboard>> | null>(null);
   const [events, setEvents] = useState<TickEvent[]>([]);
   const [trendData, setTrendData] = useState<Record<string, TrendPoint[]>>({});
   const [error, setError] = useState<string | null>(null);
+  const [lastUpdatedAt, setLastUpdatedAt] = useState<Date | null>(null);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [nowMs, setNowMs] = useState<number>(Date.now());
 
   const [showAllSectors, setShowAllSectors] = useState(false);
   const [sectorCategoryTab, setSectorCategoryTab] = useState<'all' | 'industry' | 'concept'>('all');
@@ -245,8 +260,12 @@ export default function DashboardPage() {
     };
   }, []);
 
-  async function loadData() {
-    setLoading(true);
+  async function loadData(isInitial = false) {
+    if (isInitial) {
+      setLoading(true);
+    } else {
+      setIsRefreshing(true);
+    }
     setError(null);
     try {
       const data = await api.getDashboard();
@@ -256,15 +275,30 @@ export default function DashboardPage() {
         setEvents(data.events || []);
         setTrendData(data.trend || {});
       }
+      setLastUpdatedAt(new Date());
     } catch (e) {
       setError(e instanceof Error ? e.message : '加载数据失败');
     } finally {
       setLoading(false);
+      setIsRefreshing(false);
     }
   }
 
   useEffect(() => {
-    loadData();
+    loadData(true);
+  }, []);
+
+  useEffect(() => {
+    const timer = setInterval(() => {
+      if (document.hidden) return;
+      loadData(false);
+    }, AUTO_REFRESH_MS);
+    return () => clearInterval(timer);
+  }, []);
+
+  useEffect(() => {
+    const timer = setInterval(() => setNowMs(Date.now()), 1000);
+    return () => clearInterval(timer);
   }, []);
 
   useEffect(() => {
@@ -395,10 +429,25 @@ export default function DashboardPage() {
               <span className="flex items-center gap-1.5">
                 {isStaticMode() ? (
                   <span className="text-xs text-muted-foreground">静态数据</span>
+                ) : isRefreshing || loading ? (
+                  <>
+                    <RefreshCw className="h-3.5 w-3.5 animate-spin text-cyan-400" />
+                    <span className="text-xs">刷新中...</span>
+                  </>
                 ) : (
                   <>
-                    <LiveDot />
-                    <span>实时</span>
+                    {lastUpdatedAt && nowMs - lastUpdatedAt.getTime() < 60_000 ? (
+                      <LiveDot />
+                    ) : (
+                      <span className="relative flex h-2.5 w-2.5">
+                        <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-amber-400/60" />
+                      </span>
+                    )}
+                    <span className="text-xs">
+                      {lastUpdatedAt
+                        ? `实时 · ${formatRelativeTime(lastUpdatedAt, nowMs)}`
+                        : '实时'}
+                    </span>
                   </>
                 )}
               </span>
@@ -421,7 +470,7 @@ export default function DashboardPage() {
               {sectorLoading ? '获取中...' : '获取并保存'}
             </button>
             <button
-              onClick={loadData}
+              onClick={() => loadData(true)}
               disabled={loading}
               className="flex items-center gap-2 rounded-lg border border-white/[0.08] bg-black/30 px-4 py-2 text-sm text-muted-foreground backdrop-blur-sm transition-all hover:border-white/[0.15] hover:text-white disabled:opacity-50"
             >
@@ -443,7 +492,7 @@ export default function DashboardPage() {
           <div className="flex items-center gap-3 rounded-xl border border-rose-500/20 bg-rose-500/5 px-4 py-3 text-sm text-rose-400">
             <AlertTriangle className="h-4 w-4 shrink-0" />
             {error}
-            <button onClick={loadData} className="ml-auto underline underline-offset-2 hover:text-rose-300">
+            <button onClick={() => loadData(true)} className="ml-auto underline underline-offset-2 hover:text-rose-300">
               重试
             </button>
           </div>
