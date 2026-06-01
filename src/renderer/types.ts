@@ -2,6 +2,11 @@ export interface SectorData {
   name: string;
   net: number;
   rate: number;
+  changePct?: number;
+  superNet?: number;
+  superRate?: number;
+  bigNet?: number;
+  bigRate?: number;
   color: string;
 }
 

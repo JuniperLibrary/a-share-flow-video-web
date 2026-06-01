@@ -2,6 +2,11 @@ export interface Sector {
   name: string;
   net: number;
   rate: number;
+  change_pct?: number;
+  super_net?: number;
+  super_rate?: number;
+  big_net?: number;
+  big_rate?: number;
   color: string;
   source: string;
   rank_group: string;
