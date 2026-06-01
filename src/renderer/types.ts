@@ -41,6 +41,12 @@ export interface SectorTick {
   data: number[];
   times: string[];
   rate: number;
+  changePct?: number;
+  superNet?: number;
+  superRate?: number;
+  bigNet?: number;
+  bigRate?: number;
+  mainRate?: number;
 }
 
 export interface BloombergVideoProps {

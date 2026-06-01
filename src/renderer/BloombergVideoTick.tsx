@@ -9,6 +9,7 @@ import { TickChart } from './TickChart.tsx';
 import { TitleScene } from './TitleScene.tsx';
 import { ConclusionScene } from './ConclusionScene.tsx';
 import { NewsScene } from './NewsScene.tsx';
+import { MainStructureScene } from './MainStructureScene.tsx';
 import type { BloombergVideoProps, SectorTick } from './types.ts';
 
 const TickAnimationScene: React.FC<{
@@ -56,6 +57,8 @@ const TickAnimationScene: React.FC<{
         net: cum,
         rate: s.rate,
         color: s.color || '#888888',
+        superNet: s.superNet,
+        bigNet: s.bigNet,
       };
     });
   }, [sectorTicks, progress]);
@@ -236,6 +239,19 @@ export const BloombergVideoTick: React.FC = () => {
             height={height}
             format={format}
             totalFrames={contentAudioFrames}
+          />
+        </Sequence>
+      )}
+
+      {sectorTicks.length > 0 && (
+        <Sequence from={contentStart + contentAudioFrames} durationInFrames={90}>
+          <MainStructureScene
+            sectorTicks={sectorTicks}
+            displayDate={displayDate}
+            width={width}
+            height={height}
+            format={format}
+            totalFrames={90}
           />
         </Sequence>
       )}

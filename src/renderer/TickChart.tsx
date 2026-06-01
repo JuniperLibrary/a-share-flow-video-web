@@ -352,6 +352,26 @@ export const TickChart: React.FC<TickChartProps> = ({
             <text x={endX + pointR + 19} y={labelY + 1} fill={sector.color} fontSize={isTV ? 16 : 22} fontWeight={500} textAnchor="start" dominantBaseline="middle" style={{ textShadow: `0 0 4px ${sector.color}33`, fontFamily: '"PingFang SC", "Helvetica Neue", sans-serif' }}>
               {sector.name}
             </text>
+            {(sector.superNet !== undefined || sector.bigNet !== undefined) &&
+              (Math.abs(sector.superNet ?? 0) > 0 || Math.abs(sector.bigNet ?? 0) > 0) && (
+                <g transform={`translate(${endX + pointR + 19}, ${labelY + 12})`}>
+                  {(() => {
+                    const superW = Math.abs(sector.superNet ?? 0);
+                    const bigW = Math.abs(sector.bigNet ?? 0);
+                    const total = superW + bigW;
+                    if (total === 0) return null;
+                    const BAR_W = isTV ? 36 : 48;
+                    const superPct = superW / total;
+                    return (
+                      <>
+                        <rect x={0} y={0} width={BAR_W} height={3} fill="rgba(74,144,217,0.12)" rx={1.5} />
+                        <rect x={0} y={0} width={BAR_W * superPct} height={3} fill="#f87171" rx={1.5} />
+                        <rect x={BAR_W * superPct} y={0} width={BAR_W * (1 - superPct)} height={3} fill="#fb923c" rx={1.5} />
+                      </>
+                    );
+                  })()}
+                </g>
+              )}
           </g>
         )}
 
