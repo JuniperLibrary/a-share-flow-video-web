@@ -145,21 +145,24 @@ export const BarRaceChart: React.FC<BarRaceChartProps> = ({
     const nextIndex = new Map<string, number>();
     nextBars.forEach((b, i) => nextIndex.set(b.name, i));
 
-    const map = new Map<string, { currentNet: number; nextNet: number; currentRank: number; nextRank: number; netChange: number; rankChange: number; color: string }>();
+    const map = new Map<string, { currentNet: number; nextNet: number; currentRank: number; nextRank: number; netChange: number; rankChange: number; color: string; currentChangePct: number; nextChangePct: number }>();
 
     for (const bar of currentBars) {
       const rank = currentIndex.get(bar.name)! + 1;
       const nextIdx = nextIndex.get(bar.name);
       const nextRank = nextIdx !== undefined ? nextIdx + 1 : rank;
+      const nextBar = nextIdx !== undefined ? nextBars[nextIdx] : bar;
 
       map.set(bar.name, {
         currentNet: bar.net,
-        nextNet: nextIdx !== undefined ? nextBars[nextIdx].net : bar.net,
+        nextNet: nextBar.net,
         currentRank: rank,
         nextRank,
-        netChange: (nextIdx !== undefined ? nextBars[nextIdx].net : bar.net) - bar.net,
+        netChange: nextBar.net - bar.net,
         rankChange: nextRank - rank,
         color: getSectorColor(bar.name),
+        currentChangePct: bar.changePct ?? 0,
+        nextChangePct: nextBar.changePct ?? 0,
       });
     }
 
@@ -168,14 +171,17 @@ export const BarRaceChart: React.FC<BarRaceChartProps> = ({
         if (!map.has(bar.name)) {
           const rank = nextIndex.get(bar.name)! + 1;
           const currentIdx = currentIndex.get(bar.name);
+          const currentBar = currentIdx !== undefined ? currentBars[currentIdx] : undefined;
           map.set(bar.name, {
-            currentNet: currentIdx !== undefined ? currentBars[currentIdx].net : 0,
+            currentNet: currentBar ? currentBar.net : 0,
             nextNet: bar.net,
             currentRank: currentIdx !== undefined ? currentIdx + 1 : rank,
             nextRank: rank,
-            netChange: bar.net - (currentIdx !== undefined ? currentBars[currentIdx].net : 0),
+            netChange: bar.net - (currentBar ? currentBar.net : 0),
             rankChange: rank - (currentIdx !== undefined ? currentIdx + 1 : rank),
             color: getSectorColor(bar.name),
+            currentChangePct: currentBar?.changePct ?? 0,
+            nextChangePct: bar.changePct ?? 0,
           });
         }
       }
@@ -189,7 +195,8 @@ export const BarRaceChart: React.FC<BarRaceChartProps> = ({
     return Array.from(sectorMap.entries()).map(([name, data]) => {
       const net = data.currentNet + data.netChange * netProgress;
       const rank = data.currentRank + (data.nextRank - data.currentRank) * rankProgress;
-      return { name, net, rank, color: data.color, prevRank: data.currentRank, targetRank: data.nextRank, rankChange: data.rankChange, netChange: data.netChange };
+      const changePct = data.currentChangePct + (data.nextChangePct - data.currentChangePct) * netProgress;
+      return { name, net, rank, color: data.color, prevRank: data.currentRank, targetRank: data.nextRank, rankChange: data.rankChange, netChange: data.netChange, changePct };
     }).sort((a, b) => a.rank - b.rank).slice(0, 21);
   }, [sectorMap, netProgress, rankProgress]);
 
@@ -418,6 +425,19 @@ export const BarRaceChart: React.FC<BarRaceChartProps> = ({
                   letterSpacing: 0.5,
                 }}>
                   主线
+                </span>
+              )}
+              {sector.changePct !== undefined && sector.changePct !== 0 && (
+                <span style={{
+                  marginLeft: 4,
+                  fontSize: 10,
+                  fontWeight: 600,
+                  color: sector.changePct > 0 ? '#f87171' : '#4ade80',
+                  fontFamily: 'monospace',
+                  fontVariantNumeric: 'tabular-nums' as const,
+                  opacity: 0.85,
+                }}>
+                  {sector.changePct > 0 ? '+' : ''}{sector.changePct.toFixed(2)}%
                 </span>
               )}
             </div>

@@ -135,6 +135,69 @@ const RankingGroup: React.FC<{
                   ({sector.rate > 0 ? '+' : ''}{sector.rate.toFixed(1)}%)
                 </span>
               )}
+              {sector.changePct !== undefined && sector.changePct !== 0 && (
+                <span
+                  style={{
+                    fontSize: 11 * scale,
+                    fontWeight: 600,
+                    color: sector.changePct > 0 ? '#f87171' : '#4ade80',
+                    opacity: 0.85,
+                    marginLeft: 4 * scale,
+                    padding: `0 ${3 * scale}px`,
+                    borderRadius: 2,
+                    backgroundColor: sector.changePct > 0 ? 'rgba(248, 113, 113, 0.12)' : 'rgba(74, 222, 128, 0.12)',
+                    fontVariantNumeric: 'tabular-nums' as const,
+                  }}
+                >
+                  {sector.changePct > 0 ? '+' : ''}{sector.changePct.toFixed(2)}%
+                </span>
+              )}
+              {(sector.superNet !== 0 || sector.bigNet !== 0) && (
+                <span
+                  style={{
+                    display: 'inline-block',
+                    width: 48 * scale,
+                    height: 3,
+                    marginLeft: 6 * scale,
+                    borderRadius: 1.5,
+                    overflow: 'hidden',
+                    backgroundColor: 'rgba(74, 144, 217, 0.1)',
+                    verticalAlign: 'middle',
+                  }}
+                  title={`超大单 ${(sector.superNet ?? 0).toFixed(1)}亿 · 大单 ${(sector.bigNet ?? 0).toFixed(1)}亿`}
+                >
+                  {(() => {
+                    const superW = (sector.superNet ?? 0);
+                    const bigW = (sector.bigNet ?? 0);
+                    const total = Math.abs(superW) + Math.abs(bigW);
+                    if (total === 0) return null;
+                    const superPct = (Math.abs(superW) / total) * 100;
+                    const bigPct = (Math.abs(bigW) / total) * 100;
+                    return (
+                      <>
+                        <span
+                          style={{
+                            display: 'inline-block',
+                            width: `${superPct}%`,
+                            height: '100%',
+                            backgroundColor: '#f87171',
+                            verticalAlign: 'top',
+                          }}
+                        />
+                        <span
+                          style={{
+                            display: 'inline-block',
+                            width: `${bigPct}%`,
+                            height: '100%',
+                            backgroundColor: '#fb923c',
+                            verticalAlign: 'top',
+                          }}
+                        />
+                      </>
+                    );
+                  })()}
+                </span>
+              )}
               &nbsp;{arrow}
             </span>
           </div>
