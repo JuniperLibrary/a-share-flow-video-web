@@ -22,6 +22,8 @@ interface DebateVideoProps {
   sectorName: string;
   riskName: string;
   synthesizerName: string;
+  stockName?: string;
+  reportPeriod?: string;
   reportTitle: string;
   turns: DebateTurn[];
   audioTurns: DebateAudioTurn[];
@@ -31,7 +33,7 @@ interface DebateVideoProps {
   format: string;
 }
 
-const INTRO_FRAMES = 30;
+const INTRO_FRAMES = 90;
 const PHASE_TITLE_FRAMES = 30;
 
 const COLORS: Record<DebateSpeaker, { primary: string; deep: string }> = {
@@ -99,6 +101,8 @@ export const DebateVideo: React.FC = () => {
   const inputProps = (getInputProps() ?? {}) as unknown as Partial<DebateVideoProps>;
 
   const reportTitle = inputProps.reportTitle ?? '财报辩论';
+  const stockName = inputProps.stockName ?? '';
+  const reportPeriod = inputProps.reportPeriod ?? '';
   const turns = inputProps.turns ?? [];
   const audioTurns = inputProps.audioTurns ?? [];
   const totalFrames = inputProps.totalFrames ?? durationInFrames;
@@ -121,6 +125,17 @@ export const DebateVideo: React.FC = () => {
           <Audio src={staticFile(at.audioFile)} />
         </Sequence>
       ))}
+
+      <Sequence from={0} durationInFrames={INTRO_FRAMES}>
+        <TopicIntroCard
+          stockName={stockName}
+          reportPeriod={reportPeriod}
+          reportTitle={reportTitle}
+          width={width}
+          height={height}
+          isTV={isTV}
+        />
+      </Sequence>
 
       {phaseEntries.map((entry) => (
         <Sequence
@@ -793,6 +808,166 @@ const PhaseTitleCard: React.FC<{ phase: Phase; width: number; height: number; is
         {PHASE_SUBTITLE[phase]}
       </div>
     </div>
+  );
+};
+
+const TopicIntroCard: React.FC<{
+  stockName: string;
+  reportPeriod: string;
+  reportTitle: string;
+  width: number;
+  height: number;
+  isTV: boolean;
+}> = ({ stockName, reportPeriod, reportTitle, width, height, isTV }) => {
+  const frame = useCurrentFrame();
+
+  const opacityIn = interpolate(frame, [0, 20], [0, 1], { extrapolateRight: 'clamp', easing: EASE });
+  const opacityHold = 1;
+  const opacityOut = interpolate(frame, [INTRO_FRAMES - 20, INTRO_FRAMES], [1, 0], { extrapolateRight: 'clamp', easing: EASE });
+  const opacity = Math.min(opacityIn, opacityHold) * (frame > INTRO_FRAMES - 20 ? opacityOut : 1);
+
+  const titleY = interpolate(frame, [0, 24], [30, 0], { extrapolateRight: 'clamp', easing: EASE });
+  const lineScale = interpolate(frame, [10, 28], [0, 1], { extrapolateRight: 'clamp', easing: EASE });
+  const subY = interpolate(frame, [16, 36], [20, 0], { extrapolateRight: 'clamp', easing: EASE });
+
+  const bubble1Y = Math.sin(frame * 0.02) * 8;
+  const bubble2Y = Math.sin(frame * 0.025 + 1.5) * 12;
+  const bubble3Y = Math.sin(frame * 0.02 + 3) * 6;
+
+  const accentColor = '#22d3ee';
+
+  return (
+    <AbsoluteFill style={{ background: '#060b1a' }}>
+      <div
+        style={{
+          position: 'absolute',
+          left: width * 0.5,
+          top: height * 0.35,
+          width: width * 1.2,
+          height: width * 1.2,
+          transform: 'translate(-50%, -50%)',
+          background: `radial-gradient(circle, ${accentColor}15 0%, transparent 60%)`,
+          filter: 'blur(40px)',
+          opacity: opacityIn,
+        }}
+      />
+      <div
+        style={{
+          position: 'absolute',
+          left: width * 0.2 + bubble1Y,
+          bottom: '25%',
+          width: 4,
+          height: 4,
+          borderRadius: '50%',
+          background: `${accentColor}33`,
+          opacity: 0.3 + Math.sin(frame * 0.03) * 0.15,
+        }}
+      />
+      <div
+        style={{
+          position: 'absolute',
+          right: '30%',
+          top: '20%',
+          width: 6,
+          height: 6,
+          borderRadius: '50%',
+          background: `${accentColor}22`,
+          opacity: 0.2 + Math.sin(frame * 0.04 + 1) * 0.1,
+        }}
+      />
+      <div
+        style={{
+          position: 'absolute',
+          left: '35%',
+          top: '60%',
+          width: 3,
+          height: 3,
+          borderRadius: '50%',
+          background: `${accentColor}44`,
+          opacity: 0.2 + Math.sin(frame * 0.035 + 2) * 0.1,
+        }}
+      />
+
+      <div
+        style={{
+          position: 'absolute',
+          top: isTV ? '30%' : '28%',
+          left: 0,
+          right: 0,
+          opacity,
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 10,
+        }}
+      >
+        <div
+          style={{
+            fontSize: isTV ? 64 : 96,
+            fontWeight: 800,
+            color: '#f1f5f9',
+            letterSpacing: isTV ? 6 : 8,
+            transform: `translateY(${titleY}px)`,
+            textShadow: `0 0 60px ${accentColor}33`,
+            marginBottom: isTV ? 16 : 24,
+          }}
+        >
+          {stockName || '财报辩论'}
+        </div>
+
+        {reportPeriod && (
+          <div
+            style={{
+              fontSize: isTV ? 18 : 28,
+              fontWeight: 500,
+              color: '#94a3b8',
+              letterSpacing: isTV ? 4 : 6,
+              transform: `translateY(${subY}px)`,
+              marginBottom: isTV ? 24 : 40,
+            }}
+          >
+            {reportPeriod}
+          </div>
+        )}
+
+        <div
+          style={{
+            width: isTV ? 0 : 80,
+            height: 2,
+            background: `linear-gradient(90deg, transparent, ${accentColor}, transparent)`,
+            transform: `scaleX(${lineScale})`,
+            marginBottom: isTV ? 20 : 36,
+            opacity: 0.7,
+          }}
+        />
+
+        <div
+          style={{
+            fontSize: isTV ? 20 : 32,
+            fontWeight: 700,
+            color: accentColor,
+            letterSpacing: isTV ? 8 : 12,
+            transform: `translateY(${subY}px)`,
+            textShadow: `0 0 30px ${accentColor}44`,
+          }}
+        >
+          多空辩论
+        </div>
+
+        <div
+          style={{
+            fontSize: isTV ? 13 : 18,
+            color: '#64748b',
+            letterSpacing: 3,
+            marginTop: isTV ? 10 : 16,
+            transform: `translateY(${subY}px)`,
+          }}
+        >
+          财报多视角 · 数据攻防
+        </div>
+      </div>
+    </AbsoluteFill>
   );
 };
 

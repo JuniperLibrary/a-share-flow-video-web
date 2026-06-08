@@ -134,8 +134,6 @@ export const Root: React.FC = () => {
           taskId: 'preview',
           bullName: '乐观派',
           bearName: '谨慎派',
-          bullAvatar: '📈',
-          bearAvatar: '🛡️',
           reportTitle: '财报辩论',
           turns: [],
           audioTurns: [],

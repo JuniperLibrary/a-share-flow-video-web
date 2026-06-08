@@ -198,6 +198,8 @@ export interface DebateVideoProps {
   sectorName: string;
   riskName: string;
   synthesizerName: string;
+  stockName?: string;
+  reportPeriod?: string;
   reportTitle: string;
   turns: DebateTurn[];
   audioTurns: DebateAudioTurn[];
