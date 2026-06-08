@@ -47,14 +47,14 @@ export const NewsScene: React.FC<NewsSceneProps> = ({
 
   const fadeIn = Math.min(1, frame / 20);
 
-  const headerSize = isTV ? 20 : 28;
-  const sectorNameSize = isTV ? 22 : 30;
-  const newsTitleSize = isTV ? 16 : 22;
-  const pageSize = isTV ? 14 : 18;
+  const headerSize = isTV ? 26 : 34;
+  const sectorNameSize = isTV ? 28 : 36;
+  const newsTitleSize = isTV ? 22 : 30;
+  const pageSize = isTV ? 18 : 22;
 
-  const containerPadding = isTV ? 60 : 40;
-  const sectorGap = isTV ? 24 : 32;
-  const newsGap = isTV ? 6 : 10;
+  const containerPadding = isTV ? 44 : 32;
+  const sectorGap = isTV ? 18 : 24;
+  const newsGap = isTV ? 10 : 14;
 
   return (
     <>
@@ -110,38 +110,46 @@ export const NewsScene: React.FC<NewsSceneProps> = ({
           style={{
             flex: 1,
             display: 'flex',
-            flexDirection: 'column',
-            gap: sectorGap,
-            justifyContent: 'center',
+            flexDirection: isTV ? 'row' : 'column',
+            gap: isTV ? 16 : sectorGap,
+            justifyContent: isTV ? 'center' : 'flex-start',
+            alignItems: isTV ? 'stretch' : undefined,
           }}
         >
           {page.sectors.map((sn, si) => {
             const color = sectorColor(sn.sector);
-            const sectorDelay = si * 12;
-            const sectorOpacity = Math.min(1, Math.max(0, (frame - sectorDelay) / 15));
-            const sectorSlide = Math.max(0, (1 - Math.min(1, (frame - sectorDelay) / 15)) * 20);
+            const sectorDelay = si * 8;
+            const sectorOpacity = Math.min(1, Math.max(0, (frame - sectorDelay) / 10));
 
             return (
               <div
                 key={sn.sector}
                 style={{
                   opacity: sectorOpacity,
-                  transform: `translateY(${sectorSlide}px)`,
+                  flex: isTV ? 1 : undefined,
+                  background: isTV ? 'rgba(20,30,50,0.6)' : undefined,
+                  borderRadius: isTV ? 8 : 0,
+                  border: isTV ? '1px solid rgba(60,80,120,0.3)' : undefined,
+                  padding: isTV ? 12 : 0,
+                  display: 'flex',
+                  flexDirection: 'column',
                 }}
               >
                 <div
                   style={{
                     display: 'flex',
                     alignItems: 'center',
-                    gap: isTV ? 10 : 14,
+                    gap: isTV ? 8 : 14,
                     marginBottom: isTV ? 8 : 12,
+                    borderBottom: isTV ? '1px solid rgba(60,80,120,0.3)' : undefined,
+                    paddingBottom: isTV ? 6 : 0,
                   }}
                 >
                   <div
                     style={{
-                      width: isTV ? 4 : 6,
-                      height: isTV ? 20 : 28,
-                      borderRadius: 3,
+                      width: isTV ? 3 : 6,
+                      height: isTV ? 16 : 28,
+                      borderRadius: 2,
                       background: color,
                       boxShadow: `0 0 8px ${color}66`,
                     }}
@@ -159,10 +167,10 @@ export const NewsScene: React.FC<NewsSceneProps> = ({
                   </span>
                 </div>
 
-                <div style={{ paddingLeft: isTV ? 14 : 20, display: 'flex', flexDirection: 'column', gap: newsGap }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: isTV ? 4 : newsGap, flex: 1 }}>
                   {sn.news.map((item, ni) => {
-                    const newsDelay = sectorDelay + 8 + ni * 6;
-                    const newsOpacity = Math.min(1, Math.max(0, (frame - newsDelay) / 12));
+                    const newsDelay = sectorDelay + 6 + ni * 4;
+                    const newsOpacity = Math.min(1, Math.max(0, (frame - newsDelay) / 8));
                     const isLevelA = item.level === 'A';
 
                     return (
@@ -172,21 +180,21 @@ export const NewsScene: React.FC<NewsSceneProps> = ({
                           opacity: newsOpacity,
                           display: 'flex',
                           alignItems: 'flex-start',
-                          gap: isTV ? 8 : 12,
+                          gap: isTV ? 6 : 12,
                         }}
                       >
                         {isLevelA && (
                           <span
                             style={{
-                              fontSize: isTV ? 10 : 13,
+                              fontSize: isTV ? 11 : 14,
                               fontWeight: 700,
                               color: '#ff4444',
                               background: 'rgba(255,68,68,0.15)',
                               borderRadius: 3,
-                              padding: isTV ? '1px 4px' : '2px 6px',
+                              padding: isTV ? '2px 4px' : '3px 8px',
                               fontFamily: '"Helvetica Neue", sans-serif',
                               flexShrink: 0,
-                              marginTop: isTV ? 2 : 3,
+                              marginTop: isTV ? 3 : 4,
                             }}
                           >
                             热

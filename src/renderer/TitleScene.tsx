@@ -24,8 +24,9 @@ export const TitleScene: React.FC<TitleSceneProps> = ({
   const frame = useCurrentFrame();
   const isTV = format === 'tv';
 
-  const fadeIn = Math.min(1, frame / 20);
-  const titleSlide = spring({ frame, fps: 30, config: { damping: 15, stiffness: 80 } });
+  const dateOpacity = Math.min(1, Math.max(0, (frame - 3) / 10));
+  const hookOpacity = Math.min(1, Math.max(0, (frame - 8) / 12));
+  const bottomOpacity = Math.min(1, Math.max(0, (frame - 15) / 10));
 
   return (
     <>
@@ -43,46 +44,46 @@ export const TitleScene: React.FC<TitleSceneProps> = ({
           alignItems: 'center',
           justifyContent: 'center',
           zIndex: 20,
-          opacity: fadeIn,
         }}
       >
         <div
           style={{
-            fontSize: isTV ? 20 : 28,
+            fontSize: isTV ? 22 : 30,
             color: '#4a80d0',
             fontFamily: '"PingFang SC", "Helvetica Neue", sans-serif',
             letterSpacing: 6,
-            marginBottom: isTV ? 16 : 24,
-            opacity: fadeIn * 0.8,
+            marginBottom: isTV ? 20 : 28,
+            opacity: dateOpacity,
           }}
         >
-          {displayDate} · A股复盘报告
+          {displayDate}
         </div>
         <div
           style={{
-            fontSize: isTV ? 42 : 56,
+            fontSize: isTV ? 44 : 60,
             fontWeight: 700,
             color: '#ffffff',
             fontFamily: '"PingFang SC", "Helvetica Neue", sans-serif',
             textAlign: 'center',
-            lineHeight: 1.4,
-            padding: '0 60px',
+            lineHeight: 1.3,
+            padding: '0 50px',
             textShadow: '0 4px 24px rgba(0,0,0,0.6)',
-            transform: `translateY(${(1 - titleSlide) * 20}px)`,
+            opacity: hookOpacity,
           }}
         >
           {titleText}
         </div>
         <div
           style={{
-            marginTop: isTV ? 24 : 32,
+            marginTop: isTV ? 28 : 40,
             fontSize: isTV ? 16 : 20,
             color: '#8899aa',
             fontFamily: '"Helvetica Neue", "PingFang SC", sans-serif',
             letterSpacing: 3,
+            opacity: bottomOpacity,
           }}
         >
-          资金不会说谎，主线都会留下痕迹
+          资金流向实录
         </div>
       </div>
     </>

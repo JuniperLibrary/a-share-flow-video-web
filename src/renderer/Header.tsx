@@ -240,7 +240,37 @@ export const Header: React.FC<HeaderProps> = ({
               opacity: 0.7,
             }}
           >
-            资金不会说谎，主线都会留下痕迹
+            今天谁在疯狂吸金？
+          </div>
+        </div>
+      )}
+
+      {!hookText && frame < 90 && (
+        <div
+          style={{
+            position: 'absolute',
+            top: isTV ? 68 : 100,
+            left: 0,
+            right: 0,
+            textAlign: 'center',
+            opacity: Math.min(1, Math.max(0, (frame - 15) / 15)) * Math.min(1, Math.max(0, (75 - frame) / 15)),
+            zIndex: 20,
+          }}
+        >
+          <div
+            style={{
+              display: 'inline-block',
+              fontSize: isTV ? 13 * scale : 15 * scale,
+              color: '#8899aa',
+              fontFamily: '"PingFang SC", "Helvetica Neue", sans-serif',
+              letterSpacing: 3,
+              padding: `${4 * scale}px ${14 * scale}px`,
+              borderRadius: 4,
+              background: 'rgba(15,25,40,0.6)',
+              border: '1px solid rgba(60,80,120,0.3)',
+            }}
+          >
+            今日主力流向概览
           </div>
         </div>
       )}

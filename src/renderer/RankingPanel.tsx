@@ -48,7 +48,7 @@ const RankingGroup: React.FC<{
 
       {displaySectors.map((sector, i) => {
         const isVisible = i < visibleCount;
-        const opacity = isVisible ? Math.min(1, (frame - i * 5) / 10) : 0;
+        const opacity = isVisible ? Math.min(1, Math.max(0.8, (frame - i * 5) / 10)) : 0;
         const isHighlighted = sector.name === highlightId;
         const pulseOpacity = isHighlighted ? Math.min(0.4, (frame % 30) / 30) : 0;
 
@@ -227,13 +227,14 @@ export const RankingPanel: React.FC<RankingPanelProps> = ({
   const outflowSectors = sectors.filter((s) => s.net < 0).sort((a, b) => a.net - b.net);
 
   const progress = frame / totalFrames;
+  const showTop3Preview = frame < 60;
   const inflowVisible = Math.min(
     inflowSectors.length,
-    Math.floor(progress * inflowSectors.length * 1.6),
+    showTop3Preview ? Math.min(3, inflowSectors.length) : Math.floor(progress * inflowSectors.length * 1.6),
   );
   const outflowVisible = Math.min(
     outflowSectors.length,
-    Math.floor(progress * outflowSectors.length * 1.6),
+    showTop3Preview ? Math.min(3, outflowSectors.length) : Math.floor(progress * outflowSectors.length * 1.6),
   );
 
   return (

@@ -7,6 +7,8 @@ export interface SectorData {
   superRate?: number;
   bigNet?: number;
   bigRate?: number;
+  volume?: number;
+  turnover?: number;
   color: string;
 }
 
@@ -47,6 +49,8 @@ export interface SectorTick {
   bigNet?: number;
   bigRate?: number;
   mainRate?: number;
+  volume?: number;
+  turnover?: number;
 }
 
 export interface BloombergVideoProps {
@@ -62,15 +66,22 @@ export interface BloombergVideoProps {
   height?: number;
   session?: 'morning' | 'full';
   xLim?: [number, number];
-  // Voiceover TTS fields — set by Go backend when AI copywriting is available
-  titleText?: string;
-  contentText?: string;
-  titleAudioFile?: string;
-  contentAudioFile?: string;
-  titleAudioFrames?: number;
-  contentAudioFrames?: number;
+  scene1Text?: string;
+  scene2Text?: string;
+  scene3Text?: string;
+  scene4Text?: string;
+  scene5Text?: string;
+  scene1Audio?: string;
+  scene2Audio?: string;
+  scene3Audio?: string;
+  scene4Audio?: string;
+  scene5Audio?: string;
+  scene1Frames?: number;
+  scene2Frames?: number;
+  scene3Frames?: number;
+  scene4Frames?: number;
+  scene5Frames?: number;
   baseAnimationFrames?: number;
-  // News scene fields
   newsPages?: NewsPage[];
   newsAudioFiles?: string[];
   newsAudioFrames?: number[];
@@ -143,4 +154,55 @@ export interface MultiDayVideoProps {
   width: number;
   height: number;
   totalFrames: number;
+}
+
+export type DebateSpeaker = 'moderator' | 'bull' | 'bear' | 'sector' | 'risk' | 'synthesizer';
+
+export type DebatePhase = 'open' | 'opening' | 'cross_exam' | 'rebuttal' | 'fact_check' | 'closing' | 'synthesis';
+
+export interface DebateCitation {
+  source: string;
+  ref: string;
+  quote?: string;
+}
+
+export interface DebateToolCall {
+  name: string;
+  args?: Record<string, unknown>;
+}
+
+export interface DebateTurn {
+  index: number;
+  phase?: DebatePhase;
+  speaker: DebateSpeaker;
+  text: string;
+  emotion?: string;
+  citations?: DebateCitation[];
+  toolCalls?: DebateToolCall[];
+}
+
+export interface DebateAudioTurn {
+  index: number;
+  speaker: DebateSpeaker;
+  text: string;
+  audioFile: string;
+  durationSec: number;
+  frames: number;
+}
+
+export interface DebateVideoProps {
+  taskId: string;
+  moderatorName: string;
+  bullName: string;
+  bearName: string;
+  sectorName: string;
+  riskName: string;
+  synthesizerName: string;
+  reportTitle: string;
+  turns: DebateTurn[];
+  audioTurns: DebateAudioTurn[];
+  totalFrames: number;
+  width: number;
+  height: number;
+  format: string;
 }

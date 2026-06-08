@@ -6,8 +6,7 @@ import { RankingPanel } from './RankingPanel.tsx';
 import { Particles } from './Particles.tsx';
 import { Disclaimer } from './Disclaimer.tsx';
 import { TickChart } from './TickChart.tsx';
-import { TitleScene } from './TitleScene.tsx';
-import { ConclusionScene } from './ConclusionScene.tsx';
+import { NarrativeScene } from './NarrativeScene.tsx';
 import { NewsScene } from './NewsScene.tsx';
 import { MainStructureScene } from './MainStructureScene.tsx';
 import type { BloombergVideoProps, SectorTick } from './types.ts';
@@ -129,13 +128,16 @@ export const BloombergVideoTick: React.FC = () => {
   const session = inputProps.session || 'full';
   const xLim = inputProps.xLim || [0, 330];
 
-  const titleAudioFrames = inputProps.titleAudioFrames || 0;
-  const contentAudioFrames = inputProps.contentAudioFrames || 0;
+  const scene1Frames = inputProps.scene1Frames || 0;
+  const scene2Frames = inputProps.scene2Frames || 0;
+  const scene3Frames = inputProps.scene3Frames || 0;
+  const scene4Frames = inputProps.scene4Frames || 0;
+  const scene5Frames = inputProps.scene5Frames || 0;
   const baseAnimationFrames = inputProps.baseAnimationFrames || totalFrames;
   const newsPages = inputProps.newsPages || [];
   const newsAudioFiles = inputProps.newsAudioFiles || [];
   const newsAudioFrames = inputProps.newsAudioFrames || [];
-  const hasVoiceover = (inputProps.titleAudioFrames ?? 0) > 0 || newsPages.length > 0;
+  const hasVoiceover = scene1Frames > 0 || newsPages.length > 0;
 
   const sentiment = React.useMemo(() => {
     if (sectorTicks.length === 0) return 'neutral' as const;
@@ -163,8 +165,12 @@ export const BloombergVideoTick: React.FC = () => {
     return `${totalNet > 0 ? '净流入' : '净流出'}${Math.abs(totalNet).toFixed(0)}亿`;
   }, [sectorTicks, sentiment]);
 
-  const titleEnd = titleAudioFrames;
-  const animEnd = titleAudioFrames + baseAnimationFrames;
+  const scene1End = scene1Frames;
+  const scene2End = scene1End + scene2Frames;
+  const scene3End = scene2End + scene3Frames;
+  const scene4End = scene3End + scene4Frames;
+  const scene5End = scene4End + scene5Frames;
+  const animEnd = scene5End + baseAnimationFrames;
 
   const newsStartFrames: number[] = [];
   let newsOffset = 0;
@@ -190,21 +196,82 @@ export const BloombergVideoTick: React.FC = () => {
 
   return (
     <AbsoluteFill>
-      {titleAudioFrames > 0 && (
-        <Sequence from={0} durationInFrames={titleAudioFrames}>
-          <TitleScene
-            titleText={inputProps.titleText || ''}
-            titleAudioFile={inputProps.titleAudioFile || ''}
+      {scene1Frames > 0 && (
+        <Sequence from={0} durationInFrames={scene1Frames}>
+          <NarrativeScene
+            sceneText={inputProps.scene1Text || ''}
+            audioFile={inputProps.scene1Audio || ''}
             displayDate={displayDate}
             width={width}
             height={height}
             format={format}
-            totalFrames={titleAudioFrames}
+            totalFrames={scene1Frames}
+            sceneType="hook1"
           />
         </Sequence>
       )}
 
-      <Sequence from={titleEnd} durationInFrames={baseAnimationFrames}>
+      {scene2Frames > 0 && (
+        <Sequence from={scene1End} durationInFrames={scene2Frames}>
+          <NarrativeScene
+            sceneText={inputProps.scene2Text || ''}
+            audioFile={inputProps.scene2Audio || ''}
+            displayDate={displayDate}
+            width={width}
+            height={height}
+            format={format}
+            totalFrames={scene2Frames}
+            sceneType="suspense"
+          />
+        </Sequence>
+      )}
+
+      {scene3Frames > 0 && (
+        <Sequence from={scene2End} durationInFrames={scene3Frames}>
+          <NarrativeScene
+            sceneText={inputProps.scene3Text || ''}
+            audioFile={inputProps.scene3Audio || ''}
+            displayDate={displayDate}
+            width={width}
+            height={height}
+            format={format}
+            totalFrames={scene3Frames}
+            sceneType="twist"
+          />
+        </Sequence>
+      )}
+
+      {scene4Frames > 0 && (
+        <Sequence from={scene3End} durationInFrames={scene4Frames}>
+          <NarrativeScene
+            sceneText={inputProps.scene4Text || ''}
+            audioFile={inputProps.scene4Audio || ''}
+            displayDate={displayDate}
+            width={width}
+            height={height}
+            format={format}
+            totalFrames={scene4Frames}
+            sceneType="answer"
+          />
+        </Sequence>
+      )}
+
+      {scene5Frames > 0 && (
+        <Sequence from={scene4End} durationInFrames={scene5Frames}>
+          <NarrativeScene
+            sceneText={inputProps.scene5Text || ''}
+            audioFile={inputProps.scene5Audio || ''}
+            displayDate={displayDate}
+            width={width}
+            height={height}
+            format={format}
+            totalFrames={scene5Frames}
+            sceneType="hook2"
+          />
+        </Sequence>
+      )}
+
+      <Sequence from={scene5End} durationInFrames={baseAnimationFrames}>
         <TickAnimationScene
           {...sharedSceneProps}
           baseTotalFrames={baseAnimationFrames}
@@ -229,22 +296,8 @@ export const BloombergVideoTick: React.FC = () => {
         )
       ))}
 
-      {contentAudioFrames > 0 && (
-        <Sequence from={contentStart} durationInFrames={contentAudioFrames}>
-          <ConclusionScene
-            contentText={inputProps.contentText || ''}
-            contentAudioFile={inputProps.contentAudioFile || ''}
-            displayDate={displayDate}
-            width={width}
-            height={height}
-            format={format}
-            totalFrames={contentAudioFrames}
-          />
-        </Sequence>
-      )}
-
       {sectorTicks.length > 0 && (
-        <Sequence from={contentStart + contentAudioFrames} durationInFrames={90}>
+        <Sequence from={contentStart} durationInFrames={90}>
           <MainStructureScene
             sectorTicks={sectorTicks}
             displayDate={displayDate}

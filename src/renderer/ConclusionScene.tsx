@@ -24,8 +24,7 @@ export const ConclusionScene: React.FC<ConclusionSceneProps> = ({
   const frame = useCurrentFrame();
   const isTV = format === 'tv';
 
-  const fadeIn = Math.min(1, frame / 25);
-  const lines = contentText.split(/[。！？\n]+/).filter((l) => l.trim().length > 0);
+  const fadeIn = Math.min(1, frame / 15);
 
   return (
     <>
@@ -44,55 +43,43 @@ export const ConclusionScene: React.FC<ConclusionSceneProps> = ({
           justifyContent: 'center',
           zIndex: 20,
           opacity: fadeIn,
-          padding: '0 60px',
+          padding: '0 50px',
         }}
       >
         <div
           style={{
-            fontSize: isTV ? 18 : 24,
-            color: '#4a80d0',
-            fontFamily: '"PingFang SC", "Helvetica Neue", sans-serif',
-            letterSpacing: 4,
-            marginBottom: isTV ? 20 : 30,
-          }}
-        >
-          板块复盘总结
-        </div>
-        <div
-          style={{
-            fontSize: isTV ? 28 : 36,
+            fontSize: isTV ? 28 : 38,
             fontWeight: 500,
             color: '#e0e8f0',
             fontFamily: '"PingFang SC", "Helvetica Neue", sans-serif',
             textAlign: 'center',
-            lineHeight: 1.7,
+            lineHeight: 1.6,
             textShadow: '0 2px 12px rgba(0,0,0,0.5)',
           }}
         >
-          {lines.map((line, i) => (
-            <div
-              key={i}
-              style={{
-                opacity: Math.min(1, Math.max(0, (frame - i * 15) / 15)),
-                transform: `translateY(${Math.max(0, (1 - Math.min(1, (frame - i * 15) / 15)) * 15)}px)`,
-                marginBottom: 8,
-              }}
-            >
-              {line.trim()}
-              {['。', '！', '？'].some((p) => line.endsWith(p)) ? '' : '。'}
-            </div>
-          ))}
+          关注我
         </div>
         <div
           style={{
-            marginTop: isTV ? 30 : 40,
-            fontSize: isTV ? 14 : 18,
+            marginTop: isTV ? 16 : 20,
+            fontSize: isTV ? 18 : 24,
+            color: '#8899aa',
+            fontFamily: '"PingFang SC", "Helvetica Neue", sans-serif',
+          }}
+        >
+          每天看主力动向
+        </div>
+        <div
+          style={{
+            marginTop: isTV ? 40 : 56,
+            fontSize: isTV ? 14 : 16,
             color: '#667788',
             fontFamily: '"PingFang SC", "Helvetica Neue", sans-serif',
             letterSpacing: 2,
+            opacity: Math.min(1, Math.max(0, (frame - 20) / 10)),
           }}
         >
-          数据仅供分析参考 · 不构成投资建议
+          {displayDate}
         </div>
       </div>
     </>

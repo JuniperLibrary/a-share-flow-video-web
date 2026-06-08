@@ -13,8 +13,7 @@ import { Chart } from './Chart.tsx';
 import { RankingPanel } from './RankingPanel.tsx';
 import { Particles } from './Particles.tsx';
 import { Disclaimer } from './Disclaimer.tsx';
-import { TitleScene } from './TitleScene.tsx';
-import { ConclusionScene } from './ConclusionScene.tsx';
+import { NarrativeScene } from './NarrativeScene.tsx';
 import type { BloombergVideoProps } from './types.ts';
 import { computeCurrentSectorValues } from './chart-utils.ts';
 
@@ -96,10 +95,13 @@ export const BloombergVideo: React.FC = () => {
   const session = inputProps.session || 'full';
   const xLim = inputProps.xLim || [0, 330];
 
-  const titleAudioFrames = inputProps.titleAudioFrames || 0;
-  const contentAudioFrames = inputProps.contentAudioFrames || 0;
+  const scene1Frames = inputProps.scene1Frames || 0;
+  const scene2Frames = inputProps.scene2Frames || 0;
+  const scene3Frames = inputProps.scene3Frames || 0;
+  const scene4Frames = inputProps.scene4Frames || 0;
+  const scene5Frames = inputProps.scene5Frames || 0;
   const baseAnimationFrames = inputProps.baseAnimationFrames || totalFrames;
-  const hasVoiceover = (inputProps.titleAudioFrames ?? 0) > 0;
+  const hasVoiceover = scene1Frames > 0;
 
   const mainLineId = React.useMemo(() => {
     if (sectors.length === 0) return null;
@@ -137,8 +139,11 @@ export const BloombergVideo: React.FC = () => {
     return `${totalNet > 0 ? '净流入' : '净流出'}${Math.abs(totalNet).toFixed(0)}亿`;
   }, [sectors, sentiment]);
 
-  const titleEnd = titleAudioFrames;
-  const animEnd = titleAudioFrames + baseAnimationFrames;
+  const scene1End = scene1Frames;
+  const scene2End = scene1End + scene2Frames;
+  const scene3End = scene2End + scene3Frames;
+  const scene4End = scene3End + scene4Frames;
+  const scene5End = scene4End + scene5Frames;
   const sharedSceneProps = { sectors, events, sentiment, mainLineId, displayDate, width, height, format, session, hookText, xLim };
 
   if (!hasVoiceover) {
@@ -149,39 +154,34 @@ export const BloombergVideo: React.FC = () => {
     );
   }
 
+  const sceneTypes: Array<'hook1' | 'suspense' | 'twist' | 'answer' | 'hook2'> = ['hook1', 'suspense', 'twist', 'answer', 'hook2'];
+  const sceneTexts = [inputProps.scene1Text, inputProps.scene2Text, inputProps.scene3Text, inputProps.scene4Text, inputProps.scene5Text];
+  const sceneAudios = [inputProps.scene1Audio, inputProps.scene2Audio, inputProps.scene3Audio, inputProps.scene4Audio, inputProps.scene5Audio];
+  const sceneFrames = [scene1Frames, scene2Frames, scene3Frames, scene4Frames, scene5Frames];
+  const sceneStarts = [0, scene1End, scene2End, scene3End, scene4End];
+
   return (
     <AbsoluteFill>
-      {titleAudioFrames > 0 && (
-        <Sequence from={0} durationInFrames={titleAudioFrames}>
-          <TitleScene
-            titleText={inputProps.titleText || ''}
-            titleAudioFile={inputProps.titleAudioFile || ''}
-            displayDate={displayDate}
-            width={width}
-            height={height}
-            format={format}
-            totalFrames={titleAudioFrames}
-          />
-        </Sequence>
-      )}
+      {sceneFrames.map((frames, i) => (
+        frames > 0 && (
+          <Sequence key={`scene-${i}`} from={sceneStarts[i]} durationInFrames={frames}>
+            <NarrativeScene
+              sceneText={sceneTexts[i] || ''}
+              audioFile={sceneAudios[i] || ''}
+              displayDate={displayDate}
+              width={width}
+              height={height}
+              format={format}
+              totalFrames={frames}
+              sceneType={sceneTypes[i]}
+            />
+          </Sequence>
+        )
+      ))}
 
-      <Sequence from={titleEnd} durationInFrames={baseAnimationFrames}>
+      <Sequence from={scene5End} durationInFrames={baseAnimationFrames}>
         <AnimationScene {...sharedSceneProps} />
       </Sequence>
-
-      {contentAudioFrames > 0 && (
-        <Sequence from={animEnd} durationInFrames={contentAudioFrames}>
-          <ConclusionScene
-            contentText={inputProps.contentText || ''}
-            contentAudioFile={inputProps.contentAudioFile || ''}
-            displayDate={displayDate}
-            width={width}
-            height={height}
-            format={format}
-            totalFrames={contentAudioFrames}
-          />
-        </Sequence>
-      )}
     </AbsoluteFill>
   );
 };
