@@ -1,4 +1,4 @@
-import type { DateItem, Sector, ConfigData, NewsListResponse, NewsSearchResponse, NewsStatusResponse, NewsDateResponse } from './types';
+import type { DateItem, Sector, ConfigData, NewsListResponse, NewsSearchResponse, NewsStatusResponse, NewsDateResponse, DebateScript, DebateAudioTurn, DebateProbeReport, DebateHistoryEntry } from './types';
 import { apiUrl } from './utils';
 import * as staticData from './lib/staticData';
 
@@ -220,6 +220,69 @@ export const api = {
 
   getSectorsAllRange: (startDate: string, endDate: string) =>
     request<{ sectors: { date: string; code: string; name: string; net: number; rate: number }[] }>(`/api/sectors-all/range?start_date=${startDate}&end_date=${endDate}`),
+
+  debateGenerate: (report: string, structuredReport?: Record<string, unknown>, stockCode?: string, stockName?: string) => {
+    const body: Record<string, unknown> = { report };
+    if (structuredReport) body.structuredReport = structuredReport;
+    if (stockCode) body.stockCode = stockCode;
+    if (stockName) body.stockName = stockName;
+    return request<{ taskId: string; script: DebateScript }>('/api/debate/generate', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    });
+  },
+
+  debateAudio: (taskId: string, script: DebateScript) =>
+    request<{ taskId: string; audioTurns: DebateAudioTurn[] }>('/api/debate/audio', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ taskId, script }),
+    }),
+
+  debateRender: (taskId: string, script: DebateScript, audioTurns: DebateAudioTurn[], format: string = 'mobile') =>
+    request<{ taskId: string; status: string }>('/api/debate/render', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ taskId, script, audioTurns, format }),
+    }),
+
+  debateRenderStatus: (taskId: string) =>
+    request<{ taskId: string; status: string; progress: string; videoUrl?: string; probe?: DebateProbeReport; error?: string; path?: string }>(`/api/debate/render-status/${taskId}`),
+
+  debateRenderCancel: (taskId: string) =>
+    request<{ status: string }>(`/api/debate/render-cancel/${taskId}`, {
+      method: 'POST',
+    }),
+
+  debateFileUrl: (taskId: string) => apiUrl(`/api/debate/file/${taskId}`),
+
+  debateAudioUrl: (taskId: string, turnIndex: number) => apiUrl(`/api/debate/audio/${taskId}/${turnIndex}`),
+
+  debateFetchReport: (code: string) =>
+    request<{ report: Record<string, unknown>; text: string }>('/api/debate/fetch-report', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ code }),
+    }),
+
+  debateSearchStock: (keyword: string) =>
+    request<{ stocks: { code: string; name: string; market: string }[] }>('/api/debate/search-stock', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ keyword }),
+    }),
+
+  debateHistoryList: () =>
+    request<{ history: DebateHistoryEntry[] }>('/api/debate/history'),
+
+  debateHistoryDetail: (taskId: string) =>
+    request<{ entry: DebateHistoryEntry }>(`/api/debate/history/${taskId}`),
+
+  debateHistoryDelete: (taskId: string) =>
+    request<{ status: string }>(`/api/debate/history/${taskId}`, {
+      method: 'DELETE',
+    }),
 
   getNotes: async () => {
     return request<{ notes: Note[] }>('/api/notes');

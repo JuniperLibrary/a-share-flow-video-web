@@ -2,6 +2,9 @@ import { useState, useEffect } from 'react';
 import { IconCopy, IconCheck, IconPlayArrow, IconCalendar } from '@arco-design/web-react/icon';
 import { api } from '../api';
 import { DatePicker } from '../components/ui/date-picker';
+import { PageHeader } from '../components/ui/page-header';
+import { EmptyState } from '../components/ui/empty-state';
+import { cn } from '../lib/utils';
 import { apiUrl } from '../utils';
 
 interface FilesResponse {
@@ -33,25 +36,24 @@ function VideoCard({
   return (
     <button
       onClick={onPlay}
-      className={`
-        relative overflow-hidden rounded-xl border transition-all duration-300 text-left w-full
-        ${isActive
-          ? 'border-cyan-500/40 bg-white/[0.06] shadow-lg shadow-cyan-500/10 scale-[1.02]'
-          : 'border-white/[0.06] bg-black/30 hover:border-white/[0.12] hover:bg-white/[0.04] hover:scale-[1.01]'
-        }
-      `}
+      className={cn(
+        'relative overflow-hidden rounded-xl border transition-all duration-300 text-left w-full',
+        isActive
+          ? 'border-primary/40 bg-primary-softer shadow-glow-primary scale-[1.02]'
+          : 'border-hairline bg-surface-1 hover:border-hairline-active hover:bg-surface-2 hover:scale-[1.01]',
+      )}
     >
       <div className="p-4">
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-violet-500/20 to-cyan-500/20 flex items-center justify-center shrink-0">
-            <IconPlayArrow style={{ color: '#a78bfa', fontSize: 18 }} />
+          <div className="w-10 h-10 rounded-xl bg-primary-soft flex items-center justify-center shrink-0">
+            <IconPlayArrow className="text-primary" style={{ fontSize: 18 }} />
           </div>
           <div className="min-w-0">
-            <p className="text-sm font-semibold text-white">{label}</p>
-            <p className="text-[11px] text-gray-500 mt-0.5">横屏 16:9</p>
+            <p className="text-sm font-semibold text-ink">{label}</p>
+            <p className="text-[11px] text-ink-3 mt-0.5">横屏 16:9</p>
           </div>
           {isActive && (
-            <div className="ml-auto w-2 h-2 rounded-full bg-cyan-400 animate-pulse shadow-lg shadow-cyan-400/50 shrink-0" />
+            <div className="ml-auto w-2 h-2 rounded-full bg-primary animate-pulse shadow-glow-primary shrink-0" />
           )}
         </div>
       </div>
@@ -68,7 +70,6 @@ export function PreviewPage({ previewDate: propPreviewDate }: { previewDate?: st
   const [copiedKey, setCopiedKey] = useState<string | null>(null);
   const [copyTab, setCopyTab] = useState<'template' | 'ai'>('template');
 
-  // 数据加载后，优先显示 AI 文案 tab（如果有）
   const copyData = data?.['文案'] || { template: {}, ai: {} };
   useEffect(() => {
     if (Object.keys(copyData.ai ?? {}).length > 0) {
@@ -114,29 +115,20 @@ export function PreviewPage({ previewDate: propPreviewDate }: { previewDate?: st
 
   return (
     <div className="relative min-h-screen px-5 py-5">
-      <div
-        className="pointer-events-none absolute inset-0 opacity-[0.015]"
-        style={{
-          backgroundImage:
-            'linear-gradient(rgba(255,255,255,1) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,1) 1px, transparent 1px)',
-          backgroundSize: '40px 40px',
-        }}
-      />
+      <div className="pointer-events-none absolute inset-0 opacity-[0.015] bg-dashboard-grid bg-grid-lg" />
 
       <div className="relative">
-        <div className="flex items-baseline gap-3 mb-6">
-          <h1 className="text-2xl font-bold bg-gradient-to-r from-cyan-300 via-blue-400 to-violet-400 bg-clip-text text-transparent">
-            视频预览
-          </h1>
-          <span className="text-sm text-gray-500">查看已生成的视频与文案</span>
-        </div>
+        <PageHeader
+          title="视频预览"
+          meta={<span>查看已生成的视频与文案</span>}
+        />
 
-        <div className="rounded-2xl border border-white/[0.06] bg-black/30 backdrop-blur-xl p-4 shadow-2xl mb-4">
+        <div className="rounded-2xl border border-hairline bg-surface-1 backdrop-blur-xl p-4 shadow-2xl mb-4">
           <div className="flex items-center gap-3">
-            <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-cyan-500/20 to-blue-500/20 flex items-center justify-center shrink-0">
-              <IconCalendar style={{ color: '#22d3ee', fontSize: 16 }} />
+            <div className="w-8 h-8 rounded-lg bg-primary-soft flex items-center justify-center shrink-0">
+              <IconCalendar className="text-primary" style={{ fontSize: 16 }} />
             </div>
-            <span className="text-sm text-gray-300">选择日期</span>
+            <span className="text-sm text-ink-2">选择日期</span>
             <div className="w-40">
               <DatePicker
                 value={selectedDate}
@@ -148,33 +140,28 @@ export function PreviewPage({ previewDate: propPreviewDate }: { previewDate?: st
         </div>
 
         {loading && (
-          <div className="flex items-center justify-center py-20">
-            <div className="flex items-center gap-3 text-sm text-gray-500">
-              <span className="inline-block w-2 h-2 rounded-full bg-cyan-400 animate-pulse" />
-              加载中...
-            </div>
+          <div className="rounded-2xl border border-hairline bg-surface-1 backdrop-blur-xl shadow-2xl">
+            <EmptyState title="加载中..." />
           </div>
         )}
 
         {!loading && selectedDate && !hasData && (
-          <div className="rounded-2xl border border-white/[0.06] bg-black/30 backdrop-blur-xl p-10 shadow-2xl">
-            <div className="flex flex-col items-center justify-center py-12 text-center">
-              <div className="w-14 h-14 rounded-full bg-white/[0.03] flex items-center justify-center mb-4">
-                <IconPlayArrow style={{ fontSize: 28, color: '#4b5563' }} />
-              </div>
-              <p className="text-sm text-gray-500">该日期暂无视频或文案数据</p>
-              <p className="text-xs text-gray-700 mt-1">请先在「视频生成」页面生成视频</p>
-            </div>
+          <div className="rounded-2xl border border-hairline bg-surface-1 backdrop-blur-xl p-10 shadow-2xl">
+            <EmptyState
+              title="该日期暂无视频或文案数据"
+              description="请先在「视频生成」页面生成视频"
+              icon={<IconPlayArrow className="h-6 w-6" />}
+            />
           </div>
         )}
 
         {!loading && data && hasData && (
           <div className="space-y-4">
             {Object.keys(videos).length > 0 && (
-              <div className="rounded-2xl border border-white/[0.06] bg-black/30 backdrop-blur-xl p-6 shadow-2xl">
-                <h2 className="flex items-center gap-2 text-base font-semibold text-white mb-5">
-                  <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-cyan-500/20 to-teal-500/20 flex items-center justify-center">
-                    <IconPlayArrow style={{ color: '#22d3ee', fontSize: 16 }} />
+              <div className="rounded-2xl border border-hairline bg-surface-1 backdrop-blur-xl p-6 shadow-2xl">
+                <h2 className="flex items-center gap-2 text-base font-semibold text-ink mb-5">
+                  <div className="w-8 h-8 rounded-lg bg-primary-soft flex items-center justify-center">
+                    <IconPlayArrow className="text-primary" style={{ fontSize: 16 }} />
                   </div>
                   视频文件
                 </h2>
@@ -191,7 +178,7 @@ export function PreviewPage({ previewDate: propPreviewDate }: { previewDate?: st
                 </div>
 
                 {activeVideo && (
-                  <div className="rounded-xl overflow-hidden border border-white/[0.06] bg-black/50">
+                  <div className="rounded-xl overflow-hidden border border-hairline bg-black/50">
                     <video
                       controls
                       autoPlay
@@ -207,36 +194,34 @@ export function PreviewPage({ previewDate: propPreviewDate }: { previewDate?: st
             )}
 
             {(Object.keys(copyData.template).length > 0 || Object.keys(copyData.ai).length > 0) && (
-              <div className="rounded-2xl border border-white/[0.06] bg-black/30 backdrop-blur-xl p-6 shadow-2xl">
-                <h2 className="flex items-center gap-2 text-base font-semibold text-white mb-5">
-                  <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-violet-500/20 to-cyan-500/20 flex items-center justify-center">
-                    <IconCopy style={{ color: '#a78bfa', fontSize: 16 }} />
+              <div className="rounded-2xl border border-hairline bg-surface-1 backdrop-blur-xl p-6 shadow-2xl">
+                <h2 className="flex items-center gap-2 text-base font-semibold text-ink mb-5">
+                  <div className="w-8 h-8 rounded-lg bg-primary-soft flex items-center justify-center">
+                    <IconCopy className="text-primary" style={{ fontSize: 16 }} />
                   </div>
                   视频文案
                 </h2>
 
-                <div className="flex gap-1.5 mb-5 p-1 rounded-xl bg-white/[0.03] border border-white/[0.04] w-fit">
+                <div className="flex gap-1.5 mb-5 p-1 rounded-xl bg-surface-2 border border-hairline w-fit">
                   <button
                     onClick={() => setCopyTab('template')}
-                    className={`
-                      px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200
-                      ${copyTab === 'template'
-                        ? 'bg-white/[0.08] text-white shadow-sm'
-                        : 'text-gray-500 hover:text-gray-300'
-                      }
-                    `}
+                    className={cn(
+                      'px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200',
+                      copyTab === 'template'
+                        ? 'bg-primary-soft text-primary shadow-sm'
+                        : 'text-ink-3 hover:text-ink-2',
+                    )}
                   >
                     模板文案
                   </button>
                   <button
                     onClick={() => setCopyTab('ai')}
-                    className={`
-                      px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200
-                      ${copyTab === 'ai'
-                        ? 'bg-white/[0.08] text-white shadow-sm'
-                        : 'text-gray-500 hover:text-gray-300'
-                      }
-                    `}
+                    className={cn(
+                      'px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200',
+                      copyTab === 'ai'
+                        ? 'bg-primary-soft text-primary shadow-sm'
+                        : 'text-ink-3 hover:text-ink-2',
+                    )}
                   >
                     AI 文案
                   </button>
@@ -244,39 +229,35 @@ export function PreviewPage({ previewDate: propPreviewDate }: { previewDate?: st
 
                 <div className="space-y-3">
                   {Object.entries(activeCopy).length === 0 ? (
-                    <p className="text-sm text-gray-600 py-8 text-center">
+                    <p className="text-sm text-ink-3 py-8 text-center">
                       暂无{copyTab === 'template' ? '模板' : 'AI'}文案
                     </p>
                   ) : (
                     Object.entries(activeCopy).map(([session, text]) => (
                       <div
                         key={session}
-                        className="rounded-xl border border-white/[0.04] bg-white/[0.02] p-5 transition-colors hover:border-white/[0.08]"
+                        className="rounded-xl border border-hairline bg-surface-2 p-5 transition-colors hover:border-hairline-active"
                       >
                         <div className="flex items-center justify-between mb-3">
                           <div className="flex items-center gap-2">
                             <span
-                              className="w-1.5 h-1.5 rounded-full"
-                              style={{
-                                background:
-                                  copyTab === 'ai'
-                                    ? 'linear-gradient(135deg, #a78bfa, #22d3ee)'
-                                    : 'linear-gradient(135deg, #fbbf24, #f472b6)',
-                              }}
+                              className={cn(
+                                'w-1.5 h-1.5 rounded-full',
+                                copyTab === 'ai' ? 'bg-primary' : 'bg-warning',
+                              )}
                             />
-                            <span className="text-xs font-medium text-gray-400 uppercase tracking-wider">
+                            <span className="text-xs font-medium text-ink-3 uppercase tracking-wider">
                               {sessionLabels[session] || session}
                             </span>
                           </div>
                           <button
                             onClick={() => handleCopy(text, `${copyTab}-${session}`)}
-                            className={`
-                              flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs transition-all duration-200
-                              ${copiedKey === `${copyTab}-${session}`
-                                ? 'text-emerald-400 bg-emerald-500/10'
-                                : 'text-gray-500 hover:text-gray-300 hover:bg-white/[0.06]'
-                              }
-                            `}
+                            className={cn(
+                              'flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs transition-all duration-200',
+                              copiedKey === `${copyTab}-${session}`
+                                ? 'text-inflow bg-inflow-softer'
+                                : 'text-ink-3 hover:text-ink-2 hover:bg-surface-3',
+                            )}
                           >
                             {copiedKey === `${copyTab}-${session}` ? (
                               <>
@@ -289,7 +270,7 @@ export function PreviewPage({ previewDate: propPreviewDate }: { previewDate?: st
                             )}
                           </button>
                         </div>
-                        <p className="text-sm text-gray-300 leading-relaxed whitespace-pre-wrap">
+                        <p className="text-sm text-ink-2 leading-relaxed whitespace-pre-wrap">
                           {text}
                         </p>
                       </div>

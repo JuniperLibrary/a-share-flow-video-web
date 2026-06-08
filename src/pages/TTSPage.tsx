@@ -1,6 +1,8 @@
 import { useState } from 'react';
 import { Input } from '@arco-design/web-react';
 import { TTSPlayer } from '../components/tts';
+import { PageHeader } from '../components/ui/page-header';
+import { cn } from '../lib/utils';
 
 const DEMO_TEXTS = [
   {
@@ -30,28 +32,27 @@ export function TTSPage() {
   const [activeText, setActiveText] = useState('');
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 p-4">
-      <div className="max-w-6xl mx-auto">
-        <div className="mb-4">
-          <h1 className="text-2xl font-bold bg-gradient-to-r from-purple-400 to-pink-400 bg-clip-text text-transparent mb-1">
-            TTS 配音
-          </h1>
-          <p className="text-sm text-gray-500">输入文案，选择音色进行配音</p>
-        </div>
+    <div className="min-h-screen bg-canvas p-4">
+      <div className="max-w-6xl mx-auto space-y-4">
+        <PageHeader
+          title="TTS 配音"
+          meta={<span className="text-sm text-ink-3">输入文案,选择音色进行配音</span>}
+        />
 
         <div className="grid grid-cols-1 lg:grid-cols-5 gap-4">
           <div className="lg:col-span-2 space-y-3">
-            <div className="rounded-xl border border-purple-500/20 bg-black/30 backdrop-blur-xl p-4">
-              <h3 className="text-sm font-semibold text-white/90 mb-3">示例文案</h3>
+            <div className="rounded-xl border border-hairline bg-black/30 backdrop-blur-xl p-4">
+              <h3 className="text-sm font-semibold text-ink mb-3">示例文案</h3>
               <div className="space-y-2">
                 {DEMO_TEXTS.map((item, index) => (
                   <div
                     key={index}
-                    className={`p-2.5 rounded-lg border cursor-pointer transition-all ${
+                    className={cn(
+                      'p-2.5 rounded-lg border cursor-pointer transition-all',
                       activeText === item.text
-                        ? 'bg-purple-500/20 border-purple-500/50'
-                        : 'bg-black/20 border-white/5 hover:border-white/20'
-                    }`}
+                        ? 'bg-primary-soft border-primary/40 text-ink'
+                        : 'bg-black/20 border-hairline hover:border-hairline-active',
+                    )}
                     onClick={() => {
                       setActiveText(item.text);
                       setCustomText('');
@@ -60,8 +61,8 @@ export function TTSPage() {
                     <div className="flex items-center gap-2">
                       <span className="text-base">{item.icon}</span>
                       <div className="flex-1 min-w-0">
-                        <div className="text-sm font-medium text-white/90">{item.title}</div>
-                        <div className="text-xs text-gray-500 mt-0.5 truncate">{item.text}</div>
+                        <div className="text-sm font-medium text-ink">{item.title}</div>
+                        <div className="text-xs text-ink-3 mt-0.5 truncate">{item.text}</div>
                       </div>
                     </div>
                   </div>
@@ -69,17 +70,17 @@ export function TTSPage() {
               </div>
             </div>
 
-            <div className="rounded-xl border border-purple-500/20 bg-black/30 backdrop-blur-xl p-4">
-              <h3 className="text-sm font-semibold text-white/90 mb-3">自定义文案</h3>
+            <div className="rounded-xl border border-hairline bg-black/30 backdrop-blur-xl p-4">
+              <h3 className="text-sm font-semibold text-ink mb-3">自定义文案</h3>
               <Input.TextArea
                 value={customText}
                 onChange={setCustomText}
                 placeholder="输入您要配音的文案..."
                 rows={4}
-                className="bg-black/30 border-white/10"
+                className="bg-black/30 border-hairline"
               />
               <button
-                className="w-full mt-2 py-2 px-4 bg-gradient-to-r from-purple-500 to-pink-500 text-white text-sm font-semibold rounded-lg hover:opacity-90 transition-opacity"
+                className="w-full mt-2 py-2 px-4 bg-primary text-primary-ink text-sm font-semibold rounded-lg hover:brightness-110 transition-all shadow-glow-primary"
                 onClick={() => {
                   if (customText.trim()) {
                     setActiveText(customText);

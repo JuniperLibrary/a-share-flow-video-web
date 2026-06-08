@@ -7,6 +7,8 @@ export interface Sector {
   super_rate?: number;
   big_net?: number;
   big_rate?: number;
+  volume?: number;
+  turnover?: number;
   color: string;
   source: string;
   rank_group: string;
@@ -66,4 +68,69 @@ export interface NewsStatusResponse {
 
 export interface NewsDateResponse extends NewsListResponse {
   date: string;
+}
+
+export interface DebateHistoryEntry {
+  task_id: string;
+  stock_code: string;
+  stock_name: string;
+  report_summary: string;
+  turn_count: number;
+  format: string;
+  video_path: string;
+  created_at: string;
+}
+
+export type DebateSpeaker = 'moderator' | 'bull' | 'bear' | 'sector' | 'risk' | 'synthesizer';
+
+export type DebatePhase = 'open' | 'opening' | 'cross_exam' | 'rebuttal' | 'fact_check' | 'closing' | 'synthesis';
+
+export interface DebateCitation {
+  source: string;
+  ref: string;
+  quote?: string;
+}
+
+export interface DebateToolCall {
+  name: string;
+  args?: Record<string, unknown>;
+}
+
+export interface DebateTurn {
+  index: number;
+  phase?: DebatePhase;
+  speaker: DebateSpeaker;
+  text: string;
+  emotion?: string;
+  citations?: DebateCitation[];
+  toolCalls?: DebateToolCall[];
+}
+
+export interface DebateScript {
+  turns: DebateTurn[];
+  reportHash?: string;
+  stockCode?: string;
+  stockName?: string;
+  sessionId?: string;
+  previousRefs?: string;
+  verdict?: string;
+}
+
+export interface DebateAudioTurn {
+  index: number;
+  speaker: DebateSpeaker;
+  text: string;
+  audioFile: string;
+  durationSec: number;
+  frames: number;
+}
+
+export interface DebateProbeReport {
+  hasAudio: boolean;
+  audioCodec: string;
+  audioDurationSec: number;
+  expectedDurationSec: number;
+  diffSec: number;
+  warnings: string[];
+  ok: boolean;
 }

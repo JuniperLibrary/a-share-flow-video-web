@@ -5,12 +5,24 @@ import { apiUrl } from '../utils';
 import { api } from '../api';
 import type { CLSNewsRecord } from '../types';
 import { DatePicker } from '../components/ui/date-picker';
+import { PageHeader } from '../components/ui/page-header';
+import { EmptyState } from '../components/ui/empty-state';
+import { tokens } from '../lib/tokens';
+import { cn, netTextColor } from '../lib/utils';
 
 interface TickPoint {
   Time: string;
   Name: string;
   Net: number;
   Rate: number;
+  ChangePct: number;
+  SuperNet: number;
+  SuperRate: number;
+  BigNet: number;
+  BigRate: number;
+  MainRate: number;
+  Volume: number;
+  Turnover: number;
 }
 
 interface TickSnapshot {
@@ -43,6 +55,11 @@ function formatNet(n: number): string {
 
 function formatRate(r: number): string {
   return `${r >= 0 ? '+' : ''}${r.toFixed(1)}%`;
+}
+
+function formatChangePct(r: number): string {
+  if (!Number.isFinite(r)) return '—';
+  return `${r >= 0 ? '+' : ''}${r.toFixed(2)}%`;
 }
 
 function buildSectorMap(points: TickPoint[]): Map<string, TickPoint[]> {
@@ -136,8 +153,8 @@ function SectorTrendChart({ points }: { points: TickPoint[] }) {
       <svg width={CHART_W} height={CHART_H} className="w-full">
         <defs>
           <linearGradient id="trendFill" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stopColor="rgba(56,189,248,0.3)" />
-            <stop offset="100%" stopColor="rgba(56,189,248,0.02)" />
+            <stop offset="0%" style={{ stopColor: tokens.chart[1], stopOpacity: 0.3 }} />
+            <stop offset="100%" style={{ stopColor: tokens.chart[1], stopOpacity: 0.02 }} />
           </linearGradient>
         </defs>
 
@@ -145,9 +162,9 @@ function SectorTrendChart({ points }: { points: TickPoint[] }) {
           <g key={i}>
             <line
               x1={CHART_PAD.left} y1={yScale(v)} x2={CHART_W - CHART_PAD.right} y2={yScale(v)}
-              stroke="rgba(255,255,255,0.06)" strokeWidth={1}
+              stroke={tokens.hairline.DEFAULT} strokeWidth={1}
             />
-            <text x={CHART_PAD.left - 8} y={yScale(v) + 4} textAnchor="end" fill="#6b7280" fontSize={11}>
+            <text x={CHART_PAD.left - 8} y={yScale(v) + 4} textAnchor="end" fill={tokens.ink[3]} fontSize={11}>
               {v.toFixed(1)}
             </text>
           </g>
@@ -155,17 +172,17 @@ function SectorTrendChart({ points }: { points: TickPoint[] }) {
 
         {points.map((p, i) => (
           i % Math.max(1, Math.floor(points.length / 8)) === 0 || i === points.length - 1 ? (
-            <text key={i} x={xScale(i)} y={CHART_H - 8} textAnchor="middle" fill="#6b7280" fontSize={10}>
+            <text key={i} x={xScale(i)} y={CHART_H - 8} textAnchor="middle" fill={tokens.ink[3]} fontSize={10}>
               {p.Time}
             </text>
           ) : null
         ))}
 
         <path d={areaD} fill="url(#trendFill)" />
-        <path d={lineD} fill="none" stroke="#38bdf8" strokeWidth={2} strokeLinejoin="round" />
+        <path d={lineD} fill="none" stroke={tokens.chart[1]} strokeWidth={2} strokeLinejoin="round" />
 
         {points.map((p, i) => (
-          <circle key={i} cx={xScale(i)} cy={yScale(p.Net)} r={3} fill="#38bdf8" />
+          <circle key={i} cx={xScale(i)} cy={yScale(p.Net)} r={3} fill={tokens.chart[1]} />
         ))}
 
         <rect
@@ -182,11 +199,11 @@ function SectorTrendChart({ points }: { points: TickPoint[] }) {
             <line
               x1={xScale(hoverIndex!)} y1={CHART_PAD.top}
               x2={xScale(hoverIndex!)} y2={CHART_PAD.top + plotH}
-              stroke="rgba(255,255,255,0.15)" strokeWidth={1} strokeDasharray="3 2"
+              stroke={tokens.hairline.strong} strokeWidth={1} strokeDasharray="3 2"
             />
             <circle
               cx={xScale(hoverIndex!)} cy={yScale(hovered.Net)}
-              r={5} fill="#38bdf8" stroke="#0f172a" strokeWidth={2}
+              r={5} fill={tokens.chart[1]} stroke={tokens.surface[1]} strokeWidth={2}
             />
           </g>
         )}
@@ -197,13 +214,13 @@ function SectorTrendChart({ points }: { points: TickPoint[] }) {
           className="absolute pointer-events-none z-10 -translate-x-1/2"
           style={{ left: tooltipX, top: 4 }}
         >
-          <div className="bg-gray-900/95 backdrop-blur-md border border-white/[0.08] rounded-lg px-3 py-2 text-xs shadow-xl whitespace-nowrap">
-            <div className="text-gray-400 mb-1">{hovered.Time}</div>
+          <div className="bg-surface-1 backdrop-blur-md border border-hairline rounded-lg px-3 py-2 text-xs shadow-xl whitespace-nowrap">
+            <div className="text-ink-3 mb-1">{hovered.Time}</div>
             <div className="flex items-center gap-3">
-              <span className={hovered.Net >= 0 ? 'text-rose-400' : 'text-emerald-400'}>
+              <span className={netTextColor(hovered.Net)}>
                 净流入 {formatNet(hovered.Net)}
               </span>
-              <span className="text-gray-300">
+              <span className="text-ink-2">
                 主力占比 {formatRate(hovered.Rate)}
               </span>
             </div>
@@ -434,7 +451,6 @@ export function TickPage() {
     try {
       const res = await fetch(apiUrl('/api/tick/start'), { method: 'POST' });
       if (!res.ok) {
-        // 启动失败时清理残留的 SSE 连接和重连定时器
         if (reconnectTimer.current) {
           clearTimeout(reconnectTimer.current);
           reconnectTimer.current = null;
@@ -499,125 +515,116 @@ export function TickPage() {
   const autoStartMin = Math.floor(autoStartMs / 60000);
   const autoStartSec = Math.floor((autoStartMs % 60000) / 1000);
 
+  const filterInputClass = '!bg-surface-2 !border-hairline !text-ink !h-8 !text-xs';
+
   return (
     <div className="relative min-h-screen px-5 py-5">
-      <div
-        className="pointer-events-none absolute inset-0 opacity-[0.015]"
-        style={{
-          backgroundImage: 'linear-gradient(rgba(255,255,255,1) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,1) 1px, transparent 1px)',
-          backgroundSize: '40px 40px',
-        }}
-      />
+      <div className="pointer-events-none absolute inset-0 opacity-[0.015] bg-dashboard-grid bg-grid-lg" />
 
-      <div className="relative">
-        <div className="flex items-center justify-between mb-6">
-          <div className="flex items-center gap-4">
-            <h1 className="text-2xl font-bold bg-gradient-to-r from-cyan-400 via-emerald-300 to-lime-400 bg-clip-text text-transparent">
-              Tick 采集
-            </h1>
-            <div className="flex items-center gap-1.5 rounded-lg border border-white/[0.06] bg-black/20 p-0.5">
+      <div className="relative space-y-5">
+        <PageHeader
+          title="Tick 采集"
+          actions={
+            <div className="flex items-center gap-1.5 rounded-lg border border-hairline bg-surface-1 p-0.5">
               <button
                 onClick={() => setMode('live')}
-                className="px-4 py-1.5 text-xs font-semibold rounded-lg transition-all"
-                style={{
-                  background: mode === 'live'
-                    ? 'linear-gradient(135deg, #2563eb, #0891b2)'
-                    : 'rgba(255,255,255,0.04)',
-                  color: mode === 'live' ? '#fff' : '#6b7280',
-                  border: mode === 'live' ? 'none' : '1px solid rgba(255,255,255,0.06)',
-                  boxShadow: mode === 'live' ? '0 0 12px rgba(59,130,246,0.15)' : 'none',
-                }}
+                className={cn(
+                  'px-4 py-1.5 text-xs font-semibold rounded-lg transition-all border',
+                  mode === 'live'
+                    ? 'bg-primary-soft text-primary border-primary/30 shadow-glow-primary'
+                    : 'bg-transparent text-ink-3 border-transparent hover:text-ink-2',
+                )}
               >
                 实时
               </button>
               <button
                 onClick={() => setMode('history')}
-                className="px-4 py-1.5 text-xs font-semibold rounded-lg transition-all"
-                style={{
-                  background: mode === 'history'
-                    ? 'linear-gradient(135deg, #2563eb, #0891b2)'
-                    : 'rgba(255,255,255,0.04)',
-                  color: mode === 'history' ? '#fff' : '#6b7280',
-                  border: mode === 'history' ? 'none' : '1px solid rgba(255,255,255,0.06)',
-                  boxShadow: mode === 'history' ? '0 0 12px rgba(59,130,246,0.15)' : 'none',
-                }}
+                className={cn(
+                  'px-4 py-1.5 text-xs font-semibold rounded-lg transition-all border',
+                  mode === 'history'
+                    ? 'bg-primary-soft text-primary border-primary/30 shadow-glow-primary'
+                    : 'bg-transparent text-ink-3 border-transparent hover:text-ink-2',
+                )}
               >
                 历史
               </button>
             </div>
-            {mode === 'live' && (
-              <Tag
-                style={{
-                  borderRadius: 999,
-                  padding: '2px 14px',
-                  fontSize: 11,
-                  background: connected ? 'rgba(52,211,153,0.12)' : 'rgba(107,114,128,0.12)',
-                  border: `1px solid ${connected ? 'rgba(52,211,153,0.3)' : 'rgba(107,114,128,0.2)'}`,
-                  color: connected ? '#34d399' : '#6b7280',
-                }}
-              >
-                <span className={`inline-block w-1.5 h-1.5 rounded-full mr-1.5 ${connected ? 'bg-emerald-400 animate-pulse' : 'bg-gray-500'}`} />
-                {connected ? '采集中' : '已停止'}
-              </Tag>
-            )}
-          </div>
-          {mode === 'live' && showAutoCountdown && (
-            <span className="text-xs text-gray-600">
-              {nextAutoStart.label} {autoStartMin > 0 ? `${autoStartMin}m ` : ''}{autoStartSec}s 后自动采集
-            </span>
-          )}
-          {mode === 'history' && (
-            <div className="flex items-center gap-2">
-              <DatePicker
-                value={historyDate}
-                onChange={d => d && setHistoryDate(d)}
-                disabledDate={date => {
-                  const ds = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
-                  return !availableDates.includes(ds);
-                }}
-              />
-            </div>
-          )}
-        </div>
+          }
+        />
 
         {mode === 'live' && (
-          <div className="grid grid-cols-4 gap-3 mb-4">
-            <div className="rounded-xl border border-white/[0.06] bg-black/40 backdrop-blur-md p-4 transition-all duration-300 hover:border-white/[0.12]">
+          <div className="flex items-center gap-3 flex-wrap text-xs text-ink-3">
+            {showAutoCountdown && (
+              <span>
+                {nextAutoStart!.label} {autoStartMin > 0 ? `${autoStartMin}m ` : ''}{autoStartSec}s 后自动采集
+              </span>
+            )}
+            {mode === 'live' && (
+              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full border border-hairline bg-surface-1 text-[11px]">
+                <span className={cn(
+                  'inline-block w-1.5 h-1.5 rounded-full',
+                  connected ? 'bg-primary animate-pulse' : 'bg-ink-3',
+                )} />
+                {connected ? '采集中' : '已停止'}
+              </span>
+            )}
+          </div>
+        )}
+
+        {mode === 'history' && (
+          <div className="flex items-center gap-2">
+            <DatePicker
+              value={historyDate}
+              onChange={d => d && setHistoryDate(d)}
+              disabledDate={date => {
+                const ds = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+                return !availableDates.includes(ds);
+              }}
+            />
+          </div>
+        )}
+
+        {mode === 'live' && (
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+            <div className="rounded-xl border border-hairline bg-surface-1 backdrop-blur-md p-4 transition-all duration-300 hover:border-hairline-active">
               <div className="flex items-center gap-2 mb-2">
                 <span className="relative flex h-2 w-2">
-                  <span className={`inline-flex h-2 w-2 rounded-full ${connected ? 'bg-emerald-400 animate-pulse' : 'bg-gray-500'}`} />
+                  <span className={cn(
+                    'inline-flex h-2 w-2 rounded-full',
+                    connected ? 'bg-primary animate-pulse' : 'bg-ink-3',
+                  )} />
                 </span>
-                <span className="text-xs text-gray-500">采集状态</span>
+                <span className="text-xs text-ink-3">采集状态</span>
               </div>
-              <div className={`text-lg font-semibold ${connected ? 'text-emerald-400' : 'text-gray-500'}`}>
+              <div className={cn('text-lg font-semibold', connected ? 'text-primary' : 'text-ink-3')}>
                 {connected ? '运行中' : '未启动'}
               </div>
-              <div className="flex items-center gap-3 text-xs text-gray-500 mt-0.5 min-h-[16px]">
+              <div className="flex items-center gap-3 text-xs text-ink-3 mt-0.5 min-h-[16px]">
                 <span className="font-mono tabular-nums w-16 text-right">{snapshot?.count ?? 0} 轮</span>
                 {snapshot?.lastTime && <span>最新 {snapshot.date} {snapshot.lastTime}</span>}
                 {!connected && <span>{error ?? '等待自动采集'}</span>}
               </div>
             </div>
-            <div className="rounded-xl border border-white/[0.06] bg-black/40 backdrop-blur-md p-4 transition-all duration-300 hover:border-white/[0.12]" style={{ borderLeftColor: 'rgb(244 63 94)', borderLeftWidth: 2 }}>
-              <div className="text-xs text-gray-500 mb-2">资金流入</div>
-              <div className="text-lg font-semibold text-rose-400">{upCount}</div>
-              <div className="text-xs text-gray-600 mt-0.5">
+            <div className="rounded-xl border border-hairline border-l-2 border-l-inflow bg-surface-1 backdrop-blur-md p-4 transition-all duration-300 hover:border-hairline-active">
+              <div className="text-xs text-ink-3 mb-2">资金流入</div>
+              <div className="text-lg font-semibold text-inflow">{upCount}</div>
+              <div className="text-xs text-ink-3 mt-0.5">
                 {sectorRows.length > 0 ? `${(upCount / sectorRows.length * 100).toFixed(1)}%` : '-'}
               </div>
             </div>
-            <div className="rounded-xl border border-white/[0.06] bg-black/40 backdrop-blur-md p-4 transition-all duration-300 hover:border-white/[0.12]" style={{ borderLeftColor: 'rgb(52 211 153)', borderLeftWidth: 2 }}>
-              <div className="text-xs text-gray-500 mb-2">资金流出</div>
-              <div className="text-lg font-semibold text-emerald-400">{downCount}</div>
-              <div className="text-xs text-gray-600 mt-0.5">
+            <div className="rounded-xl border border-hairline border-l-2 border-l-outflow bg-surface-1 backdrop-blur-md p-4 transition-all duration-300 hover:border-hairline-active">
+              <div className="text-xs text-ink-3 mb-2">资金流出</div>
+              <div className="text-lg font-semibold text-outflow">{downCount}</div>
+              <div className="text-xs text-ink-3 mt-0.5">
                 {sectorRows.length > 0 ? `${(downCount / sectorRows.length * 100).toFixed(1)}%` : '-'}
               </div>
             </div>
-            <div className="rounded-xl border border-white/[0.06] bg-black/40 backdrop-blur-md p-4 transition-all duration-300 hover:border-white/[0.12]" style={{ borderLeftColor: 'rgb(56 189 248)', borderLeftWidth: 2 }}>
-              <div className="text-xs text-gray-500 mb-2">最强流入</div>
-              <div className="text-lg font-semibold text-white truncate">
+            <div className="rounded-xl border border-hairline border-l-2 border-l-primary bg-surface-1 backdrop-blur-md p-4 transition-all duration-300 hover:border-hairline-active">
+              <div className="text-xs text-ink-3 mb-2">最强流入</div>
+              <div className="text-lg font-semibold text-ink truncate">
                 {topSector ? topSector.name : '-'}
               </div>
-              <div className="text-xs mt-0.5 text-rose-400">
+              <div className="text-xs mt-0.5 text-inflow">
                 {topSector ? formatNet(topSector.latest.Net) : '-'}
               </div>
             </div>
@@ -625,20 +632,14 @@ export function TickPage() {
         )}
 
         {mode === 'live' && (
-          <div className="rounded-xl border border-white/[0.06] bg-black/30 backdrop-blur-xl p-4 shadow-2xl mb-3">
+          <div className="rounded-xl border border-hairline bg-surface-1 backdrop-blur-xl p-4 shadow-2xl">
             <div className="flex flex-wrap items-center gap-2">
               {!connected ? (
                 <Button
                   type="primary"
                   onClick={handleStart}
                   icon={<IconPlayArrow />}
-                  style={{
-                    background: 'linear-gradient(135deg, #059669, #0d9488)',
-                    border: 'none',
-                    height: 32,
-                    fontWeight: 600,
-                    fontSize: 12,
-                  }}
+                  className="!bg-primary !border-primary !text-primary-ink !h-8 !text-xs !font-semibold shadow-glow-primary hover:!brightness-110"
                 >
                   开始采集
                 </Button>
@@ -646,14 +647,7 @@ export function TickPage() {
                 <Button
                   status="warning"
                   onClick={handleStop}
-                  style={{
-                    background: 'rgba(239,68,68,0.15)',
-                    border: '1px solid rgba(239,68,68,0.3)',
-                    color: '#f87171',
-                    height: 32,
-                    fontWeight: 600,
-                    fontSize: 12,
-                  }}
+                  className="!bg-outflow-softer !border-outflow/30 !text-outflow !h-8 !text-xs !font-semibold hover:!bg-outflow-muted"
                 >
                   停止采集
                 </Button>
@@ -661,26 +655,14 @@ export function TickPage() {
               <Button
                 onClick={() => setSnapshot(null)}
                 icon={<IconDelete />}
-                style={{
-                  background: 'rgba(255,255,255,0.06)',
-                  border: '1px solid rgba(255,255,255,0.08)',
-                  color: '#9ca3af',
-                  height: 32,
-                  fontSize: 12,
-                }}
+                className="!bg-surface-2 !border-hairline !text-ink-3 !h-8 !text-xs hover:!bg-surface-3"
               >
                 清空
               </Button>
               <Button
                 onClick={copyData}
                 icon={<IconCopy />}
-                style={{
-                  background: 'rgba(255,255,255,0.06)',
-                  border: '1px solid rgba(255,255,255,0.08)',
-                  color: '#9ca3af',
-                  height: 32,
-                  fontSize: 12,
-                }}
+                className="!bg-surface-2 !border-hairline !text-ink-3 !h-8 !text-xs hover:!bg-surface-3"
               >
                 复制数据
               </Button>
@@ -690,13 +672,7 @@ export function TickPage() {
                     value={filterSector}
                     onChange={setFilterSector}
                     placeholder="筛选板块..."
-                    style={{
-                      background: 'rgba(255,255,255,0.04)',
-                      border: '1px solid rgba(255,255,255,0.08)',
-                      color: '#fff',
-                      height: 32,
-                      fontSize: 12,
-                    }}
+                    className={filterInputClass}
                   />
                 </div>
               </div>
@@ -705,12 +681,12 @@ export function TickPage() {
         )}
 
         {mode === 'history' && (
-          <div className="rounded-xl border border-white/[0.06] bg-black/30 backdrop-blur-xl p-4 shadow-2xl mb-3">
+          <div className="rounded-xl border border-hairline bg-surface-1 backdrop-blur-xl p-4 shadow-2xl">
             <div className="flex flex-wrap items-center gap-2">
               <div className="flex items-center gap-2">
-                <span className="text-xs text-gray-500">当前查看</span>
-                <span className="text-xs font-mono text-cyan-300">{historyDate || '-'}</span>
-                <span className="text-xs text-gray-600">
+                <span className="text-xs text-ink-3">当前查看</span>
+                <span className="text-xs font-mono text-primary">{historyDate || '-'}</span>
+                <span className="text-xs text-ink-3">
                   {snapshot ? `${filteredRows.length} 个板块 / ${snapshot.count} 轮` : '加载中...'}
                 </span>
               </div>
@@ -720,13 +696,7 @@ export function TickPage() {
                     value={filterSector}
                     onChange={setFilterSector}
                     placeholder="筛选板块..."
-                    style={{
-                      background: 'rgba(255,255,255,0.04)',
-                      border: '1px solid rgba(255,255,255,0.08)',
-                      color: '#fff',
-                      height: 32,
-                      fontSize: 12,
-                    }}
+                    className={filterInputClass}
                   />
                 </div>
               </div>
@@ -735,66 +705,70 @@ export function TickPage() {
         )}
 
         {filteredRows.length > 0 && (
-          <div className="mb-3 rounded-xl border border-white/[0.04] bg-black/20 backdrop-blur-sm px-5 py-2.5">
-            <div className="flex items-center gap-5 text-xs">
-              <span className="text-gray-500">
-                流入: <span className="text-rose-400 font-medium">{upCount}</span>
+          <div className="rounded-xl border border-hairline bg-surface-2 backdrop-blur-sm px-5 py-2.5">
+            <div className="flex items-center gap-5 text-xs flex-wrap">
+              <span className="text-ink-3">
+                流入: <span className="text-inflow font-medium">{upCount}</span>
               </span>
-              <span className="text-gray-500">
-                流出: <span className="text-emerald-400 font-medium">{downCount}</span>
+              <span className="text-ink-3">
+                流出: <span className="text-outflow font-medium">{downCount}</span>
               </span>
-              <span className="text-gray-500">
-                持平: <span className="text-gray-400 font-medium">{flatCount}</span>
+              <span className="text-ink-3">
+                持平: <span className="text-ink-2 font-medium">{flatCount}</span>
               </span>
-              <span className="text-gray-600">总计: {filteredRows.length}</span>
+              <span className="text-ink-3">总计: {filteredRows.length}</span>
               {filterSector && (
-                <span className="text-gray-600">筛选: {filteredRows.length}/{sectorRows.length}</span>
+                <span className="text-ink-3">筛选: {filteredRows.length}/{sectorRows.length}</span>
               )}
               {topSector && worstSector && (
-                <span className="ml-auto text-gray-500">
-                  最强流入: <span className="text-rose-400">{topSector.name} {formatNet(topSector.latest.Net)}</span>
+                <span className="ml-auto text-ink-3">
+                  最强流入: <span className="text-inflow">{topSector.name} {formatNet(topSector.latest.Net)}</span>
                   <span className="mx-2">|</span>
-                  最强流出: <span className="text-emerald-400">{worstSector.name} {formatNet(worstSector.latest.Net)}</span>
+                  最强流出: <span className="text-outflow">{worstSector.name} {formatNet(worstSector.latest.Net)}</span>
                 </span>
               )}
             </div>
           </div>
         )}
 
-        <div className="rounded-xl border border-white/[0.06] bg-black/30 backdrop-blur-xl shadow-2xl overflow-hidden">
-          <div className="flex items-center justify-between px-5 py-3 border-b border-white/[0.04]">
+        <div className="rounded-xl border border-hairline bg-surface-1 backdrop-blur-xl shadow-2xl overflow-hidden">
+          <div className="flex items-center justify-between px-5 py-3 border-b border-hairline">
             <div className="flex items-center gap-2">
-              <IconHistory style={{ color: '#6b7280', fontSize: 14 }} />
-              <span className="text-sm text-gray-400">板块资金流</span>
+              <IconHistory className="text-ink-3" style={{ fontSize: 14 }} />
+              <span className="text-sm text-ink-2">板块资金流</span>
               {tickDataLoading && (
-                <span className="text-[10px] text-gray-600 animate-pulse">加载中...</span>
+                <span className="text-[10px] text-ink-3 animate-pulse">加载中...</span>
               )}
             </div>
-            <span className="text-xs text-gray-600">{filteredRows.length} 个板块 ({snapshot?.count ?? 0} 轮)</span>
+            <span className="text-xs text-ink-3">{filteredRows.length} 个板块 ({snapshot?.count ?? 0} 轮)</span>
           </div>
 
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
-                <tr className="border-b border-white/[0.04]">
-                  <th className="text-left px-5 py-2.5 text-xs font-medium text-gray-500">板块</th>
-                  <th className="text-right px-5 py-2.5 text-xs font-medium text-gray-500">最新净流入</th>
-                  <th className="text-right px-5 py-2.5 text-xs font-medium text-gray-500">主力净占比</th>
-                  <th className="text-right px-5 py-2.5 text-xs font-medium text-gray-500">时段方向</th>
-                  <th className="text-right px-5 py-2.5 text-xs font-medium text-gray-500 w-48">资金流向</th>
+                <tr className="border-b border-hairline">
+                  <th className="text-left px-5 py-2.5 text-xs font-medium text-ink-3">板块</th>
+                  <th className="text-right px-5 py-2.5 text-xs font-medium text-ink-3">涨跌幅</th>
+                  <th className="text-right px-5 py-2.5 text-xs font-medium text-ink-3">最新净流入</th>
+                  <th className="text-right px-5 py-2.5 text-xs font-medium text-ink-3">主力净占比</th>
+                  <th className="text-right px-5 py-2.5 text-xs font-medium text-ink-3">超大单</th>
+                  <th className="text-right px-5 py-2.5 text-xs font-medium text-ink-3">超大单占比</th>
+                  <th className="text-right px-5 py-2.5 text-xs font-medium text-ink-3">大单</th>
+                  <th className="text-right px-5 py-2.5 text-xs font-medium text-ink-3">大单占比</th>
+                  <th className="text-right px-5 py-2.5 text-xs font-medium text-ink-3">累计净变化</th>
+                  <th className="text-right px-5 py-2.5 text-xs font-medium text-ink-3">时段方向</th>
+                  <th className="text-right px-5 py-2.5 text-xs font-medium text-ink-3 w-48">资金流向</th>
                 </tr>
               </thead>
               <tbody>
                 {filteredRows.length === 0 ? (
                   <tr>
-                    <td colSpan={5} className="text-center py-16">
-                      <div className="flex flex-col items-center">
-                        <div className="w-10 h-10 rounded-full bg-white/[0.03] flex items-center justify-center mb-3">
-                          <IconPlayArrow style={{ color: '#4b5563', fontSize: 18 }} />
-                        </div>
-                        <p className="text-sm text-gray-600">暂无采集数据</p>
-                        <p className="text-xs text-gray-700 mt-1">系统将在交易日 9:25 / 12:55 自动开始采集</p>
-                      </div>
+                    <td colSpan={11}>
+                      <EmptyState
+                        title="暂无采集数据"
+                        description="系统将在交易日 9:25 / 12:55 自动开始采集"
+                        icon={<IconPlayArrow className="h-5 w-5" />}
+                      />
                     </td>
                   </tr>
                 ) : (
@@ -805,40 +779,67 @@ export function TickPage() {
                     return (
                       <tr
                         key={row.name}
-                        className="border-b border-white/[0.02] transition-colors hover:bg-white/[0.04]"
-                        style={{ background: isUp ? 'rgba(244,63,94,0.03)' : 'rgba(52,211,153,0.03)' }}
+                        className={cn(
+                          'border-b border-hairline-strong transition-colors hover:bg-surface-2',
+                          isUp ? 'bg-inflow-softer' : 'bg-outflow-softer',
+                        )}
                       >
                         <td className="px-5 py-2.5">
                           <button
                             onClick={() => setTrendSector(row)}
-                            className="text-white text-xs hover:text-cyan-400 transition-colors cursor-pointer bg-transparent border-none p-0"
+                            className="text-ink text-xs hover:text-primary transition-colors cursor-pointer bg-transparent border-none p-0"
                           >
                             {row.name}
                           </button>
-                          <span className="text-xs text-gray-600 ml-2">
+                          <span className="text-xs text-ink-3 ml-2">
                             {row.latest.Time}
                           </span>
                         </td>
-                        <td className={`px-5 py-2.5 text-right font-mono text-xs ${isUp ? 'text-rose-400' : 'text-emerald-400'}`}>
+                        <td className={cn('px-5 py-2.5 text-right font-mono text-xs', netTextColor(row.latest.ChangePct))}>
+                          {formatChangePct(row.latest.ChangePct)}
+                        </td>
+                        <td className={cn('px-5 py-2.5 text-right font-mono text-xs', netTextColor(row.latest.Net))}>
                           {formatNet(row.latest.Net)}
                         </td>
-                        <td className="px-5 py-2.5 text-right font-mono text-xs text-gray-400">
-                          {formatRate(row.latest.Rate)}
+                        <td className={cn('px-5 py-2.5 text-right font-mono text-xs', netTextColor(row.latest.MainRate))}>
+                          {formatRate(row.latest.MainRate)}
+                        </td>
+                        <td className={cn('px-5 py-2.5 text-right font-mono text-xs', netTextColor(row.latest.SuperNet))}>
+                          {formatNet(row.latest.SuperNet)}
+                        </td>
+                        <td className={cn('px-5 py-2.5 text-right font-mono text-xs', netTextColor(row.latest.SuperRate))}>
+                          {formatRate(row.latest.SuperRate)}
+                        </td>
+                        <td className={cn('px-5 py-2.5 text-right font-mono text-xs', netTextColor(row.latest.BigNet))}>
+                          {formatNet(row.latest.BigNet)}
+                        </td>
+                        <td className={cn('px-5 py-2.5 text-right font-mono text-xs', netTextColor(row.latest.BigRate))}>
+                          {formatRate(row.latest.BigRate)}
+                        </td>
+                        <td className="px-5 py-2.5 text-right font-mono text-xs">
+                          {(() => {
+                            const delta = row.latest.Net - row.first.Net
+                            return <span className={netTextColor(delta)}>{delta > 0 ? '+' : ''}{formatNet(delta)}</span>
+                          })()}
                         </td>
                         <td className="px-5 py-2.5 text-right">
-                          <span className={`text-xs font-medium ${
-                            row.direction === 'up' ? 'text-rose-400' :
-                            row.direction === 'down' ? 'text-emerald-400' : 'text-gray-500'
-                          }`}>
+                          <span className={cn(
+                            'text-xs font-medium',
+                            row.direction === 'up' ? 'text-inflow' :
+                            row.direction === 'down' ? 'text-outflow' : 'text-ink-3',
+                          )}>
                             {row.direction === 'up' ? '↑' : row.direction === 'down' ? '↓' : '→'}
                             {' '}{formatNet(row.latest.Net - row.first.Net)}
                           </span>
                         </td>
                         <td className="px-5 py-2.5 text-right">
                           <div className="flex items-center justify-end gap-2">
-                            <div className="flex-1 max-w-[120px] h-2 rounded-full overflow-hidden bg-white/[0.04]">
+                            <div className="flex-1 max-w-[120px] h-2 rounded-full overflow-hidden bg-surface-2">
                               <div
-                                className={`h-full rounded-full transition-all duration-300 ${isUp ? 'bg-rose-400' : 'bg-emerald-400'}`}
+                                className={cn(
+                                  'h-full rounded-full transition-all duration-300',
+                                  isUp ? 'bg-inflow' : 'bg-outflow',
+                                )}
                                 style={{ width: `${barWidth}%` }}
                               />
                             </div>
@@ -852,7 +853,7 @@ export function TickPage() {
             </table>
           </div>
         </div>
-        </div>
+      </div>
 
       <Modal
         visible={trendSector !== null}
@@ -860,22 +861,17 @@ export function TickPage() {
         footer={null}
         closable={true}
         maskClosable={true}
-        style={{
-          width: 640,
-          background: 'linear-gradient(135deg, rgba(15,23,42,0.98), rgba(30,41,59,0.95))',
-          border: '1px solid rgba(255,255,255,0.06)',
-          borderRadius: 16,
-          backdropFilter: 'blur(24px)',
-        }}
+        style={{ width: 640, borderRadius: 16 }}
         title={
           <div className="flex items-center gap-3">
-            <span className="text-white font-semibold text-base">{trendSector?.name}</span>
-            <span className="text-xs text-gray-500">{snapshot?.date}</span>
+            <span className="text-ink font-semibold text-base">{trendSector?.name}</span>
+            <span className="text-xs text-ink-3">{snapshot?.date}</span>
             {trendSector && (
-              <span className={`text-xs font-medium ml-auto ${
-                trendSector.direction === 'up' ? 'text-rose-400' :
-                trendSector.direction === 'down' ? 'text-emerald-400' : 'text-gray-500'
-              }`}>
+              <span className={cn(
+                'text-xs font-medium ml-auto',
+                trendSector.direction === 'up' ? 'text-inflow' :
+                trendSector.direction === 'down' ? 'text-outflow' : 'text-ink-3',
+              )}>
                 {trendSector.direction === 'up' ? '↑' : trendSector.direction === 'down' ? '↓' : '→'}
                 {' '}{formatNet(trendSector.latest.Net - trendSector.first.Net)}
               </span>
@@ -885,53 +881,99 @@ export function TickPage() {
       >
         {trendSector && (
           <div className="space-y-4">
-            <div className="grid grid-cols-3 gap-3">
-              <div className="rounded-lg bg-white/[0.03] p-3">
-                <div className="text-xs text-gray-500 mb-1">开盘</div>
-                <div className={`text-sm font-mono font-medium ${trendSector.first.Net >= 0 ? 'text-rose-400' : 'text-emerald-400'}`}>
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+              <div className="rounded-lg bg-surface-2 p-3">
+                <div className="text-xs text-ink-3 mb-1">开盘</div>
+                <div className={cn('text-sm font-mono font-medium', netTextColor(trendSector.first.Net))}>
                   {formatNet(trendSector.first.Net)}
                 </div>
-                <div className="text-xs text-gray-600">{trendSector.first.Time}</div>
+                <div className="text-xs text-ink-3">{trendSector.first.Time}</div>
               </div>
-              <div className="rounded-lg bg-white/[0.03] p-3">
-                <div className="text-xs text-gray-500 mb-1">最新</div>
-                <div className={`text-sm font-mono font-medium ${trendSector.latest.Net >= 0 ? 'text-rose-400' : 'text-emerald-400'}`}>
+              <div className="rounded-lg bg-surface-2 p-3">
+                <div className="text-xs text-ink-3 mb-1">最新</div>
+                <div className={cn('text-sm font-mono font-medium', netTextColor(trendSector.latest.Net))}>
                   {formatNet(trendSector.latest.Net)}
                 </div>
-                <div className="text-xs text-gray-600">{trendSector.latest.Time}</div>
+                <div className="text-xs text-ink-3">{trendSector.latest.Time}</div>
               </div>
-              <div className="rounded-lg bg-white/[0.03] p-3">
-                <div className="text-xs text-gray-500 mb-1">极值振幅</div>
-                <div className="text-sm font-mono font-medium text-cyan-400">
+              <div className="rounded-lg bg-surface-2 p-3">
+                <div className="text-xs text-ink-3 mb-1">极值振幅</div>
+                <div className="text-sm font-mono font-medium text-primary">
                   {formatNet(trendSector.peak.Net - trendSector.valley.Net)}
                 </div>
-                <div className="text-xs text-gray-600">
+                <div className="text-xs text-ink-3">
                   {trendSector.valley.Time} ~ {trendSector.peak.Time}
                 </div>
               </div>
+              <div className="rounded-lg bg-surface-2 p-3">
+                <div className="text-xs text-ink-3 mb-1">涨跌幅</div>
+                <div className={cn('text-sm font-mono font-medium', netTextColor(trendSector.latest.ChangePct))}>
+                  {formatChangePct(trendSector.latest.ChangePct)}
+                </div>
+                <div className="text-xs text-ink-3">{trendSector.latest.Time}</div>
+              </div>
+              <div className="rounded-lg bg-surface-2 p-3">
+                <div className="text-xs text-ink-3 mb-1">主力净占比</div>
+                <div className={cn('text-sm font-mono font-medium', netTextColor(trendSector.latest.MainRate))}>
+                  {formatRate(trendSector.latest.MainRate)}
+                </div>
+                <div className="text-xs text-ink-3">超大+大单合计</div>
+              </div>
+              <div className="rounded-lg bg-surface-2 p-3">
+                <div className="text-xs text-ink-3 mb-1">超大单</div>
+                <div className={cn('text-sm font-mono font-medium', netTextColor(trendSector.latest.SuperNet))}>
+                  {formatNet(trendSector.latest.SuperNet)}
+                </div>
+                <div className={cn('text-xs font-mono', netTextColor(trendSector.latest.SuperRate), 'opacity-70')}>
+                  占比 {formatRate(trendSector.latest.SuperRate)}
+                </div>
+              </div>
+              <div className="rounded-lg bg-surface-2 p-3">
+                <div className="text-xs text-ink-3 mb-1">大单</div>
+                <div className={cn('text-sm font-mono font-medium', netTextColor(trendSector.latest.BigNet))}>
+                  {formatNet(trendSector.latest.BigNet)}
+                </div>
+                <div className={cn('text-xs font-mono', netTextColor(trendSector.latest.BigRate), 'opacity-70')}>
+                  占比 {formatRate(trendSector.latest.BigRate)}
+                </div>
+              </div>
+              <div className="rounded-lg bg-surface-2 p-3">
+                <div className="text-xs text-ink-3 mb-1">累计净变化</div>
+                {(() => {
+                  const delta = trendSector.latest.Net - trendSector.first.Net
+                  return (
+                    <div className={cn('text-sm font-mono font-medium', netTextColor(delta))}>
+                      {delta > 0 ? '+' : ''}{formatNet(delta)}
+                    </div>
+                  )
+                })()}
+                <div className="text-xs text-ink-3">
+                  {trendSector.first.Time} → {trendSector.latest.Time}
+                </div>
+              </div>
             </div>
 
-            <div className="rounded-lg bg-white/[0.03] p-4">
-              <div className="text-xs text-gray-500 mb-3">资金流变化趋势</div>
+            <div className="rounded-lg bg-surface-2 p-4">
+              <div className="text-xs text-ink-3 mb-3">资金流变化趋势</div>
               <SectorTrendChart points={trendSector.points} />
             </div>
 
-            <div className="rounded-lg bg-white/[0.03] p-4">
+            <div className="rounded-lg bg-surface-2 p-4">
               <div className="flex items-center justify-between mb-3">
-                <span className="text-xs text-gray-500">相关板块新闻</span>
+                <span className="text-xs text-ink-3">相关板块新闻</span>
                 {newsLoading && (
-                  <span className="text-[10px] text-gray-600 animate-pulse">搜索中...</span>
+                  <span className="text-[10px] text-ink-3 animate-pulse">搜索中...</span>
                 )}
               </div>
               {sectorNews.length === 0 && !newsLoading ? (
-                <p className="text-xs text-gray-600 py-3 text-center">暂无相关新闻</p>
+                <p className="text-xs text-ink-3 py-3 text-center">暂无相关新闻</p>
               ) : (
                 <div className="max-h-40 overflow-y-auto space-y-2">
                   {sectorNews.map((news) => (
-                    <div key={news.id} className="px-2 py-1.5 rounded hover:bg-white/[0.03] transition-colors">
+                    <div key={news.id} className="px-2 py-1.5 rounded hover:bg-hairline-strong transition-colors">
                       <div className="flex items-baseline gap-2">
-                        <span className="text-[10px] text-gray-500 font-mono shrink-0">{news.ctime.replace('T', ' ').slice(5, 16)}</span>
-                        <span className="text-xs text-gray-300 leading-snug line-clamp-2">{news.title || news.brief}</span>
+                        <span className="text-[10px] text-ink-3 font-mono shrink-0">{news.ctime.replace('T', ' ').slice(5, 16)}</span>
+                        <span className="text-xs text-ink-2 leading-snug line-clamp-2">{news.title || news.brief}</span>
                       </div>
                       {news.sectors && (() => {
                         try {
@@ -939,11 +981,10 @@ export function TickPage() {
                           return Array.isArray(tags) && tags.length > 0 ? (
                             <div className="flex flex-wrap gap-1 mt-1 ml-8">
                               {tags.map((s: string) => (
-                                <span key={s} className="text-[9px] px-1 rounded" style={{
-                                  background: 'rgba(34,211,238,0.06)',
-                                  border: '1px solid rgba(34,211,238,0.1)',
-                                  color: '#22d3ee',
-                                }}>{s}</span>
+                                <span
+                                  key={s}
+                                  className="text-[9px] px-1 rounded bg-primary-softer border border-primary/20 text-primary"
+                                >{s}</span>
                               ))}
                             </div>
                           ) : null;

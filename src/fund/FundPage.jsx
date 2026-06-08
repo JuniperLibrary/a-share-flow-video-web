@@ -215,6 +215,7 @@ export default function HomePage() {
   const [sortSettingOpen, setSortSettingOpen] = useState(false);
   const [donateOpen, setDonateOpen] = useState(false);
   const [isGroupSummarySticky, setIsGroupSummarySticky] = useState(false);
+  const handleMobileSearchClick = useCallback(() => { setSearchTerm(''); setShowDropdown(true); }, []);
   const [maskAmounts, setMaskAmounts] = useState(false);
   const [groupModalOpen, setGroupModalOpen] = useState(false);
   const [addFundToGroupOpen, setAddFundToGroupOpen] = useState(false);

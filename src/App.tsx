@@ -1,5 +1,4 @@
-import { useState, useEffect } from 'react';
-import { Layout, Menu, Typography } from '@arco-design/web-react';
+import { useState, useEffect, Suspense } from 'react';
 import {
   IconDashboard,
   IconPlayArrow,
@@ -10,6 +9,7 @@ import {
   IconStar,
   IconEdit,
   IconSound,
+  IconMessage,
 } from '@arco-design/web-react/icon';
 import DashboardPage from './pages/DashboardPage';
 import { TickPage } from './pages/TickPage';
@@ -20,18 +20,18 @@ import { NewsPage } from './pages/NewsPage';
 import { NotesPage } from './pages/NotesPage';
 import FundTab from './fund/FundTab';
 import { TTSPage } from './pages/TTSPage';
+import { DebatePage } from './pages/DebatePage';
 import { api } from './api';
+import { Sidebar } from './components/ui/sidebar';
 
-const { Sider, Content } = Layout;
-const { Title } = Typography;
-
-type Page = 'dashboard' | 'tick' | 'generate' | 'preview' | 'config' | 'news' | 'fund' | 'notes' | 'tts';
+type Page = 'dashboard' | 'tick' | 'generate' | 'preview' | 'config' | 'news' | 'fund' | 'notes' | 'tts' | 'debate';
 
 const allNavItems: { key: Page; label: string; icon: React.ReactNode; staticOnly?: boolean }[] = [
   { key: 'dashboard', label: '仪表盘', icon: <IconDashboard /> },
   { key: 'fund', label: '基金宝', icon: <IconStar /> },
   { key: 'tts', label: 'TTS 配音', icon: <IconSound /> },
   { key: 'notes', label: '开发笔记', icon: <IconEdit /> },
+  { key: 'debate', label: '财报辩论', icon: <IconMessage />, staticOnly: true },
   { key: 'tick', label: 'Tick 采集', icon: <IconList />, staticOnly: true },
   { key: 'generate', label: '视频生成', icon: <IconPlayArrow />, staticOnly: true },
   { key: 'preview', label: '视频预览', icon: <IconEye />, staticOnly: true },
@@ -65,68 +65,30 @@ export default function App() {
   };
 
   return (
-    <Layout style={{ minHeight: '100vh', background: '#0a1628' }}>
-      <Sider
-        width={220}
-        style={{
-          background: '#0d1f3c',
-          borderRight: '1px solid #1a3a5c',
-          boxShadow: '2px 0 12px rgba(0,0,0,0.3)',
-        }}
-      >
-        <div style={{ padding: '20px 16px 16px', borderBottom: '1px solid #1a3a5c' }}>
-          <Title heading={5} style={{ margin: 0, color: '#fff', fontWeight: 700 }}>
-            📊 A股情绪流
-          </Title>
-          <div style={{ fontSize: 12, color: '#86909c', marginTop: 4 }}>
-            板块资金流向可视化
-          </div>
+    <div className="flex min-h-screen bg-canvas">
+      <Sidebar
+        brand="A股情绪流"
+        subtitle="板块资金流向可视化"
+        items={navItems}
+        activeKey={page}
+        onSelect={(key) => setPage(key as Page)}
+      />
+      <main className="flex-1 min-w-0 bg-canvas overflow-auto">
+        <div className="p-6">
+          <Suspense fallback={<div className="text-ink-3 text-sm">加载中…</div>}>
+            {page === 'dashboard' && <DashboardPage />}
+            {page === 'tick' && <TickPage />}
+            {page === 'generate' && <GeneratePage dates={dates} onDone={handleDone} />}
+            {page === 'preview' && <PreviewPage previewDate={previewDate} />}
+            {page === 'news' && <NewsPage />}
+            {page === 'config' && <ConfigPage />}
+            {page === 'fund' && <FundTab />}
+            {page === 'notes' && <NotesPage />}
+            {page === 'tts' && <TTSPage />}
+            {page === 'debate' && <DebatePage />}
+          </Suspense>
         </div>
-        <Menu
-          mode="vertical"
-          selectedKeys={[page]}
-          onClickMenuItem={(key) => setPage(key as Page)}
-          style={{ border: 'none', marginTop: 8, background: 'transparent' }}
-        >
-          {navItems.map((item) => (
-            <Menu.Item key={item.key} style={{ fontSize: 14, color: '#86909c' }}>
-              {item.icon}
-              <span style={{ marginLeft: 8 }}>{item.label}</span>
-            </Menu.Item>
-          ))}
-        </Menu>
-      </Sider>
-      <Layout>
-        <Content style={{ padding: 24, overflow: 'auto', background: '#0a1628' }}>
-          <div style={{ display: page === 'dashboard' ? 'block' : 'none' }}>
-            <DashboardPage />
-          </div>
-          <div style={{ display: page === 'tick' ? 'block' : 'none' }}>
-            <TickPage />
-          </div>
-          <div style={{ display: page === 'generate' ? 'block' : 'none' }}>
-            <GeneratePage dates={dates} onDone={handleDone} />
-          </div>
-          <div style={{ display: page === 'preview' ? 'block' : 'none' }}>
-            <PreviewPage previewDate={previewDate} />
-          </div>
-          <div style={{ display: page === 'news' ? 'block' : 'none' }}>
-            <NewsPage />
-          </div>
-          <div style={{ display: page === 'config' ? 'block' : 'none' }}>
-            <ConfigPage />
-          </div>
-          <div style={{ display: page === 'fund' ? 'block' : 'none' }}>
-            <FundTab />
-          </div>
-          <div style={{ display: page === 'notes' ? 'block' : 'none' }}>
-            <NotesPage />
-          </div>
-          <div style={{ display: page === 'tts' ? 'block' : 'none' }}>
-            <TTSPage />
-          </div>
-        </Content>
-      </Layout>
-    </Layout>
+      </main>
+    </div>
   );
 }

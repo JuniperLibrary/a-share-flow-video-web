@@ -15,4 +15,12 @@ export default defineConfig({
     outDir: 'dist',
     emptyOutDir: true,
   },
+  server: {
+    proxy: {
+      '/api': {
+        target: process.env.VITE_API_TARGET || 'http://localhost:8084',
+        changeOrigin: true,
+      },
+    },
+  },
 })

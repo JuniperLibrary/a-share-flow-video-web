@@ -2,6 +2,10 @@ import { useState, useEffect, useRef } from 'react';
 import { Button, Tag } from '@arco-design/web-react';
 import { IconDelete, IconEdit, IconCheck, IconClose, IconPlus, IconLeft, IconRight } from '@arco-design/web-react/icon';
 import { api } from '../api';
+import { PageHeader } from '../components/ui/page-header';
+import { EmptyState } from '../components/ui/empty-state';
+import { Badge } from '../components/ui/badge';
+import { cn } from '../lib/utils';
 
 interface Note {
   id: number;
@@ -10,6 +14,26 @@ interface Note {
   created_at: string;
   updated_at: string;
 }
+
+const TYPE_CONFIG = {
+  // Chinese-market rule: positive/done = inflow (red), not green. See DESIGN.md §2.
+  completed: {
+    label: '已完成',
+    dot: 'bg-inflow',
+    tag: <Badge variant="inflow">已完成</Badge>,
+    card: 'border-inflow/20 bg-inflow-softer hover:border-inflow/40',
+    dotButton: 'border-inflow bg-inflow/20 text-inflow',
+    column: 'border-inflow/40 bg-inflow-softer',
+  },
+  planned: {
+    label: '待计划',
+    dot: 'bg-primary',
+    tag: <Badge variant="default">待计划</Badge>,
+    card: 'border-primary/20 bg-primary-softer hover:border-primary/40',
+    dotButton: 'border-ink-3 hover:border-primary',
+    column: 'border-primary/40 bg-primary-softer',
+  },
+} as const;
 
 function NoteCard({
   note,
@@ -55,28 +79,28 @@ function NoteCard({
     setEditing(false);
   }
 
-  const isCompleted = note.type === 'completed';
+  const config = TYPE_CONFIG[note.type];
 
   return (
     <div
       draggable={!editing}
       onDragStart={handleDragStart}
-      className={`rounded-xl border backdrop-blur-xl p-4 shadow-lg transition-all duration-200 group ${
-        isCompleted
-          ? 'border-emerald-500/20 bg-emerald-900/10 hover:border-emerald-500/30'
-          : 'border-cyan-500/20 bg-cyan-900/10 hover:border-cyan-500/30'
-      } ${isDragging ? 'opacity-30 scale-95' : ''} cursor-grab active:cursor-grabbing select-none`}
+      className={cn(
+        'rounded-xl border backdrop-blur-xl p-4 shadow-lg transition-all duration-200 group',
+        config.card,
+        isDragging && 'opacity-30 scale-95',
+        'cursor-grab active:cursor-grabbing select-none',
+      )}
     >
       <div className="flex items-start justify-between gap-3">
         <button
           onClick={onToggle}
-          className={`mt-0.5 w-5 h-5 rounded-full border-2 flex-shrink-0 flex items-center justify-center transition-all ${
-            isCompleted
-              ? 'border-emerald-400 bg-emerald-500/20 text-emerald-400'
-              : 'border-gray-500 hover:border-cyan-400'
-          }`}
+          className={cn(
+            'mt-0.5 w-5 h-5 rounded-full border-2 flex-shrink-0 flex items-center justify-center transition-all',
+            config.dotButton,
+          )}
         >
-          {isCompleted && (
+          {note.type === 'completed' && (
             <svg width="10" height="10" viewBox="0 0 12 12" fill="none">
               <path d="M2 6L5 9L10 3" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
             </svg>
@@ -90,19 +114,21 @@ function NoteCard({
                 ref={inputRef}
                 value={editContent}
                 onChange={(e) => setEditContent(e.target.value)}
-                className="w-full bg-black/40 border border-white/10 rounded-lg px-3 py-2 text-sm text-white outline-none focus:border-cyan-500/50 resize-none"
+                className="w-full bg-black/40 border border-hairline rounded-lg px-3 py-2 text-sm text-ink outline-none focus:border-primary resize-none"
                 rows={3}
               />
               <div className="flex items-center gap-2">
                 <button
                   onClick={handleSave}
-                  className="w-7 h-7 rounded-lg bg-emerald-500/20 text-emerald-400 hover:bg-emerald-500/30 flex items-center justify-center transition-all"
+                  className="w-7 h-7 rounded-lg bg-inflow-softer text-inflow hover:bg-inflow-muted flex items-center justify-center transition-all"
+                  aria-label="保存"
                 >
                   <IconCheck style={{ fontSize: 14 }} />
                 </button>
                 <button
                   onClick={handleCancel}
-                  className="w-7 h-7 rounded-lg bg-gray-500/20 text-gray-400 hover:bg-gray-500/30 flex items-center justify-center transition-all"
+                  className="w-7 h-7 rounded-lg bg-surface-3 text-ink-3 hover:bg-hairline-active flex items-center justify-center transition-all"
+                  aria-label="取消"
                 >
                   <IconClose style={{ fontSize: 14 }} />
                 </button>
@@ -110,9 +136,9 @@ function NoteCard({
             </div>
           ) : (
             <div>
-              <p className="text-sm text-gray-200 leading-relaxed whitespace-pre-wrap">{note.content}</p>
+              <p className="text-sm text-ink leading-relaxed whitespace-pre-wrap">{note.content}</p>
               <div className="flex items-center gap-3 mt-2">
-                <span className="text-[11px] text-gray-500">{note.created_at}</span>
+                <span className="text-[11px] text-ink-3">{note.created_at}</span>
               </div>
             </div>
           )}
@@ -121,13 +147,15 @@ function NoteCard({
         <div className="flex items-center gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0">
           <button
             onClick={() => { setEditContent(note.content); setEditing(true); }}
-            className="w-7 h-7 rounded-lg bg-white/5 text-gray-400 hover:bg-white/10 hover:text-white flex items-center justify-center transition-all"
+            className="w-7 h-7 rounded-lg bg-surface-2 text-ink-3 hover:bg-hairline-active hover:text-ink flex items-center justify-center transition-all"
+            aria-label="编辑"
           >
             <IconEdit style={{ fontSize: 13 }} />
           </button>
           <button
             onClick={onDelete}
-            className="w-7 h-7 rounded-lg bg-white/5 text-gray-400 hover:bg-rose-500/20 hover:text-rose-400 flex items-center justify-center transition-all"
+            className="w-7 h-7 rounded-lg bg-surface-2 text-ink-3 hover:bg-inflow/10 hover:text-inflow flex items-center justify-center transition-all"
+            aria-label="删除"
           >
             <IconDelete style={{ fontSize: 13 }} />
           </button>
@@ -169,9 +197,9 @@ export function NotesPage() {
   }
 
   async function handleToggleType(note: Note) {
-    const newType = note.type === 'completed' ? 'planned' : 'completed';
+    const targetType = note.type === 'completed' ? 'planned' : 'completed';
     try {
-      await api.updateNote(note.id, newType, note.content);
+      await api.updateNote(note.id, targetType, note.content);
       loadNotes();
     } catch { void 0; }
   }
@@ -207,9 +235,10 @@ export function NotesPage() {
   function renderNoteList(list: Note[], listType: 'completed' | 'planned') {
     if (list.length === 0) {
       return (
-        <div className="text-center py-12 text-gray-500">
-          <p className="text-sm">暂无{listType === 'completed' ? '已完成' : '待计划'}的笔记</p>
-        </div>
+        <EmptyState
+          compact
+          title={`暂无${TYPE_CONFIG[listType].label}的笔记`}
+        />
       );
     }
     return (
@@ -231,18 +260,14 @@ export function NotesPage() {
 
   function renderColumn(
     columnType: 'completed' | 'planned',
-    title: string,
-    count: number,
-    dotColor: string,
-    tagColor: string,
-    notesList: Note[],
     page?: number,
     onPageChange?: (page: number) => void,
   ) {
+    const config = TYPE_CONFIG[columnType];
     const isOver = dropTarget === columnType;
-    const pageSize = 5;
-    const totalPages = page ? Math.max(1, Math.ceil(notesList.length / pageSize)) : 1;
-    const pagedList = page ? notesList.slice((page - 1) * pageSize, page * pageSize) : notesList;
+    const notesList = columnType === 'completed' ? completedNotes : plannedNotes;
+    const totalPages = page ? Math.max(1, Math.ceil(notesList.length / PAGE_SIZE)) : 1;
+    const pagedList = page ? notesList.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE) : notesList;
 
     return (
       <div
@@ -258,23 +283,18 @@ export function NotesPage() {
           setDropTarget(null);
           setDragNoteId(null);
         }}
-        className={`rounded-2xl border p-5 transition-all duration-200 ${
-          isOver
-            ? columnType === 'completed'
-              ? 'border-emerald-500/40 bg-emerald-900/20'
-              : 'border-cyan-500/40 bg-cyan-900/20'
-            : 'border-white/[0.06] bg-black/30 backdrop-blur-xl'
-        }`}
+        className={cn(
+          'rounded-2xl border p-5 transition-all duration-200',
+          isOver ? config.column : 'border-hairline bg-surface-1 backdrop-blur-xl',
+        )}
       >
         <div className="flex items-center gap-2 mb-4">
-          <div className={`w-2 h-2 rounded-full ${dotColor}`} />
-          <h2 className="text-base font-semibold text-white">{title}</h2>
-          <Tag color={tagColor} style={{ borderRadius: 4, fontSize: 11 }}>
-            {count}
-          </Tag>
+          <div className={cn('w-2 h-2 rounded-full', config.dot)} />
+          <h2 className="text-base font-semibold text-ink">{config.label}</h2>
+          <Tag className="!rounded !text-[11px]">{notesList.length}</Tag>
         </div>
         {loading ? (
-          <div className="text-center py-12 text-gray-500 text-sm">加载中...</div>
+          <EmptyState compact title="加载中..." />
         ) : (
           renderNoteList(pagedList, columnType)
         )}
@@ -283,15 +303,17 @@ export function NotesPage() {
             <button
               onClick={() => onPageChange?.(page - 1)}
               disabled={page <= 1}
-              className="w-7 h-7 rounded-lg bg-white/5 text-gray-400 hover:bg-white/10 disabled:opacity-20 disabled:cursor-not-allowed flex items-center justify-center transition-all"
+              className="w-7 h-7 rounded-lg bg-surface-2 text-ink-3 hover:bg-hairline-active disabled:opacity-20 disabled:cursor-not-allowed flex items-center justify-center transition-all"
+              aria-label="上一页"
             >
               <IconLeft style={{ fontSize: 12 }} />
             </button>
-            <span className="text-xs text-gray-500">{page} / {totalPages}</span>
+            <span className="text-xs text-ink-3">{page} / {totalPages}</span>
             <button
               onClick={() => onPageChange?.(page + 1)}
               disabled={page >= totalPages}
-              className="w-7 h-7 rounded-lg bg-white/5 text-gray-400 hover:bg-white/10 disabled:opacity-20 disabled:cursor-not-allowed flex items-center justify-center transition-all"
+              className="w-7 h-7 rounded-lg bg-surface-2 text-ink-3 hover:bg-hairline-active disabled:opacity-20 disabled:cursor-not-allowed flex items-center justify-center transition-all"
+              aria-label="下一页"
             >
               <IconRight style={{ fontSize: 12 }} />
             </button>
@@ -306,45 +328,38 @@ export function NotesPage() {
       className="relative min-h-screen px-5 py-5"
       onDragEnd={() => { setDragNoteId(null); setDropTarget(null); }}
     >
-      <div
-        className="pointer-events-none absolute inset-0 opacity-[0.015]"
-        style={{
-          backgroundImage:
-            'linear-gradient(rgba(255,255,255,1) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,1) 1px, transparent 1px)',
-          backgroundSize: '40px 40px',
-        }}
-      />
+      <div className="pointer-events-none absolute inset-0 opacity-[0.015] bg-dashboard-grid bg-grid-lg" />
 
       <div className="relative">
-        <div className="flex items-baseline gap-3 mb-6">
-          <h1 className="text-2xl font-bold bg-gradient-to-r from-rose-400 via-amber-300 to-cyan-400 bg-clip-text text-transparent">
-            开发笔记
-          </h1>
-          <span className="text-sm text-gray-500">功能变更和待办优化记录</span>
-        </div>
+        <PageHeader
+          title="开发笔记"
+          meta={<span>功能变更和待办优化记录</span>}
+        />
 
-        <div className="rounded-2xl border border-white/[0.06] bg-black/30 backdrop-blur-xl p-5 shadow-2xl mb-6">
+        <div className="rounded-2xl border border-hairline bg-surface-1 backdrop-blur-xl p-5 shadow-2xl mb-6">
           <div className="flex items-end gap-3">
             <div className="flex-1">
               <div className="flex items-center gap-2 mb-2">
-                <span className="text-xs text-gray-400">新增笔记</span>
+                <span className="text-xs text-ink-2">新增笔记</span>
                 <div className="flex items-center gap-1">
                   <span
-                    className={`px-2 py-0.5 rounded text-[11px] cursor-pointer transition-all ${
+                    className={cn(
+                      'px-2 py-0.5 rounded text-[11px] cursor-pointer transition-all border',
                       newType === 'completed'
-                        ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'
-                        : 'bg-white/5 text-gray-500 border border-transparent hover:text-gray-300'
-                    }`}
+                        ? 'bg-inflow-softer text-inflow border-inflow/30'
+                        : 'bg-surface-2 text-ink-3 border-transparent hover:text-ink-2',
+                    )}
                     onClick={() => setNewType('completed')}
                   >
                     已完成
                   </span>
                   <span
-                    className={`px-2 py-0.5 rounded text-[11px] cursor-pointer transition-all ${
+                    className={cn(
+                      'px-2 py-0.5 rounded text-[11px] cursor-pointer transition-all border',
                       newType === 'planned'
-                        ? 'bg-cyan-500/20 text-cyan-400 border border-cyan-500/30'
-                        : 'bg-white/5 text-gray-500 border border-transparent hover:text-gray-300'
-                    }`}
+                        ? 'bg-primary-softer text-primary border-primary/30'
+                        : 'bg-surface-2 text-ink-3 border-transparent hover:text-ink-2',
+                    )}
                     onClick={() => setNewType('planned')}
                   >
                     待计划
@@ -355,7 +370,7 @@ export function NotesPage() {
                 value={newContent}
                 onChange={(e) => setNewContent(e.target.value)}
                 placeholder="写一条笔记..."
-                className="w-full bg-black/40 border border-white/10 rounded-lg px-4 py-3 text-sm text-white outline-none focus:border-cyan-500/50 resize-none transition-all"
+                className="w-full bg-black/40 border border-hairline rounded-lg px-4 py-3 text-sm text-ink outline-none focus:border-primary resize-none transition-all"
                 rows={2}
                 onKeyDown={(e) => {
                   if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
@@ -369,26 +384,17 @@ export function NotesPage() {
               type="primary"
               onClick={handleCreate}
               icon={<IconPlus />}
-              style={{
-                background: 'linear-gradient(135deg, #0891b2, #0d9488)',
-                border: 'none',
-                height: 38,
-                fontWeight: 600,
-                paddingLeft: 20,
-                paddingRight: 20,
-                boxShadow: '0 0 20px rgba(6, 182, 212, 0.15)',
-                marginBottom: 0,
-              }}
+              className="!bg-primary !border-primary !text-primary-ink !h-10 !font-semibold shadow-glow-primary hover:!brightness-110"
             >
               添加
             </Button>
           </div>
-          <p className="text-[11px] text-gray-600 mt-2">⌘+Enter 快速添加</p>
+          <p className="text-[11px] text-ink-3 mt-2">⌘+Enter 快速添加</p>
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {renderColumn('planned', '待计划', plannedNotes.length, 'bg-cyan-400', 'cyan', plannedNotes)}
-          {renderColumn('completed', '已完成', completedNotes.length, 'bg-emerald-400', 'green', completedNotes, completedPage, (p) => setCompletedPage(p))}
+          {renderColumn('planned')}
+          {renderColumn('completed', completedPage, (p) => setCompletedPage(p))}
         </div>
       </div>
     </div>

@@ -9,6 +9,9 @@ import { useSSE } from '../hooks/useSSE';
 import type { SSEMessage } from '../types';
 import { DatePicker } from '../components/ui/date-picker';
 import { Select } from '../components/ui/select';
+import { PageHeader } from '../components/ui/page-header';
+import { tokens } from '../lib/tokens';
+import { cn } from '../lib/utils';
 
 interface GeneratePageProps {
   dates: string[];
@@ -50,8 +53,8 @@ function GeneratorCard({
       <div className="flex items-center gap-3 mb-1">
         <span className="text-lg opacity-60">{icon}</span>
         <div>
-          <div className="text-base font-semibold text-white/90">{title}</div>
-          <div className="text-xs text-gray-500 mt-0.5">{desc}</div>
+          <div className="text-base font-semibold text-ink">{title}</div>
+          <div className="text-xs text-ink-3 mt-0.5">{desc}</div>
         </div>
       </div>
       <div className={`h-0.5 w-full rounded-full mt-3 mb-4 ${accentBg} opacity-30`} />
@@ -68,15 +71,7 @@ function GeneratorCard({
           loading={isRunning}
           onClick={onGenerate}
           icon={<IconPlayArrow />}
-          style={{
-            background: 'linear-gradient(135deg, #3b82f6, #6366f1)',
-            border: 'none',
-            height: 36,
-            fontWeight: 600,
-            paddingLeft: 20,
-            paddingRight: 20,
-            boxShadow: '0 0 20px rgba(59, 130, 246, 0.15)',
-          }}
+          className="!bg-primary !border-primary !text-primary-ink !h-9 !font-semibold !px-5 shadow-glow-primary hover:!brightness-110"
         >
           生成
         </Button>
@@ -87,22 +82,22 @@ function GeneratorCard({
         <Alert
           type={statusType === 'success' ? 'success' : statusType === 'error' ? 'error' : 'info'}
           title={statusText}
-          style={{ marginBottom: 12, background: 'rgba(26, 58, 92, 0.6)', border: '1px solid rgba(42, 74, 108, 0.5)' }}
+          className="!mb-3"
         />
       )}
 
       {/* Progress */}
       {progress && isRunning && (
-        <div className="mb-3 flex items-center gap-2 text-xs text-gray-500">
-          <span className="inline-block w-1.5 h-1.5 rounded-full bg-cyan-400 animate-pulse" />
+        <div className="mb-3 flex items-center gap-2 text-xs text-ink-3">
+          <span className="inline-block w-1.5 h-1.5 rounded-full bg-primary animate-pulse" />
           {progress}
         </div>
       )}
 
       {/* Logs */}
       {logs.length > 0 && (
-        <div className="rounded-lg bg-black/30 border border-white/[0.04] p-3 flex-1 min-h-0 max-h-48 overflow-y-auto custom-scrollbar">
-          <div className="flex items-center gap-2 mb-2 text-xs text-gray-500">
+        <div className="rounded-lg bg-black/30 border border-hairline p-3 flex-1 min-h-0 max-h-48 overflow-y-auto custom-scrollbar">
+          <div className="flex items-center gap-2 mb-2 text-xs text-ink-3">
             <span className="w-1 h-1 rounded-full bg-white/20" />
             生成日志
           </div>
@@ -110,10 +105,10 @@ function GeneratorCard({
             {logs.map((l, i) => (
               <div
                 key={i}
-                className="text-xs font-mono text-gray-500 leading-relaxed hover:text-gray-300 transition-colors"
+                className="text-xs font-mono text-ink-3 leading-relaxed hover:text-ink-2 transition-colors"
               >
-                <span className="text-gray-600">{String(i + 1).padStart(2, '0')}</span>
-                <span className="mx-2 text-gray-700">|</span>
+                <span className="text-ink-3">{String(i + 1).padStart(2, '0')}</span>
+                <span className="mx-2 text-ink-3">|</span>
                 {l}
               </div>
             ))}
@@ -126,17 +121,11 @@ function GeneratorCard({
         <div className="mt-4 flex items-center gap-3">
           <Button
             onClick={onPreview}
-            style={{
-              background: 'linear-gradient(135deg, #00d4ff, #0891b2)',
-              border: 'none',
-              color: '#fff',
-              fontWeight: 600,
-              boxShadow: '0 0 20px rgba(0, 212, 255, 0.2)',
-            }}
+            className="!bg-primary !border-primary !text-primary-ink !font-semibold shadow-glow-primary"
           >
             前往预览
           </Button>
-          <span className="text-xs text-gray-600">查看生成的视频文件</span>
+          <span className="text-xs text-ink-3">查看生成的视频文件</span>
         </div>
       )}
     </div>
@@ -214,14 +203,14 @@ export function GeneratePage({ dates, onDone }: GeneratePageProps) {
       <div>
         <div className="flex items-center gap-1.5 mb-1.5">
           <span className="w-1 h-1 rounded-full bg-white/30" />
-          <span className="text-xs text-gray-500">采集日期</span>
+          <span className="text-xs text-ink-3">采集日期</span>
         </div>
         <DatePicker value={tickDate} onChange={setTickDate} style={{ width: 150 }} />
       </div>
       <div>
         <div className="flex items-center gap-1.5 mb-1.5">
           <span className="w-1 h-1 rounded-full bg-white/30" />
-          <span className="text-xs text-gray-500">时段</span>
+          <span className="text-xs text-ink-3">时段</span>
         </div>
         <Select
           value={tickSession}
@@ -236,7 +225,7 @@ export function GeneratePage({ dates, onDone }: GeneratePageProps) {
       <div>
         <div className="flex items-center gap-1.5 mb-1.5">
           <span className="w-1 h-1 rounded-full bg-white/30" />
-          <span className="text-xs text-gray-500">文案模式</span>
+          <span className="text-xs text-ink-3">文案模式</span>
         </div>
         <Select
           value={tickCopyMode}
@@ -251,7 +240,7 @@ export function GeneratePage({ dates, onDone }: GeneratePageProps) {
       <div>
         <div className="flex items-center gap-1.5 mb-1.5">
           <span className="w-1 h-1 rounded-full bg-white/30" />
-          <span className="text-xs text-gray-500">视频格式</span>
+          <span className="text-xs text-ink-3">视频格式</span>
         </div>
         <Select
           value={tickFormat}
@@ -272,14 +261,14 @@ export function GeneratePage({ dates, onDone }: GeneratePageProps) {
       <div>
         <div className="flex items-center gap-1.5 mb-1.5">
           <span className="w-1 h-1 rounded-full bg-white/30" />
-          <span className="text-xs text-gray-500">截止日期</span>
+          <span className="text-xs text-ink-3">截止日期</span>
         </div>
         <DatePicker value={mdDate} onChange={setMdDate} style={{ width: 150 }} />
       </div>
       <div>
         <div className="flex items-center gap-1.5 mb-1.5">
           <span className="w-1 h-1 rounded-full bg-white/30" />
-          <span className="text-xs text-gray-500">对比天数</span>
+          <span className="text-xs text-ink-3">对比天数</span>
         </div>
         <Select
           value={mdDays}
@@ -295,7 +284,7 @@ export function GeneratePage({ dates, onDone }: GeneratePageProps) {
       <div>
         <div className="flex items-center gap-1.5 mb-1.5">
           <span className="w-1 h-1 rounded-full bg-white/30" />
-          <span className="text-xs text-gray-500">文案模式</span>
+          <span className="text-xs text-ink-3">文案模式</span>
         </div>
         <Select
           value={mdCopyMode}
@@ -313,28 +302,22 @@ export function GeneratePage({ dates, onDone }: GeneratePageProps) {
   return (
     <div className="relative min-h-screen px-5 py-5">
       <div
-        className="pointer-events-none absolute inset-0 opacity-[0.015]"
-        style={{
-          backgroundImage: 'linear-gradient(rgba(255,255,255,1) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,1) 1px, transparent 1px)',
-          backgroundSize: '40px 40px',
-        }}
+        className="pointer-events-none absolute inset-0 opacity-[0.015] bg-dashboard-grid bg-grid-lg"
       />
 
-      <div className="relative">
-        <div className="flex items-baseline gap-3 mb-6">
-          <h1 className="text-2xl font-bold bg-gradient-to-r from-rose-400 via-amber-300 to-cyan-400 bg-clip-text text-transparent">
-            视频生成
-          </h1>
-          <span className="text-sm text-gray-500">AI 自动分析 · Remotion 渲染</span>
-        </div>
+      <div className="relative space-y-6">
+        <PageHeader
+          title="视频生成"
+          meta={<span className="text-sm text-ink-3">AI 自动分析 · Remotion 渲染</span>}
+        />
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
           {/* Tick Card */}
           <GeneratorCard
             title="Tick 曲线视频"
             desc="日内资金流动曲线渲染"
-            accentBorder="border-cyan-500/20"
-            accentBg="bg-gradient-to-r from-cyan-400 to-teal-400"
+            accentBorder="border-primary/20"
+            accentBg="bg-gradient-to-r from-primary to-chart-6"
             icon="◈"
             form={tickForm}
             onGenerate={handleGenerateTick}
@@ -350,8 +333,8 @@ export function GeneratePage({ dates, onDone }: GeneratePageProps) {
           <GeneratorCard
             title="多日 Bar Chart Race"
             desc="多交易日资金流向排名竞赛"
-            accentBorder="border-blue-500/20"
-            accentBg="bg-gradient-to-r from-blue-400 to-indigo-400"
+            accentBorder="border-primary/20"
+            accentBg="bg-gradient-to-r from-info to-chart-5"
             icon="◈"
             form={mdForm}
             onGenerate={handleGenerateMultiDay}

@@ -4,6 +4,10 @@ import { IconRefresh, IconSearch, IconStop } from '@arco-design/web-react/icon';
 import { api } from '../api';
 import type { CLSNewsRecord, NewsStatusResponse } from '../types';
 import { DatePicker } from '../components/ui/date-picker';
+import { PageHeader } from '../components/ui/page-header';
+import { EmptyState } from '../components/ui/empty-state';
+import { tokens } from '../lib/tokens';
+import { cn } from '../lib/utils';
 
 const LEVEL_STYLES: Record<string, { bar: string; glow: string; badgeBg: string; badgeText: string; ring: string }> = {
   A: {
@@ -21,10 +25,10 @@ const LEVEL_STYLES: Record<string, { bar: string; glow: string; badgeBg: string;
     ring: 'rgba(251,191,36,0.15)',
   },
   C: {
-    bar: 'bg-gray-500',
+    bar: 'bg-ink-3',
     glow: 'transparent',
     badgeBg: 'rgba(107,114,128,0.12)',
-    badgeText: '#6b7280',
+    badgeText: tokens.ink[3],
     ring: 'rgba(107,114,128,0.1)',
   },
 };
@@ -77,7 +81,7 @@ function NewsRow({
 
       <div className="flex-1 min-w-0 py-3 pl-3 pr-1 transition-colors duration-150 hover:bg-white/[0.02]">
         <div className="flex items-baseline gap-2 mb-1">
-          <span className="text-xs text-gray-500 font-mono tabular-nums shrink-0 w-16 text-right">
+          <span className="text-xs text-ink-3 font-mono tabular-nums shrink-0 w-16 text-right">
             {record.ctime}
           </span>
           <span
@@ -86,13 +90,13 @@ function NewsRow({
           >
             {record.level}
           </span>
-          <span className="text-sm text-gray-200 leading-snug group-hover:text-white transition-colors">
+          <span className="text-sm text-ink-2 leading-snug group-hover:text-white transition-colors">
             {record.title}
           </span>
         </div>
 
         {record.brief && (
-          <p className="text-xs text-gray-500 leading-relaxed ml-[5.25rem]">
+          <p className="text-xs text-ink-3 leading-relaxed ml-[5.25rem]">
             {record.brief}
           </p>
         )}
@@ -116,7 +120,7 @@ function NewsRow({
             </div>
           )}
           {record.reading_num > 0 && (
-            <span className="flex items-center gap-1 text-[10px] text-gray-600 ml-auto">
+            <span className="flex items-center gap-1 text-[10px] text-ink-3 ml-auto">
               <svg className="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                 <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
                 <circle cx="12" cy="12" r="3" />
@@ -158,7 +162,7 @@ function NewsModal({
       >
         <button
           onClick={onClose}
-          className="absolute top-4 right-4 w-8 h-8 flex items-center justify-center rounded-full text-gray-500 transition-colors hover:bg-white/[0.08] hover:text-gray-300"
+          className="absolute top-4 right-4 w-8 h-8 flex items-center justify-center rounded-full text-ink-3 transition-colors hover:bg-white/[0.08] hover:text-ink-2"
         >
           <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
             <line x1="18" y1="6" x2="6" y2="18" />
@@ -173,9 +177,9 @@ function NewsModal({
           >
             {record.level}
           </span>
-          <span className="text-xs text-gray-500 font-mono">{record.ctime}</span>
+          <span className="text-xs text-ink-3 font-mono">{record.ctime}</span>
           {record.reading_num > 0 && (
-            <span className="flex items-center gap-1 text-xs text-gray-600">
+            <span className="flex items-center gap-1 text-xs text-ink-3">
               <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                 <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
                 <circle cx="12" cy="12" r="3" />
@@ -193,11 +197,11 @@ function NewsModal({
         </h2>
 
         {record.content ? (
-          <div className="text-sm text-gray-300 leading-[1.75] mb-5 whitespace-pre-wrap">
+          <div className="text-sm text-ink-2 leading-[1.75] mb-5 whitespace-pre-wrap">
             {record.content}
           </div>
         ) : record.brief ? (
-          <div className="text-sm text-gray-400 leading-relaxed mb-5">
+          <div className="text-sm text-ink-2 leading-relaxed mb-5">
             {record.brief}
           </div>
         ) : null}
@@ -344,15 +348,12 @@ export function NewsPage() {
   const ModeTab = ({ value, label }: { value: 'live' | 'history'; label: string }) => (
     <button
       onClick={() => handleModeSwitch(value)}
-      className="px-4 py-1.5 text-xs font-semibold rounded-lg transition-all"
-      style={{
-        background: mode === value
-          ? 'linear-gradient(135deg, #2563eb, #0891b2)'
-          : 'rgba(255,255,255,0.04)',
-        color: mode === value ? '#fff' : '#6b7280',
-        border: mode === value ? 'none' : '1px solid rgba(255,255,255,0.06)',
-        boxShadow: mode === value ? '0 0 12px rgba(59,130,246,0.15)' : 'none',
-      }}
+      className={cn(
+        'px-4 py-1.5 text-xs font-semibold rounded-lg transition-all border',
+        mode === value
+          ? 'bg-primary text-primary-ink border-primary shadow-glow-primary'
+          : 'bg-white/[0.04] text-ink-3 border-hairline hover:text-ink',
+      )}
     >
       {label}
     </button>
@@ -361,101 +362,90 @@ export function NewsPage() {
   return (
     <div className="relative min-h-screen p-5 lg:p-8">
       <div
-        className="pointer-events-none absolute inset-0 opacity-[0.015]"
-        style={{
-          backgroundImage:
-            'linear-gradient(rgba(255,255,255,1) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,1) 1px, transparent 1px)',
-          backgroundSize: '40px 40px',
-        }}
+        className="pointer-events-none absolute inset-0 opacity-[0.015] bg-dashboard-grid bg-grid-lg"
       />
 
       <div className="relative space-y-5">
         {/* ── Header ── */}
-        <div className="flex flex-wrap items-center justify-between gap-4">
-          <div className="flex items-center gap-4">
-            <h1 className="text-2xl font-bold bg-gradient-to-r from-rose-400 via-amber-300 to-cyan-400 bg-clip-text text-transparent tracking-tight">
-              财联社新闻
-            </h1>
-            <div className="flex items-center gap-1.5 rounded-lg border border-white/[0.06] bg-black/20 p-0.5">
-              <ModeTab value="live" label="实时" />
-              <ModeTab value="history" label="历史" />
-            </div>
-          </div>
+        <PageHeader
+          title={
+            <span className="flex items-center gap-3">
+              <span>财联社新闻</span>
+              <span className="flex items-center gap-1 rounded-lg border border-hairline bg-black/20 p-0.5">
+                <ModeTab value="live" label="实时" />
+                <ModeTab value="history" label="历史" />
+              </span>
+            </span>
+          }
+          actions={
+            mode === 'live' ? (
+              <>
+                <div className="flex items-center gap-2 rounded-xl border border-hairline bg-black/20 backdrop-blur-xl px-3 py-1.5">
+                  {isRunning ? (
+                    <>
+                      <LiveDot />
+                      <span className="text-xs text-emerald-400">监控中</span>
+                    </>
+                  ) : (
+                    <>
+                      <span className="inline-block w-2 h-2 rounded-full bg-ink-3" />
+                      <span className="text-xs text-ink-3">已停止</span>
+                    </>
+                  )}
+                  <span className="text-xs text-ink-3 mx-0.5">|</span>
+                  <span className="text-xs text-ink-3">
+                    <span className="text-ink font-medium">{status?.total_news ?? 0}</span>
+                  </span>
+                  {status?.last_poll && (
+                    <>
+                      <span className="text-xs text-ink-3 mx-0.5">|</span>
+                      <span className="text-xs text-ink-3">
+                        <span className="text-ink-2">{new Date(status.last_poll).toLocaleTimeString()}</span>
+                        {status.last_count > 0 && (
+                          <span className="text-primary ml-1">+{status.last_count}</span>
+                        )}
+                      </span>
+                    </>
+                  )}
+                </div>
 
-          {mode === 'live' && (
-            <div className="flex items-center gap-2.5">
-              <div className="flex items-center gap-2 rounded-xl border border-white/[0.06] bg-black/20 backdrop-blur-xl px-3 py-1.5">
-                {isRunning ? (
-                  <>
-                    <LiveDot />
-                    <span className="text-xs text-emerald-400">监控中</span>
-                  </>
-                ) : (
-                  <>
-                    <span className="inline-block w-2 h-2 rounded-full bg-gray-500" />
-                    <span className="text-xs text-gray-500">已停止</span>
-                  </>
-                )}
-                <span className="text-xs text-gray-600 mx-0.5">|</span>
-                <span className="text-xs text-gray-500">
-                  <span className="text-white font-medium">{status?.total_news ?? 0}</span>
-                </span>
-                {status?.last_poll && (
-                  <>
-                    <span className="text-xs text-gray-600 mx-0.5">|</span>
-                    <span className="text-xs text-gray-500">
-                      <span className="text-gray-400">{new Date(status.last_poll).toLocaleTimeString()}</span>
-                      {status.last_count > 0 && (
-                        <span className="text-cyan-400 ml-1">+{status.last_count}</span>
-                      )}
-                    </span>
-                  </>
-                )}
-              </div>
+                <button
+                  onClick={handleReplay}
+                  disabled={replaying}
+                  className="flex items-center gap-1.5 px-3 py-2 text-xs font-semibold rounded-lg transition-all bg-primary text-primary-ink shadow-glow-primary hover:brightness-110 disabled:opacity-50"
+                >
+                  <IconRefresh style={{ fontSize: 13 }} className={replaying ? 'animate-spin' : ''} />
+                  {replaying ? '回放中...' : '回放'}
+                </button>
 
-              <button
-                onClick={handleReplay}
-                disabled={replaying}
-                className="flex items-center gap-1.5 px-3 py-2 text-xs font-semibold rounded-lg transition-all disabled:opacity-50"
-                style={{
-                  background: 'linear-gradient(135deg, #2563eb, #0891b2)',
-                  color: '#fff',
-                  border: 'none',
-                  boxShadow: '0 0 16px rgba(59,130,246,0.12)',
-                }}
-              >
-                <IconRefresh style={{ fontSize: 13 }} className={replaying ? 'animate-spin' : ''} />
-                {replaying ? '回放中...' : '回放'}
-              </button>
-
-              <button
-                onClick={handleToggleScheduler}
-                className="flex items-center gap-1.5 px-3 py-2 text-xs font-semibold rounded-lg transition-all"
-                style={{
-                  background: isRunning ? 'rgba(239,68,68,0.1)' : 'linear-gradient(135deg, #2563eb, #0891b2)',
-                  color: isRunning ? '#ef4444' : '#fff',
-                  border: isRunning ? '1px solid rgba(239,68,68,0.2)' : 'none',
-                  boxShadow: isRunning ? 'none' : '0 0 16px rgba(59,130,246,0.12)',
-                }}
-              >
-                {isRunning ? <IconStop style={{ fontSize: 13 }} /> : <IconRefresh style={{ fontSize: 13 }} />}
-                {isRunning ? '停止轮询' : '启动轮询'}
-              </button>
-            </div>
-          )}
-        </div>
+                <button
+                  onClick={handleToggleScheduler}
+                  className={cn(
+                    'flex items-center gap-1.5 px-3 py-2 text-xs font-semibold rounded-lg transition-all',
+                    isRunning
+                      ? 'bg-inflow-softer text-inflow border border-inflow/20'
+                      : 'bg-primary text-primary-ink shadow-glow-primary hover:brightness-110',
+                  )}
+                >
+                  {isRunning ? <IconStop style={{ fontSize: 13 }} /> : <IconRefresh style={{ fontSize: 13 }} />}
+                  {isRunning ? '停止轮询' : '启动轮询'}
+                </button>
+              </>
+            ) : undefined
+          }
+        />
 
         {/* ── Search + Date (conditionally) ── */}
         <div className="flex items-center gap-3">
           {mode === 'history' && (
             <div className="flex items-center gap-2">
               <DatePicker value={historyDate} onChange={handleDateChange} />
-              <span className="text-xs text-gray-500 font-mono">{historyDate} 历史数据</span>
+              <span className="text-xs text-ink-3 font-mono">{historyDate} 历史数据</span>
             </div>
           )}
           <div className="relative flex-1" style={{ maxWidth: 360 }}>
             <svg
-              className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-600 pointer-events-none"
+              className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-ink-3 pointer-events-none"
               viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"
               strokeLinecap="round" strokeLinejoin="round"
             >
@@ -510,23 +500,16 @@ export function NewsPage() {
               ))}
             </div>
           ) : records.length === 0 ? (
-            <div className="flex flex-col items-center justify-center py-20 text-center">
-              <div className="w-14 h-14 rounded-full bg-white/[0.03] flex items-center justify-center mb-4">
-                <svg className="w-6 h-6 text-gray-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
-                  <polyline points="14 2 14 8 20 8" />
-                  <line x1="16" y1="13" x2="8" y2="13" />
-                  <line x1="16" y1="17" x2="8" y2="17" />
-                  <polyline points="10 9 9 9 8 9" />
-                </svg>
-              </div>
-              <p className="text-sm text-gray-600">
-                {mode === 'history' ? `暂无 ${historyDate} 的新闻数据` : '暂无新闻数据'}
-              </p>
-              <p className="text-xs text-gray-700 mt-1.5">
-                {mode === 'history' ? '请选择其他日期' : (isRunning ? '正在轮询中，请稍候...' : '请启动新闻轮询')}
-              </p>
-            </div>
+            <EmptyState
+              title={mode === 'history' ? `暂无 ${historyDate} 的新闻数据` : '暂无新闻数据'}
+              description={
+                mode === 'history'
+                  ? '请选择其他日期'
+                  : isRunning
+                    ? '正在轮询中,请稍候...'
+                    : '请启动新闻轮询'
+              }
+            />
           ) : (
             records.map((r, i) => (
               <NewsRow
@@ -560,13 +543,6 @@ export function NewsPage() {
           onClose={() => setSelectedNews(null)}
         />
       )}
-
-      <style>{`
-        @keyframes fade-in {
-          from { opacity: 0; transform: translateY(8px); }
-          to   { opacity: 1; transform: translateY(0); }
-        }
-      `}</style>
     </div>
   );
 }
