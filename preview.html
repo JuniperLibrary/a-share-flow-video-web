@@ -1,0 +1,775 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>A股情绪流 · 设计系统目录 / Design System Catalog</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet" />
+<style>
+:root {
+  /* === Tokens (mirror DESIGN.md) === */
+  --canvas: #0a1628;
+  --surface-1: #0d1f3c;
+  --surface-2: #1a3a5c;
+  --surface-3: #2a4a6c;
+  --glass-low: rgba(0,0,0,0.30);
+  --glass-med: rgba(0,0,0,0.40);
+  --glass-high: rgba(0,0,0,0.50);
+
+  --ink: #ffffff;
+  --ink-2: #b0b8c4;
+  --ink-3: #86909c;
+  --ink-muted: rgba(255,255,255,0.30);
+
+  --hairline: rgba(255,255,255,0.06);
+  --hairline-strong: rgba(255,255,255,0.10);
+  --hairline-active: rgba(255,255,255,0.18);
+
+  --primary: #00d4ff;
+  --primary-hover: #33ddff;
+  --primary-soft: rgba(0,212,255,0.15);
+  --primary-softer: rgba(0,212,255,0.10);
+  --primary-ink: #0a1628;
+
+  --inflow: #f53f3f;
+  --inflow-light: #ff7875;
+  --inflow-muted: rgba(245,63,63,0.15);
+  --inflow-softer: rgba(245,63,63,0.05);
+  --outflow: #00b42a;
+  --outflow-light: #30c64a;
+  --outflow-muted: rgba(0,180,42,0.15);
+
+  --warning: #f0ab00;
+  --warning-soft: rgba(240,171,0,0.15);
+  --info: #4488ff;
+
+  --chart-1: #00d4ff;
+  --chart-2: #f53f3f;
+  --chart-3: #00b42a;
+  --chart-4: #ff7d00;
+  --chart-5: #7c3aed;
+  --chart-6: #14b8a6;
+
+  --r-sm: 6px;
+  --r-md: 8px;
+  --r-lg: 12px;
+  --r-xl: 16px;
+
+  --shadow-bento: 0 4px 24px rgba(0,0,0,0.25);
+  --shadow-glass: 0 8px 32px rgba(0,0,0,0.3);
+  --glow-primary: 0 0 20px rgba(0,212,255,0.15);
+  --glow-danger: 0 0 20px rgba(245,63,63,0.15);
+  --glow-success: 0 0 20px rgba(0,180,42,0.15);
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+html, body {
+  background: var(--canvas);
+  color: var(--ink);
+  font-family: 'Plus Jakarta Sans', 'PingFang SC', 'Microsoft YaHei', sans-serif;
+  font-size: 14px;
+  line-height: 1.5;
+  font-feature-settings: "tnum" 1, "lnum" 1;
+  -webkit-font-smoothing: antialiased;
+}
+
+body {
+  background-image:
+    linear-gradient(rgba(255,255,255,0.012) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255,255,255,0.012) 1px, transparent 1px);
+  background-size: 40px 40px;
+  background-attachment: fixed;
+  min-height: 100vh;
+}
+
+.shell {
+  max-width: 1280px;
+  margin: 0 auto;
+  padding: 48px 32px 96px;
+}
+
+h1.title {
+  font-size: 30px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  line-height: 1.1;
+  margin-bottom: 8px;
+}
+
+h2.section {
+  font-size: 18px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  margin: 48px 0 16px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--hairline);
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+h2.section::before {
+  content: '';
+  width: 4px;
+  height: 16px;
+  background: var(--primary);
+  border-radius: 2px;
+}
+
+h3.sub {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--ink-3);
+  margin: 24px 0 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+}
+
+.lede {
+  color: var(--ink-2);
+  max-width: 720px;
+  margin-bottom: 8px;
+}
+.lede code {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 12px;
+  background: var(--surface-2);
+  padding: 1px 6px;
+  border-radius: 4px;
+  color: var(--primary);
+}
+
+/* === Color swatches === */
+.swatch-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 12px;
+}
+.swatch {
+  background: var(--surface-1);
+  border: 1px solid var(--hairline);
+  border-radius: var(--r-md);
+  overflow: hidden;
+}
+.swatch-color {
+  height: 80px;
+  display: flex;
+  align-items: flex-end;
+  padding: 8px 12px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px;
+  letter-spacing: 0.05em;
+  position: relative;
+}
+.swatch-color::after {
+  content: '';
+  position: absolute; inset: 0;
+  background: linear-gradient(180deg, transparent 60%, rgba(0,0,0,0.4) 100%);
+  pointer-events: none;
+}
+.swatch-info {
+  padding: 10px 12px;
+}
+.swatch-name {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--ink);
+  margin-bottom: 2px;
+}
+.swatch-role {
+  font-size: 11px;
+  color: var(--ink-3);
+}
+
+/* === Typography specimen === */
+.type-row {
+  display: flex;
+  align-items: baseline;
+  gap: 24px;
+  padding: 12px 0;
+  border-bottom: 1px solid var(--hairline);
+}
+.type-row:last-child { border-bottom: none; }
+.type-label {
+  flex-shrink: 0;
+  width: 180px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px;
+  color: var(--ink-3);
+  letter-spacing: 0.05em;
+}
+.type-sample { color: var(--ink); }
+
+/* === Components === */
+.btn-row { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; }
+.btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 36px;
+  padding: 0 16px;
+  border-radius: var(--r-lg);
+  font-size: 14px;
+  font-weight: 600;
+  border: 1px solid transparent;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  letter-spacing: 0;
+}
+.btn-primary { background: var(--primary); color: var(--primary-ink); }
+.btn-primary:hover { background: var(--primary-hover); box-shadow: var(--glow-primary); }
+.btn-secondary { background: var(--surface-2); border-color: var(--hairline-strong); color: var(--ink); }
+.btn-secondary:hover { background: var(--surface-3); border-color: var(--hairline-active); }
+.btn-ghost { background: transparent; border-color: var(--hairline); color: var(--ink-2); }
+.btn-ghost:hover { background: var(--surface-2); color: var(--ink); }
+
+.input {
+  width: 240px;
+  height: 40px;
+  background: var(--surface-2);
+  border: 1px solid var(--hairline-strong);
+  border-radius: var(--r-md);
+  color: var(--ink);
+  padding: 0 12px;
+  font-size: 14px;
+  font-family: inherit;
+  outline: none;
+  transition: all 0.15s ease;
+}
+.input:focus { border-color: rgba(0,212,255,0.5); box-shadow: 0 0 0 2px rgba(0,212,255,0.15); }
+.input::placeholder { color: var(--ink-muted); }
+
+.badge {
+  display: inline-flex;
+  align-items: center;
+  height: 22px;
+  padding: 0 8px;
+  border-radius: var(--r-md);
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+.badge-inflow { background: var(--inflow-muted); color: var(--inflow); }
+.badge-outflow { background: var(--outflow-muted); color: var(--outflow); }
+.badge-primary { background: var(--primary-soft); color: var(--primary); }
+.badge-warning { background: var(--warning-soft); color: var(--warning); }
+.badge-neutral { background: var(--surface-2); color: var(--ink-2); }
+.badge-outline { background: transparent; border: 1px solid var(--hairline-strong); color: var(--ink-3); }
+
+.glass-panel {
+  background: var(--glass-med);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid var(--hairline);
+  border-radius: var(--r-xl);
+  box-shadow: var(--shadow-bento);
+  padding: 20px;
+}
+.glass-panel.glow-primary { border-color: rgba(0,212,255,0.20); box-shadow: var(--shadow-bento), var(--glow-primary); }
+.glass-panel.glow-danger { border-color: rgba(245,63,63,0.20); box-shadow: var(--shadow-bento), var(--glow-danger); }
+
+.kpi {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 20px;
+  background: var(--glass-med);
+  backdrop-filter: blur(12px);
+  border: 1px solid var(--hairline);
+  border-radius: var(--r-xl);
+  min-width: 200px;
+}
+.kpi-label {
+  font-size: 10px;
+  font-weight: 500;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+}
+.kpi-value {
+  font-size: 28px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum" 1;
+  color: var(--ink);
+}
+.kpi-sub { font-size: 12px; color: var(--ink-3); display: flex; align-items: center; gap: 4px; }
+.kpi-sub .up { color: var(--inflow); }
+.kpi-sub .down { color: var(--outflow); }
+
+.chip-row { display: flex; flex-wrap: wrap; gap: 8px; }
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 28px;
+  padding: 0 10px;
+  background: var(--surface-2);
+  border: 1px solid var(--hairline);
+  border-radius: var(--r-md);
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--ink-3);
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+.chip:hover { border-color: var(--hairline-active); color: var(--ink); }
+.chip.active { background: var(--surface-3); border-color: var(--hairline-active); color: var(--ink); }
+.chip .dot { width: 6px; height: 6px; border-radius: 50%; }
+
+table.demo {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+  border: 1px solid var(--hairline);
+  border-radius: var(--r-xl);
+  overflow: hidden;
+  font-size: 14px;
+}
+table.demo th {
+  text-align: left;
+  background: var(--surface-2);
+  color: var(--ink);
+  font-weight: 600;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--hairline-strong);
+  font-size: 12px;
+  letter-spacing: 0.05em;
+}
+table.demo td {
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--hairline);
+  background: var(--surface-1);
+  color: var(--ink-2);
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+}
+table.demo td.name { font-family: 'Plus Jakarta Sans', sans-serif; }
+table.demo tr:last-child td { border-bottom: none; }
+table.demo tr:hover td { background: var(--surface-2); }
+table.demo td.num { text-align: right; }
+table.demo td.pos { color: var(--inflow); }
+table.demo td.neg { color: var(--outflow); }
+
+.sentiment-gauge {
+  width: 200px;
+  height: 200px;
+  position: relative;
+}
+
+.legend {
+  display: flex;
+  gap: 16px;
+  font-size: 12px;
+  color: var(--ink-3);
+  margin-top: 12px;
+  flex-wrap: wrap;
+}
+.legend .item { display: flex; align-items: center; gap: 6px; }
+.legend .dot { width: 8px; height: 8px; border-radius: 50%; }
+
+.tabs {
+  display: flex;
+  gap: 4px;
+  border-bottom: 1px solid var(--hairline);
+  margin-bottom: 16px;
+}
+.tab {
+  padding: 10px 16px;
+  font-size: 14px;
+  color: var(--ink-3);
+  cursor: pointer;
+  position: relative;
+  transition: color 0.15s ease;
+}
+.tab:hover { color: var(--primary); }
+.tab.active { color: var(--primary); }
+.tab.active::after {
+  content: '';
+  position: absolute;
+  left: 12px;
+  right: 12px;
+  bottom: -1px;
+  height: 2px;
+  background: var(--primary);
+  border-radius: 1px 1px 0 0;
+}
+
+.bar-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 12px;
+  border-radius: var(--r-md);
+  font-size: 13px;
+  transition: background 0.15s ease;
+}
+.bar-row:hover { background: rgba(255,255,255,0.03); }
+.bar-row .rank {
+  width: 24px;
+  text-align: center;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--ink-3);
+  font-variant-numeric: tabular-nums;
+}
+.bar-row.top .rank { color: var(--ink); }
+.bar-row .name { flex: 1; color: var(--ink); }
+.bar-row .value { font-family: 'JetBrains Mono', monospace; font-weight: 600; font-variant-numeric: tabular-nums; }
+.bar-row .bar-track {
+  flex: 1;
+  height: 6px;
+  border-radius: 999px;
+  background: rgba(255,255,255,0.05);
+  overflow: hidden;
+}
+.bar-row .bar-fill { height: 100%; border-radius: 999px; transition: width 0.7s; }
+
+.toast {
+  width: 360px;
+  background: var(--surface-2);
+  border: 1px solid var(--hairline);
+  border-radius: var(--r-lg);
+  padding: 16px;
+  box-shadow: var(--shadow-glass);
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+  font-size: 13px;
+  color: var(--ink-2);
+}
+.toast .icon { flex-shrink: 0; width: 20px; height: 20px; }
+
+.callout {
+  background: rgba(245,63,63,0.05);
+  border: 1px solid rgba(245,63,63,0.20);
+  border-radius: var(--r-md);
+  padding: 12px 16px;
+  margin: 16px 0;
+  font-size: 13px;
+  color: var(--inflow);
+  display: flex;
+  gap: 8px;
+  align-items: flex-start;
+}
+.callout .icon { flex-shrink: 0; }
+
+.grid-2 { display: grid; grid-template-columns: repeat(2, 1fr); gap: 16px; }
+.grid-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
+.grid-4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; }
+@media (max-width: 768px) {
+  .grid-2, .grid-3, .grid-4 { grid-template-columns: 1fr; }
+}
+
+.footer {
+  margin-top: 80px;
+  padding-top: 24px;
+  border-top: 1px solid var(--hairline);
+  display: flex;
+  justify-content: space-between;
+  color: var(--ink-3);
+  font-size: 12px;
+}
+.footer code { font-family: 'JetBrains Mono', monospace; color: var(--primary); }
+</style>
+</head>
+<body>
+<div class="shell">
+
+  <h1 class="title">A股情绪流 · 设计系统</h1>
+  <p class="lede">
+    This page is a <code>preview.html</code> visual catalog of <code>DESIGN.md</code>.
+    Open it directly in a browser — no build step.
+    The console itself runs at <code>http://localhost:5173</code>.
+  </p>
+
+  <div class="callout">
+    <span class="icon">⚠</span>
+    <div>
+      <strong>Chinese-market color rule.</strong> Red = inflow / up / positive.
+      Green = outflow / down / negative. This is the <em>opposite</em> of Western terminals.
+      The convention is non-negotiable.
+    </div>
+  </div>
+
+  <!-- ============ COLOR ============ -->
+  <h2 class="section">Color · 颜色</h2>
+
+  <h3 class="sub">Canvas / Surface</h3>
+  <div class="swatch-grid">
+    <div class="swatch"><div class="swatch-color" style="background:#0a1628;color:#fff;">#0a1628</div><div class="swatch-info"><div class="swatch-name">canvas</div><div class="swatch-role">App background</div></div></div>
+    <div class="swatch"><div class="swatch-color" style="background:#0d1f3c;color:#fff;">#0d1f3c</div><div class="swatch-info"><div class="swatch-name">surface-1</div><div class="swatch-role">Sider, primary card</div></div></div>
+    <div class="swatch"><div class="swatch-color" style="background:#1a3a5c;color:#fff;">#1a3a5c</div><div class="swatch-info"><div class="swatch-name">surface-2</div><div class="swatch-role">Elevated card, dropdown</div></div></div>
+    <div class="swatch"><div class="swatch-color" style="background:#2a4a6c;color:#fff;">#2a4a6c</div><div class="swatch-info"><div class="swatch-name">surface-3</div><div class="swatch-role">Active menu, selected</div></div></div>
+  </div>
+
+  <h3 class="sub">Ink / Text</h3>
+  <div class="swatch-grid">
+    <div class="swatch"><div class="swatch-color" style="background:#ffffff;color:#0a1628;">#ffffff</div><div class="swatch-info"><div class="swatch-name">ink</div><div class="swatch-role">Primary text</div></div></div>
+    <div class="swatch"><div class="swatch-color" style="background:#b0b8c4;color:#0a1628;">#b0b8c4</div><div class="swatch-info"><div class="swatch-name">ink-2</div><div class="swatch-role">Body text</div></div></div>
+    <div class="swatch"><div class="swatch-color" style="background:#86909c;color:#0a1628;">#86909c</div><div class="swatch-info"><div class="swatch-name">ink-3</div><div class="swatch-role">Secondary / labels</div></div></div>
+  </div>
+
+  <h3 class="sub">Brand & Semantic</h3>
+  <div class="swatch-grid">
+    <div class="swatch"><div class="swatch-color" style="background:#00d4ff;color:#0a1628;">#00d4ff</div><div class="swatch-info"><div class="swatch-name">primary</div><div class="swatch-role">Brand, CTA, focus</div></div></div>
+    <div class="swatch"><div class="swatch-color" style="background:#f53f3f;color:#fff;">#f53f3f</div><div class="swatch-info"><div class="swatch-name">inflow (red)</div><div class="swatch-role">资金净流入 / 涨 / positive</div></div></div>
+    <div class="swatch"><div class="swatch-color" style="background:#00b42a;color:#fff;">#00b42a</div><div class="swatch-info"><div class="swatch-name">outflow (green)</div><div class="swatch-role">资金净流出 / 跌 / negative</div></div></div>
+    <div class="swatch"><div class="swatch-color" style="background:#f0ab00;color:#0a1628;">#f0ab00</div><div class="swatch-info"><div class="swatch-name">warning</div><div class="swatch-role">Warning, alert</div></div></div>
+    <div class="swatch"><div class="swatch-color" style="background:#4488ff;color:#fff;">#4488ff</div><div class="swatch-info"><div class="swatch-name">info</div><div class="swatch-role">Link, secondary action</div></div></div>
+  </div>
+
+  <h3 class="sub">Chart palette</h3>
+  <div class="swatch-grid">
+    <div class="swatch"><div class="swatch-color" style="background:#00d4ff;color:#0a1628;">#00d4ff</div><div class="swatch-info"><div class="swatch-name">chart-1</div><div class="swatch-role">Primary</div></div></div>
+    <div class="swatch"><div class="swatch-color" style="background:#f53f3f;color:#fff;">#f53f3f</div><div class="swatch-info"><div class="swatch-name">chart-2</div><div class="swatch-role">Positive</div></div></div>
+    <div class="swatch"><div class="swatch-color" style="background:#00b42a;color:#fff;">#00b42a</div><div class="swatch-info"><div class="swatch-name">chart-3</div><div class="swatch-role">Negative</div></div></div>
+    <div class="swatch"><div class="swatch-color" style="background:#ff7d00;color:#fff;">#ff7d00</div><div class="swatch-info"><div class="swatch-name">chart-4</div><div class="swatch-role">Warning</div></div></div>
+    <div class="swatch"><div class="swatch-color" style="background:#7c3aed;color:#fff;">#7c3aed</div><div class="swatch-info"><div class="swatch-name">chart-5</div><div class="swatch-role">Accent</div></div></div>
+    <div class="swatch"><div class="swatch-color" style="background:#14b8a6;color:#fff;">#14b8a6</div><div class="swatch-info"><div class="swatch-name">chart-6</div><div class="swatch-role">Accent</div></div></div>
+  </div>
+
+  <!-- ============ TYPOGRAPHY ============ -->
+  <h2 class="section">Typography · 字体</h2>
+
+  <div class="glass-panel" style="padding: 8px 24px;">
+    <div class="type-row"><div class="type-label">display-2xl · 30/700</div><div class="type-sample" style="font-size:30px;font-weight:700;letter-spacing:-0.02em;">AI 金融分析仪表盘</div></div>
+    <div class="type-row"><div class="type-label">display-xl · 24/700</div><div class="type-sample" style="font-size:24px;font-weight:700;letter-spacing:-0.02em;">资金净流入 · Net Inflow</div></div>
+    <div class="type-row"><div class="type-label">display-lg · 20/600</div><div class="type-sample" style="font-size:20px;font-weight:600;letter-spacing:-0.015em;">板块活跃热力</div></div>
+    <div class="type-row"><div class="type-label">title · 16/600</div><div class="type-sample" style="font-size:16px;font-weight:600;">Panel Title / Button</div></div>
+    <div class="type-row"><div class="type-label">body-lg · 15/400</div><div class="type-sample" style="font-size:15px;font-weight:400;">Body lead. 今日市场情绪偏多,科技与新能源领涨。</div></div>
+    <div class="type-row"><div class="type-label">body · 14/400</div><div class="type-sample" style="font-size:14px;font-weight:400;">Default body. 半导体板块净流入 35.2 亿元。</div></div>
+    <div class="type-row"><div class="type-label">caption · 12/400</div><div class="type-sample" style="font-size:12px;color:var(--ink-3);font-weight:400;">Caption. 数据来源:东方财富 · 2026-06-04</div></div>
+    <div class="type-row"><div class="type-label">eyebrow · 10/500 · uppercase</div><div class="type-sample" style="font-size:10px;font-weight:500;letter-spacing:0.18em;text-transform:uppercase;color:var(--ink-3);">Total Sectors · 资金净流入</div></div>
+    <div class="type-row"><div class="type-label">numeric-xl · 28/700</div><div class="type-sample" style="font-size:28px;font-weight:700;letter-spacing:-0.02em;font-family:'JetBrains Mono',monospace;">+35.2 亿</div></div>
+    <div class="type-row"><div class="type-label">numeric-lg · 22/600</div><div class="type-sample" style="font-size:22px;font-weight:600;letter-spacing:-0.01em;font-family:'JetBrains Mono',monospace;">1,247</div></div>
+  </div>
+
+  <h3 class="sub">Font stacks</h3>
+  <p class="lede" style="font-family:'Plus Jakarta Sans','PingFang SC',sans-serif;">Display / Body: <code>Plus Jakarta Sans</code> → <code>PingFang SC</code> → <code>Microsoft YaHei</code></p>
+  <p class="lede" style="font-family:'JetBrains Mono','SF Mono',monospace;">Numeric / Code: JetBrains Mono → SF Mono → monospace. All tabular.</p>
+
+  <!-- ============ COMPONENTS ============ -->
+  <h2 class="section">Components · 组件</h2>
+
+  <h3 class="sub">Button</h3>
+  <div class="btn-row">
+    <button class="btn btn-primary">主操作 · Primary</button>
+    <button class="btn btn-secondary">次操作 · Secondary</button>
+    <button class="btn btn-ghost">幽灵 · Ghost</button>
+    <button class="btn btn-primary" style="opacity:0.5;cursor:not-allowed;">禁用 · Disabled</button>
+  </div>
+
+  <h3 class="sub">Input</h3>
+  <div class="btn-row">
+    <input class="input" type="text" placeholder="搜索板块…" />
+    <input class="input" type="text" value="半导体" />
+  </div>
+
+  <h3 class="sub">Badge</h3>
+  <div class="btn-row">
+    <span class="badge badge-inflow">▲ 流入</span>
+    <span class="badge badge-outflow">▼ 流出</span>
+    <span class="badge badge-primary">BETA</span>
+    <span class="badge badge-warning">异动</span>
+    <span class="badge badge-neutral">行业</span>
+    <span class="badge badge-outline">Top 6</span>
+  </div>
+
+  <h3 class="sub">Chip (selectable)</h3>
+  <div class="chip-row">
+    <span class="chip active"><span class="dot" style="background:var(--chart-1);"></span>半导体</span>
+    <span class="chip active"><span class="dot" style="background:var(--chart-2);"></span>AI应用</span>
+    <span class="chip"><span class="dot" style="background:var(--chart-3);"></span>电池</span>
+    <span class="chip"><span class="dot" style="background:var(--chart-4);"></span>CPO概念</span>
+    <span class="chip"><span class="dot" style="background:var(--chart-5);"></span>有色金属</span>
+    <span class="chip"><span class="dot" style="background:var(--chart-6);"></span>机器人</span>
+  </div>
+
+  <h3 class="sub">Tabs</h3>
+  <div class="tabs">
+    <div class="tab active">全部 (89)</div>
+    <div class="tab">行业板块 (62)</div>
+    <div class="tab">概念板块 (27)</div>
+  </div>
+
+  <h3 class="sub">Glass Panel</h3>
+  <div class="grid-3">
+    <div class="glass-panel">
+      <div style="font-size:10px;font-weight:500;letter-spacing:0.12em;text-transform:uppercase;color:var(--ink-3);margin-bottom:6px;">Default</div>
+      <div style="font-size:18px;font-weight:600;">标准面板</div>
+      <div style="font-size:13px;color:var(--ink-2);margin-top:8px;">表面级 surface-1,毛玻璃中等密度。</div>
+    </div>
+    <div class="glass-panel glow-primary">
+      <div style="font-size:10px;font-weight:500;letter-spacing:0.12em;text-transform:uppercase;color:var(--primary);margin-bottom:6px;">Glow · Primary</div>
+      <div style="font-size:18px;font-weight:600;">主光晕面板</div>
+      <div style="font-size:13px;color:var(--ink-2);margin-top:8px;">用于活跃数据/重要 KPI。</div>
+    </div>
+    <div class="glass-panel glow-danger">
+      <div style="font-size:10px;font-weight:500;letter-spacing:0.12em;text-transform:uppercase;color:var(--inflow);margin-bottom:6px;">Glow · Danger (Inflow)</div>
+      <div style="font-size:18px;font-weight:600;">资金流入</div>
+      <div style="font-size:13px;color:var(--ink-2);margin-top:8px;">强调红色流入指标。</div>
+    </div>
+  </div>
+
+  <h3 class="sub">KPI Card</h3>
+  <div class="grid-4">
+    <div class="kpi">
+      <div class="kpi-label">总板块数</div>
+      <div class="kpi-value">89</div>
+      <div class="kpi-sub">行业 62 · 概念 27</div>
+    </div>
+    <div class="kpi" style="border-color:rgba(245,63,63,0.2);box-shadow:var(--shadow-bento),var(--glow-danger);">
+      <div class="kpi-label" style="color:var(--inflow);">资金净流入</div>
+      <div class="kpi-value" style="color:var(--inflow);">+35.2 亿</div>
+      <div class="kpi-sub"><span class="up">▲ 51 个板块</span></div>
+    </div>
+    <div class="kpi" style="border-color:rgba(0,180,42,0.2);box-shadow:var(--shadow-bento),var(--glow-success);">
+      <div class="kpi-label" style="color:var(--outflow);">资金净流出</div>
+      <div class="kpi-value" style="color:var(--outflow);">-12.4 亿</div>
+      <div class="kpi-sub"><span class="down">▼ 38 个板块</span></div>
+    </div>
+    <div class="kpi" style="border-color:rgba(0,212,255,0.2);box-shadow:var(--shadow-bento),var(--glow-primary);">
+      <div class="kpi-label" style="color:var(--primary);">市场情绪</div>
+      <div class="kpi-value">偏多</div>
+      <div class="kpi-sub">龙头: 半导体</div>
+    </div>
+  </div>
+
+  <h3 class="sub">Table</h3>
+  <table class="demo">
+    <thead>
+      <tr>
+        <th style="width:48px;">#</th>
+        <th>板块</th>
+        <th class="num" style="text-align:right;">净流入(亿)</th>
+        <th class="num" style="text-align:right;">涨幅</th>
+        <th class="num" style="text-align:right;">成交额</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr><td>1</td><td class="name">半导体</td><td class="num pos">+12.45</td><td class="num pos">+3.82%</td><td class="num">486.2 亿</td></tr>
+      <tr><td>2</td><td class="name">AI 应用</td><td class="num pos">+8.91</td><td class="num pos">+2.14%</td><td class="num">312.7 亿</td></tr>
+      <tr><td>3</td><td class="name">CPO 概念</td><td class="num pos">+6.34</td><td class="num pos">+1.92%</td><td class="num">198.4 亿</td></tr>
+      <tr><td>4</td><td class="name">银行</td><td class="num neg">-4.12</td><td class="num neg">-0.45%</td><td class="num">524.1 亿</td></tr>
+      <tr><td>5</td><td class="name">白酒</td><td class="num neg">-3.27</td><td class="num neg">-1.18%</td><td class="num">287.3 亿</td></tr>
+    </tbody>
+  </table>
+
+  <h3 class="sub">Ranking rows (with bars)</h3>
+  <div class="glass-panel" style="padding:8px 12px;">
+    <div class="bar-row top">
+      <div class="rank">1</div>
+      <div class="name">半导体</div>
+      <div class="bar-track"><div class="bar-fill" style="width:96%;background:linear-gradient(90deg,var(--inflow),rgba(245,63,63,0.4));"></div></div>
+      <div class="value" style="color:var(--inflow);">+12.45</div>
+    </div>
+    <div class="bar-row top">
+      <div class="rank">2</div>
+      <div class="name">AI 应用</div>
+      <div class="bar-track"><div class="bar-fill" style="width:72%;background:linear-gradient(90deg,var(--inflow),rgba(245,63,63,0.4));"></div></div>
+      <div class="value" style="color:var(--inflow);">+8.91</div>
+    </div>
+    <div class="bar-row">
+      <div class="rank">3</div>
+      <div class="name">CPO 概念</div>
+      <div class="bar-track"><div class="bar-fill" style="width:55%;background:linear-gradient(90deg,var(--inflow),rgba(245,63,63,0.4));"></div></div>
+      <div class="value" style="color:var(--inflow);">+6.34</div>
+    </div>
+    <div class="bar-row">
+      <div class="rank">4</div>
+      <div class="name">银行</div>
+      <div class="bar-track"><div class="bar-fill" style="width:40%;background:linear-gradient(90deg,rgba(0,180,42,0.4),var(--outflow));"></div></div>
+      <div class="value" style="color:var(--outflow);">-4.12</div>
+    </div>
+    <div class="bar-row">
+      <div class="rank">5</div>
+      <div class="name">白酒</div>
+      <div class="bar-track"><div class="bar-fill" style="width:32%;background:linear-gradient(90deg,rgba(0,180,42,0.4),var(--outflow));"></div></div>
+      <div class="value" style="color:var(--outflow);">-3.27</div>
+    </div>
+  </div>
+
+  <h3 class="sub">Sentiment Gauge</h3>
+  <div class="grid-2">
+    <div class="glass-panel glow-primary" style="display:flex;flex-direction:column;align-items:center;padding:32px;">
+      <svg class="sentiment-gauge" viewBox="0 0 200 200">
+        <defs>
+          <linearGradient id="g1" x1="0" y1="0" x2="1" y2="1">
+            <stop offset="0%" stop-color="#f53f3f" stop-opacity="0.95"/>
+            <stop offset="100%" stop-color="#ff7875" stop-opacity="0.7"/>
+          </linearGradient>
+          <linearGradient id="g2" x1="0" y1="0" x2="1" y2="1">
+            <stop offset="0%" stop-color="#00b42a" stop-opacity="0.5"/>
+            <stop offset="100%" stop-color="#30c64a" stop-opacity="0.3"/>
+          </linearGradient>
+        </defs>
+        <circle cx="100" cy="100" r="80" stroke="rgba(255,255,255,0.06)" stroke-width="12" fill="none"/>
+        <circle cx="100" cy="100" r="80" stroke="url(#g2)" stroke-width="12" fill="none" stroke-linecap="round" stroke-dasharray="220 503" transform="rotate(-90 100 100)"/>
+        <circle cx="100" cy="100" r="80" stroke="url(#g1)" stroke-width="12" fill="none" stroke-linecap="round" stroke-dasharray="282 503" transform="rotate(-90 100 100)" style="filter:drop-shadow(0 0 8px rgba(245,63,63,0.4));"/>
+      </svg>
+      <div style="margin-top:-130px;text-align:center;pointer-events:none;">
+        <div style="font-size:10px;letter-spacing:0.18em;text-transform:uppercase;color:var(--ink-3);">活跃度</div>
+        <div style="font-size:32px;font-weight:700;letter-spacing:-0.02em;font-variant-numeric:tabular-nums;">57%</div>
+        <div style="font-size:12px;font-weight:600;color:var(--inflow);margin-top:2px;">市场 偏多</div>
+      </div>
+    </div>
+
+    <div class="glass-panel" style="padding:32px;display:flex;flex-direction:column;justify-content:center;gap:12px;">
+      <div style="display:flex;align-items:center;gap:8px;font-size:13px;">
+        <span class="dot" style="width:8px;height:8px;border-radius:50%;background:var(--inflow);box-shadow:var(--glow-danger);"></span>
+        <span style="color:var(--ink-3);">流入</span>
+        <span style="margin-left:auto;font-family:'JetBrains Mono',monospace;font-weight:600;color:var(--inflow);font-variant-numeric:tabular-nums;">51</span>
+      </div>
+      <div style="display:flex;align-items:center;gap:8px;font-size:13px;">
+        <span class="dot" style="width:8px;height:8px;border-radius:50%;background:var(--outflow);box-shadow:var(--glow-success);"></span>
+        <span style="color:var(--ink-3);">流出</span>
+        <span style="margin-left:auto;font-family:'JetBrains Mono',monospace;font-weight:600;color:var(--outflow);font-variant-numeric:tabular-nums;">38</span>
+      </div>
+      <div style="display:flex;align-items:center;gap:8px;font-size:13px;padding-top:12px;border-top:1px solid var(--hairline);">
+        <span style="color:var(--ink-3);">龙头</span>
+        <span style="color:var(--ink);font-weight:500;">半导体</span>
+        <span style="margin-left:auto;font-family:'JetBrains Mono',monospace;font-weight:600;color:var(--inflow);font-variant-numeric:tabular-nums;">+12.45 亿</span>
+      </div>
+      <div style="display:flex;align-items:center;gap:8px;font-size:13px;">
+        <span style="color:var(--ink-3);">最弱</span>
+        <span style="color:var(--ink);font-weight:500;">银行</span>
+        <span style="margin-left:auto;font-family:'JetBrains Mono',monospace;font-weight:600;color:var(--outflow);font-variant-numeric:tabular-nums;">-4.12 亿</span>
+      </div>
+    </div>
+  </div>
+
+  <h3 class="sub">Toast / Banner</h3>
+  <div class="toast">
+    <svg class="icon" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg" style="color:var(--inflow);">
+      <path d="M10 6V11M10 14H10.01M19 10C19 14.9706 14.9706 19 10 19C5.02944 19 1 14.9706 1 10C1 5.02944 5.02944 1 10 1C14.9706 1 19 5.02944 19 10Z" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+    </svg>
+    <div>
+      <div style="color:var(--ink);font-weight:600;margin-bottom:2px;">加载数据失败</div>
+      <div>无法连接到后端服务,请检查网络或后端是否运行。</div>
+    </div>
+  </div>
+
+  <!-- ============ LEGEND ============ -->
+  <h2 class="section">Iconography · 图例</h2>
+  <div class="legend">
+    <div class="item"><span class="dot" style="background:var(--chart-1);"></span>chart-1 / primary</div>
+    <div class="item"><span class="dot" style="background:var(--chart-2);"></span>chart-2 / inflow</div>
+    <div class="item"><span class="dot" style="background:var(--chart-3);"></span>chart-3 / outflow</div>
+    <div class="item"><span class="dot" style="background:var(--chart-4);"></span>chart-4 / warning</div>
+    <div class="item"><span class="dot" style="background:var(--chart-5);"></span>chart-5 / accent</div>
+    <div class="item"><span class="dot" style="background:var(--chart-6);"></span>chart-6 / accent</div>
+  </div>
+
+  <div class="footer">
+    <span>A 股情绪流 · Design System v1.0</span>
+    <span>Source of truth: <code>DESIGN.md</code></span>
+  </div>
+</div>
+</body>
+</html>
