@@ -313,7 +313,4 @@ export const api = {
 
   stopNews: () =>
     request<{ ok: boolean; message: string }>('/api/news/stop', { method: 'POST' }),
-
-  replayNews: () =>
-    request<{ ok: boolean; count: number; message: string }>('/api/news/replay', { method: 'POST' }),
 };

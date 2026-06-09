@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Button, Input, Pagination } from '@arco-design/web-react';
 import { IconRefresh, IconSearch, IconStop } from '@arco-design/web-react/icon';
 import { api } from '../api';
@@ -42,6 +42,24 @@ function parseSectors(raw: string): string[] {
   }
 }
 
+function formatSmartTime(raw: string): string {
+  if (!raw) return '';
+  // Go format: "2026-06-09 HH:mm:ss" — extract HH:mm directly, no timezone conversion
+  const go = raw.match(/^(\d{4}-\d{2}-\d{2})\s+(\d{2}:\d{2}):\d{2}$/);
+  if (go) return go[2];
+  // ISO format: "2026-06-09T10:04:21Z" — extract HH:mm
+  const iso = raw.match(/T(\d{2}:\d{2}):\d{2}/);
+  if (iso) return iso[1];
+  return raw;
+}
+
+function formatFullTime(raw: string): string {
+  if (!raw) return '';
+  const m = raw.match(/^(\d{4}-\d{2}-\d{2})\s+(\d{2}:\d{2}):\d{2}$/);
+  if (m) return `${m[1]} ${m[2]}`;
+  return raw;
+}
+
 function formatReadingNum(n: number): string {
   if (n >= 10000) return `${(n / 10000).toFixed(1)}w`;
   if (n >= 1000) return `${(n / 1000).toFixed(1)}k`;
@@ -81,8 +99,8 @@ function NewsRow({
 
       <div className="flex-1 min-w-0 py-3 pl-3 pr-1 transition-colors duration-150 hover:bg-white/[0.02]">
         <div className="flex items-baseline gap-2 mb-1">
-          <span className="text-xs text-ink-3 font-mono tabular-nums shrink-0 w-16 text-right">
-            {record.ctime}
+          <span className="text-xs text-ink-3 font-mono tabular-nums shrink-0 w-24 text-right">
+            {formatSmartTime(record.ctime)}
           </span>
           <span
             className="inline-flex items-center justify-center px-1.5 py-0.5 text-[10px] font-bold leading-none rounded shrink-0"
@@ -177,7 +195,7 @@ function NewsModal({
           >
             {record.level}
           </span>
-          <span className="text-xs text-ink-3 font-mono">{record.ctime}</span>
+          <span className="text-xs text-ink-3 font-mono">{formatFullTime(record.ctime)}</span>
           {record.reading_num > 0 && (
             <span className="flex items-center gap-1 text-xs text-ink-3">
               <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -259,10 +277,13 @@ export function NewsPage() {
   const [searchQ, setSearchQ] = useState('');
   const [status, setStatus] = useState<NewsStatusResponse | null>(null);
   const [loading, setLoading] = useState(false);
-  const [replaying, setReplaying] = useState(false);
   const [selectedNews, setSelectedNews] = useState<CLSNewsRecord | null>(null);
-  const [historyDate, setHistoryDate] = useState(() => new Date().toISOString().slice(0, 10));
-  const replayingRef = useRef(false);
+  const [historyDate, setHistoryDate] = useState(() => {
+    const d = new Date();
+    const mm = String(d.getMonth() + 1).padStart(2, '0');
+    const dd = String(d.getDate()).padStart(2, '0');
+    return `${d.getFullYear()}-${mm}-${dd}`;
+  });
 
   const loadNews = useCallback(async (p: number, q?: string) => {
     setLoading(true);
@@ -317,20 +338,6 @@ export function NewsPage() {
   };
 
   const isRunning = status?.status === 'running';
-
-  const handleReplay = async () => {
-    if (replayingRef.current) return;
-    replayingRef.current = true;
-    setReplaying(true);
-    try {
-      await api.replayNews();
-      loadStatus();
-      loadNews(page);
-    } catch { void 0; } finally {
-      setReplaying(false);
-      replayingRef.current = false;
-    }
-  };
 
   const handleModeSwitch = (m: 'live' | 'history') => {
     setMode(m);
@@ -400,7 +407,7 @@ export function NewsPage() {
                     <>
                       <span className="text-xs text-ink-3 mx-0.5">|</span>
                       <span className="text-xs text-ink-3">
-                        <span className="text-ink-2">{new Date(status.last_poll).toLocaleTimeString()}</span>
+                        <span className="text-ink-2">{formatSmartTime(status.last_poll)}</span>
                         {status.last_count > 0 && (
                           <span className="text-primary ml-1">+{status.last_count}</span>
                         )}
@@ -408,15 +415,6 @@ export function NewsPage() {
                     </>
                   )}
                 </div>
-
-                <button
-                  onClick={handleReplay}
-                  disabled={replaying}
-                  className="flex items-center gap-1.5 px-3 py-2 text-xs font-semibold rounded-lg transition-all bg-primary text-primary-ink shadow-glow-primary hover:brightness-110 disabled:opacity-50"
-                >
-                  <IconRefresh style={{ fontSize: 13 }} className={replaying ? 'animate-spin' : ''} />
-                  {replaying ? '回放中...' : '回放'}
-                </button>
 
                 <button
                   onClick={handleToggleScheduler}
@@ -490,7 +488,7 @@ export function NewsPage() {
                   <div className="w-0.5 shrink-0 bg-white/5" />
                   <div className="flex-1 pl-3 pr-1">
                     <div className="flex items-baseline gap-2 mb-1">
-                      <div className="h-3 w-16 rounded bg-white/5 shrink-0" />
+                      <div className="h-3 w-24 rounded bg-white/5 shrink-0" />
                       <div className="h-3 w-6 rounded bg-white/5 shrink-0" />
                       <div className="h-4 w-3/4 rounded bg-white/5" />
                     </div>
