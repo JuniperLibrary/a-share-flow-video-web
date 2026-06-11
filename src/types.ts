@@ -125,6 +125,63 @@ export interface DebateAudioTurn {
   frames: number;
 }
 
+export interface SectorSummary {
+  name: string;
+  net: number;
+  changePct: number;
+  superNet: number;
+  bigNet: number;
+  superRate: number;
+  bigRate: number;
+  turnoverRate: number;
+  leadStockName: string;
+  leadStockChangePct: number;
+  totalMarketCap: number;
+  circulatingMarketCap: number;
+}
+
+export interface NewsBrief {
+  title: string;
+  level: string;
+  time: string;
+}
+
+export interface TimelineEvent {
+  time: string;
+  timeMinutes: number;
+  sector: string;
+  title: string;
+  description: string;
+  sentiment: string;
+}
+
+export interface DailyReport {
+  date: string;
+  session: string;
+  summary: string;
+  outlook: string;
+  report?: string;
+  // parsed from report JSON string
+  _parsed?: {
+    date: string;
+    createdAt: string;
+    session: string;
+    netTotal: number;
+    inflowCount: number;
+    outflowCount: number;
+    topInflows: SectorSummary[];
+    topOutflows: SectorSummary[];
+    superNetTotal: number;
+    bigNetTotal: number;
+    structureDesc: string;
+    summary: string;
+    outlook: string;
+    timeline?: TimelineEvent[];
+    newsBriefs?: NewsBrief[];
+    copywriting?: string;
+  };
+}
+
 export interface DebateProbeReport {
   hasAudio: boolean;
   audioCodec: string;
@@ -133,4 +190,10 @@ export interface DebateProbeReport {
   diffSec: number;
   warnings: string[];
   ok: boolean;
+}
+
+export interface TTSResult {
+  file: string;
+  durationSec: number;
+  chars: number;
 }

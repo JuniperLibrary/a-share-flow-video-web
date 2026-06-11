@@ -1,4 +1,4 @@
-import type { DateItem, Sector, ConfigData, NewsListResponse, NewsSearchResponse, NewsStatusResponse, NewsDateResponse, DebateScript, DebateAudioTurn, DebateProbeReport, DebateHistoryEntry } from './types';
+import type { DateItem, Sector, ConfigData, NewsListResponse, NewsSearchResponse, NewsStatusResponse, NewsDateResponse, DebateScript, DebateAudioTurn, DebateProbeReport, DebateHistoryEntry, DailyReport, TTSResult } from './types';
 import { apiUrl } from './utils';
 import * as staticData from './lib/staticData';
 
@@ -161,6 +161,22 @@ export const api = {
       body: JSON.stringify({ date, session }),
     }),
 
+  generateScript: (topic: string) =>
+    request<{ script: string }>('/api/tts/generate-script', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ topic }),
+    }),
+
+  synthesizeTTS: (text: string) =>
+    request<TTSResult>('/api/tts/synthesize', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ text }),
+    }),
+
+  ttsFileUrl: (file: string) => apiUrl(`/api/tts/file/${file}`),
+
   getFiles: (date: string) =>
     request<{ videos: Record<string, string>; 文案: { template: Record<string, string>; ai: Record<string, string> } }>(`/api/files/${date}`),
 
@@ -313,4 +329,17 @@ export const api = {
 
   stopNews: () =>
     request<{ ok: boolean; message: string }>('/api/news/stop', { method: 'POST' }),
+
+  getDailyReportDates: () =>
+    request<{ dates: string[] }>('/api/daily-report/dates'),
+
+  getDailyReport: (date: string) =>
+    request<DailyReport>(`/api/daily-report/${date}`),
+
+  generateDailyReport: (date: string, session: string = 'full') =>
+    request<DailyReport>('/api/daily-report/generate', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ date, session }),
+    }),
 };
