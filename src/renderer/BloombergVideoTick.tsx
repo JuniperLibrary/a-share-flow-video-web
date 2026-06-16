@@ -1,5 +1,5 @@
 import React from 'react';
-import { AbsoluteFill, useCurrentFrame, useVideoConfig, getInputProps, Sequence } from 'remotion';
+import { AbsoluteFill, useCurrentFrame, useVideoConfig, getInputProps, Sequence, Audio, staticFile } from 'remotion';
 import { Background } from './Background.tsx';
 import { Header } from './Header.tsx';
 import { RankingPanel } from './RankingPanel.tsx';
@@ -9,7 +9,14 @@ import { TickChart } from './TickChart.tsx';
 import { NarrativeScene } from './NarrativeScene.tsx';
 import { NewsScene } from './NewsScene.tsx';
 import { MainStructureScene } from './MainStructureScene.tsx';
+import { SubtitleOverlay } from './SubtitleOverlay.tsx';
 import type { BloombergVideoProps, SectorTick } from './types.ts';
+
+/** Wraps children with a fade-in over the first `fadeFrames` frames of the Sequence. */
+const FadeInLayer: React.FC<{fadeFrames: number; children: React.ReactNode}> = ({fadeFrames, children}) => {
+  const frame = useCurrentFrame();
+  return <AbsoluteFill style={{opacity: Math.min(1, frame / Math.max(1, fadeFrames))}}>{children}</AbsoluteFill>;
+};
 
 const TickAnimationScene: React.FC<{
   sectorTicks: SectorTick[];
@@ -134,9 +141,13 @@ export const BloombergVideoTick: React.FC = () => {
   const scene4Frames = inputProps.scene4Frames || 0;
   const scene5Frames = inputProps.scene5Frames || 0;
   const baseAnimationFrames = inputProps.baseAnimationFrames || totalFrames;
+  const chartNarrationAudios = inputProps.chartNarrationAudios || [];
+  const chartNarrationSegments = inputProps.chartNarrationSegments || [];
+  const chartNarrationTexts = inputProps.chartNarrationTexts || [];
   const newsPages = inputProps.newsPages || [];
   const newsAudioFiles = inputProps.newsAudioFiles || [];
   const newsAudioFrames = inputProps.newsAudioFrames || [];
+  const newsNarrationTexts = inputProps.newsNarrationTexts || [];
   const hasVoiceover = scene1Frames > 0 || newsPages.length > 0;
 
   const sentiment = React.useMemo(() => {
@@ -165,12 +176,17 @@ export const BloombergVideoTick: React.FC = () => {
     return `${totalNet > 0 ? '净流入' : '净流出'}${Math.abs(totalNet).toFixed(0)}亿`;
   }, [sectorTicks, sentiment]);
 
+  // Crossfade: chart starts CHART_OVERLAP frames before scene5 ends,
+  // so the narration bridge sentence plays during the transition.
+  const CHART_OVERLAP = 15;
   const scene1End = scene1Frames;
   const scene2End = scene1End + scene2Frames;
   const scene3End = scene2End + scene3Frames;
   const scene4End = scene3End + scene4Frames;
   const scene5End = scene4End + scene5Frames;
-  const animEnd = scene5End + baseAnimationFrames;
+  const chartStart = Math.max(0, scene5End - CHART_OVERLAP);
+  const chartDuration = baseAnimationFrames + (scene5End - chartStart);
+  const animEnd = chartStart + chartDuration;
 
   const newsStartFrames: number[] = [];
   let newsOffset = 0;
@@ -186,6 +202,24 @@ export const BloombergVideoTick: React.FC = () => {
   if (!hasVoiceover) {
     return (
       <AbsoluteFill>
+        {chartNarrationAudios.map((audio, i) => {
+          const from = chartNarrationSegments[i] || 0;
+          const next = chartNarrationSegments[i + 1] || totalFrames;
+          return (
+            <Sequence key={`narration-${i}`} from={from} durationInFrames={Math.max(1, next - from)}>
+              <Audio src={staticFile(audio)} />
+            </Sequence>
+          );
+        })}
+        {chartNarrationTexts.map((text, i) => {
+          const from = chartNarrationSegments[i] || 0;
+          const next = chartNarrationSegments[i + 1] || totalFrames;
+          return (
+            <Sequence key={`subtitle-${i}`} from={from} durationInFrames={Math.max(45, next - from)}>
+              <SubtitleOverlay text={text} format={format} width={width} height={height} />
+            </Sequence>
+          );
+        })}
         <TickAnimationScene
           {...sharedSceneProps}
           baseTotalFrames={totalFrames}
@@ -271,11 +305,31 @@ export const BloombergVideoTick: React.FC = () => {
         </Sequence>
       )}
 
-      <Sequence from={scene5End} durationInFrames={baseAnimationFrames}>
-        <TickAnimationScene
-          {...sharedSceneProps}
-          baseTotalFrames={baseAnimationFrames}
-        />
+      <Sequence from={chartStart} durationInFrames={chartDuration}>
+        {chartNarrationAudios.map((audio, i) => {
+          const from = chartNarrationSegments[i] || 0;
+          const next = chartNarrationSegments[i + 1] || chartDuration;
+          return (
+            <Sequence key={`narration-${i}`} from={from} durationInFrames={Math.max(1, next - from)}>
+              <Audio src={staticFile(audio)} />
+            </Sequence>
+          );
+        })}
+        {chartNarrationTexts.map((text, i) => {
+          const from = chartNarrationSegments[i] || 0;
+          const next = chartNarrationSegments[i + 1] || chartDuration;
+          return (
+            <Sequence key={`subtitle-${i}`} from={from} durationInFrames={Math.max(45, next - from)}>
+              <SubtitleOverlay text={text} format={format} width={width} height={height} />
+            </Sequence>
+          );
+        })}
+        <FadeInLayer fadeFrames={scene5End - chartStart}>
+          <TickAnimationScene
+            {...sharedSceneProps}
+            baseTotalFrames={baseAnimationFrames}
+          />
+        </FadeInLayer>
       </Sequence>
 
       {newsPages.map((page, i) => (
@@ -292,6 +346,7 @@ export const BloombergVideoTick: React.FC = () => {
               pageIndex={i}
               totalPages={newsPages.length}
             />
+            <SubtitleOverlay text={newsNarrationTexts[i]} format={format} width={width} height={height} />
           </Sequence>
         )
       ))}

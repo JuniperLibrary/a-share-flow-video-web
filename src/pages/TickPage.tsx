@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { Button, Tag, Input, Modal } from '@arco-design/web-react';
 import { IconPlayArrow, IconDelete, IconCopy, IconHistory } from '@arco-design/web-react/icon';
 import { apiUrl } from '../utils';
@@ -23,6 +23,12 @@ interface TickPoint {
   MainRate: number;
   Volume: number;
   Turnover: number;
+  BKCode: string;
+  TurnoverRate: number;
+  LeadStockName: string;
+  LeadStockChangePct: number;
+  TotalMarketCap: number;
+  CirculatingMarketCap: number;
 }
 
 interface TickSnapshot {
@@ -36,6 +42,11 @@ interface TickSnapshot {
 interface SSEMessage {
   type: string;
   text: string;
+}
+
+interface SortState {
+  field: string;
+  direction: 'asc' | 'desc';
 }
 
 interface SectorData {
@@ -53,7 +64,8 @@ function formatNet(n: number): string {
   return `${n >= 0 ? '+' : ''}${n.toFixed(2)}亿`;
 }
 
-function formatRate(r: number): string {
+function formatRate(r: number | undefined | null): string {
+  if (r == null) return '-';
   return `${r >= 0 ? '+' : ''}${r.toFixed(1)}%`;
 }
 
@@ -277,6 +289,7 @@ export function TickPage() {
   const [historyDate, setHistoryDate] = useState('');
   const [availableDates, setAvailableDates] = useState<string[]>([]);
   const [tickDataLoading, setTickDataLoading] = useState(false);
+  const [sortState, setSortState] = useState<SortState | null>(null);
   const abortRef = useRef<AbortController | null>(null);
   const autoStartSuppressed = useRef(false);
   const reconnectTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -502,6 +515,32 @@ export function TickPage() {
     ? sectorRows.filter(r => r.name.includes(filterSector))
     : sectorRows;
 
+  const rows = filteredRows;
+  const sortFn = useCallback((a: SectorData, b: SectorData) => {
+    if (!sortState) return 0;
+    const getVal = (row: SectorData): number => {
+      switch (sortState!.field) {
+        case 'ChangePct': return row.latest.ChangePct;
+        case 'Net': return row.latest.Net;
+        case 'MainRate': return row.latest.MainRate;
+        case 'SuperNet': return row.latest.SuperNet;
+        case 'SuperRate': return row.latest.SuperRate;
+        case 'BigNet': return row.latest.BigNet;
+        case 'BigRate': return row.latest.BigRate;
+        case 'TurnoverRate': return row.latest.TurnoverRate;
+        case 'TotalMarketCap': return row.latest.TotalMarketCap;
+        case 'cumDelta': return row.latest.Net - row.first.Net;
+        default: return 0;
+      }
+    };
+    const av = getVal(a), bv = getVal(b);
+    return sortState!.direction === 'asc' ? av - bv : bv - av;
+  }, [sortState]);
+  const sortedRows = useMemo(
+    () => sortState ? [...rows].sort(sortFn) : rows,
+    [rows, sortState, sortFn],
+  );
+
   const upCount = filteredRows.filter(r => r.direction === 'up').length;
   const downCount = filteredRows.filter(r => r.direction === 'down').length;
   const flatCount = filteredRows.filter(r => r.direction === 'flat').length;
@@ -514,6 +553,14 @@ export function TickPage() {
   const autoStartMs = nextAutoStart ? nextAutoStart.time - now : 0;
   const autoStartMin = Math.floor(autoStartMs / 60000);
   const autoStartSec = Math.floor((autoStartMs % 60000) / 1000);
+
+  const handleSort = useCallback((field: string) => {
+    setSortState(prev => {
+      if (!prev || prev.field !== field) return { field, direction: 'asc' };
+      if (prev.direction === 'asc') return { field, direction: 'desc' };
+      return null;
+    });
+  }, []);
 
   const filterInputClass = '!bg-surface-2 !border-hairline !text-ink !h-8 !text-xs';
 
@@ -748,22 +795,64 @@ export function TickPage() {
               <thead>
                 <tr className="border-b border-hairline">
                   <th className="text-left px-5 py-2.5 text-xs font-medium text-ink-3">板块</th>
-                  <th className="text-right px-5 py-2.5 text-xs font-medium text-ink-3">涨跌幅</th>
-                  <th className="text-right px-5 py-2.5 text-xs font-medium text-ink-3">最新净流入</th>
-                  <th className="text-right px-5 py-2.5 text-xs font-medium text-ink-3">主力净占比</th>
-                  <th className="text-right px-5 py-2.5 text-xs font-medium text-ink-3">超大单</th>
-                  <th className="text-right px-5 py-2.5 text-xs font-medium text-ink-3">超大单占比</th>
-                  <th className="text-right px-5 py-2.5 text-xs font-medium text-ink-3">大单</th>
-                  <th className="text-right px-5 py-2.5 text-xs font-medium text-ink-3">大单占比</th>
-                  <th className="text-right px-5 py-2.5 text-xs font-medium text-ink-3">累计净变化</th>
+                  <th className="text-right px-5 py-2.5 text-xs font-medium text-ink-3">
+                    <button onClick={() => handleSort('ChangePct')} className="cursor-pointer hover:text-primary transition-colors bg-transparent border-none p-0 inline-flex items-center justify-end">
+                      涨跌幅{sortState?.field === 'ChangePct' ? (sortState.direction === 'asc' ? ' ▲' : ' ▼') : ''}
+                    </button>
+                  </th>
+                  <th className="text-right px-5 py-2.5 text-xs font-medium text-ink-3">
+                    <button onClick={() => handleSort('Net')} className="cursor-pointer hover:text-primary transition-colors bg-transparent border-none p-0 inline-flex items-center justify-end">
+                      最新净流入{sortState?.field === 'Net' ? (sortState.direction === 'asc' ? ' ▲' : ' ▼') : ''}
+                    </button>
+                  </th>
+                  <th className="text-right px-5 py-2.5 text-xs font-medium text-ink-3">
+                    <button onClick={() => handleSort('MainRate')} className="cursor-pointer hover:text-primary transition-colors bg-transparent border-none p-0 inline-flex items-center justify-end">
+                      主力净占比{sortState?.field === 'MainRate' ? (sortState.direction === 'asc' ? ' ▲' : ' ▼') : ''}
+                    </button>
+                  </th>
+                  <th className="text-right px-5 py-2.5 text-xs font-medium text-ink-3">
+                    <button onClick={() => handleSort('SuperNet')} className="cursor-pointer hover:text-primary transition-colors bg-transparent border-none p-0 inline-flex items-center justify-end">
+                      超大单{sortState?.field === 'SuperNet' ? (sortState.direction === 'asc' ? ' ▲' : ' ▼') : ''}
+                    </button>
+                  </th>
+                  <th className="text-right px-5 py-2.5 text-xs font-medium text-ink-3">
+                    <button onClick={() => handleSort('SuperRate')} className="cursor-pointer hover:text-primary transition-colors bg-transparent border-none p-0 inline-flex items-center justify-end">
+                      超大单占比{sortState?.field === 'SuperRate' ? (sortState.direction === 'asc' ? ' ▲' : ' ▼') : ''}
+                    </button>
+                  </th>
+                  <th className="text-right px-5 py-2.5 text-xs font-medium text-ink-3">
+                    <button onClick={() => handleSort('BigNet')} className="cursor-pointer hover:text-primary transition-colors bg-transparent border-none p-0 inline-flex items-center justify-end">
+                      大单{sortState?.field === 'BigNet' ? (sortState.direction === 'asc' ? ' ▲' : ' ▼') : ''}
+                    </button>
+                  </th>
+                  <th className="text-right px-5 py-2.5 text-xs font-medium text-ink-3">
+                    <button onClick={() => handleSort('BigRate')} className="cursor-pointer hover:text-primary transition-colors bg-transparent border-none p-0 inline-flex items-center justify-end">
+                      大单占比{sortState?.field === 'BigRate' ? (sortState.direction === 'asc' ? ' ▲' : ' ▼') : ''}
+                    </button>
+                  </th>
+                  <th className="text-right px-5 py-2.5 text-xs font-medium text-ink-3">
+                    <button onClick={() => handleSort('TurnoverRate')} className="cursor-pointer hover:text-primary transition-colors bg-transparent border-none p-0 inline-flex items-center justify-end">
+                      换手率{sortState?.field === 'TurnoverRate' ? (sortState.direction === 'asc' ? ' ▲' : ' ▼') : ''}
+                    </button>
+                  </th>
+                  <th className="text-right px-5 py-2.5 text-xs font-medium text-ink-3">
+                    <button onClick={() => handleSort('TotalMarketCap')} className="cursor-pointer hover:text-primary transition-colors bg-transparent border-none p-0 inline-flex items-center justify-end">
+                      总市值{sortState?.field === 'TotalMarketCap' ? (sortState.direction === 'asc' ? ' ▲' : ' ▼') : ''}
+                    </button>
+                  </th>
+                  <th className="text-right px-5 py-2.5 text-xs font-medium text-ink-3">
+                    <button onClick={() => handleSort('cumDelta')} className="cursor-pointer hover:text-primary transition-colors bg-transparent border-none p-0 inline-flex items-center justify-end">
+                      累计净变化{sortState?.field === 'cumDelta' ? (sortState.direction === 'asc' ? ' ▲' : ' ▼') : ''}
+                    </button>
+                  </th>
                   <th className="text-right px-5 py-2.5 text-xs font-medium text-ink-3">时段方向</th>
                   <th className="text-right px-5 py-2.5 text-xs font-medium text-ink-3 w-48">资金流向</th>
                 </tr>
               </thead>
               <tbody>
-                {filteredRows.length === 0 ? (
+                {sortedRows.length === 0 ? (
                   <tr>
-                    <td colSpan={11}>
+                    <td colSpan={13}>
                       <EmptyState
                         title="暂无采集数据"
                         description="系统将在交易日 9:25 / 12:55 自动开始采集"
@@ -772,9 +861,9 @@ export function TickPage() {
                     </td>
                   </tr>
                 ) : (
-                  filteredRows.map((row) => {
+                  sortedRows.map((row) => {
                     const isUp = row.latest.Net >= 0;
-                    const maxAbs = Math.max(...filteredRows.map(r => Math.abs(r.latest.Net)));
+                    const maxAbs = Math.max(...sortedRows.map(r => Math.abs(r.latest.Net)));
                     const barWidth = maxAbs > 0 ? (Math.abs(row.latest.Net) / maxAbs) * 100 : 0;
                     return (
                       <tr
@@ -816,10 +905,16 @@ export function TickPage() {
                         <td className={cn('px-5 py-2.5 text-right font-mono text-xs', netTextColor(row.latest.BigRate))}>
                           {formatRate(row.latest.BigRate)}
                         </td>
+                        <td className="px-5 py-2.5 text-right font-mono text-xs text-ink-3">
+                          {formatRate(row.latest.TurnoverRate)}
+                        </td>
+                        <td className="px-5 py-2.5 text-right font-mono text-xs text-ink-3">
+                          {row.latest.TotalMarketCap ? `${row.latest.TotalMarketCap.toFixed(0)}亿` : '-'}
+                        </td>
                         <td className="px-5 py-2.5 text-right font-mono text-xs">
                           {(() => {
                             const delta = row.latest.Net - row.first.Net
-                            return <span className={netTextColor(delta)}>{delta > 0 ? '+' : ''}{formatNet(delta)}</span>
+                            return <span className={netTextColor(delta)}>{formatNet(delta)}</span>
                           })()}
                         </td>
                         <td className="px-5 py-2.5 text-right">
@@ -943,7 +1038,7 @@ export function TickPage() {
                   const delta = trendSector.latest.Net - trendSector.first.Net
                   return (
                     <div className={cn('text-sm font-mono font-medium', netTextColor(delta))}>
-                      {delta > 0 ? '+' : ''}{formatNet(delta)}
+                      {formatNet(delta)}
                     </div>
                   )
                 })()}

@@ -1,5 +1,5 @@
 import React from 'react';
-import { useCurrentFrame, Audio, staticFile } from 'remotion';
+import { useCurrentFrame, interpolate, Audio, staticFile } from 'remotion';
 import { Background } from './Background.tsx';
 import type { NewsPage } from './types.ts';
 
@@ -45,21 +45,31 @@ export const NewsScene: React.FC<NewsSceneProps> = ({
   const frame = useCurrentFrame();
   const isTV = format === 'tv';
 
-  const fadeIn = Math.min(1, frame / 20);
+  const fadeIn = Math.min(1, frame / 18);
 
-  const headerSize = isTV ? 26 : 34;
-  const sectorNameSize = isTV ? 28 : 36;
+  const headerSize = isTV ? 28 : 36;
+  const sectorNameSize = isTV ? 30 : 38;
   const newsTitleSize = isTV ? 22 : 30;
-  const pageSize = isTV ? 18 : 22;
+  const briefSize = isTV ? 16 : 22;
+  const pageSize = isTV ? 18 : 24;
+  const badgeFontSize = isTV ? 14 : 18;
 
-  const containerPadding = isTV ? 44 : 32;
-  const sectorGap = isTV ? 18 : 24;
-  const newsGap = isTV ? 10 : 14;
+  const containerPad = isTV ? 36 : 38;
+  const cardPad = isTV ? 14 : 18;
+  const cardRadius = isTV ? 10 : 12;
+  const sectorGap = isTV ? 12 : 16;
 
   return (
     <>
       <Audio src={staticFile(audioFile)} />
-      <Background frame={frame} totalFrames={totalFrames} sentiment="neutral" width={width} height={height} format={format} />
+      <Background
+        frame={frame}
+        totalFrames={totalFrames}
+        sentiment="neutral"
+        width={width}
+        height={height}
+        format={format}
+      />
 
       <div
         style={{
@@ -70,7 +80,7 @@ export const NewsScene: React.FC<NewsSceneProps> = ({
           height,
           display: 'flex',
           flexDirection: 'column',
-          padding: containerPadding,
+          padding: containerPad,
           zIndex: 20,
           opacity: fadeIn,
         }}
@@ -80,7 +90,9 @@ export const NewsScene: React.FC<NewsSceneProps> = ({
             display: 'flex',
             justifyContent: 'space-between',
             alignItems: 'center',
-            marginBottom: isTV ? 20 : 30,
+            paddingBottom: isTV ? 12 : 16,
+            borderBottom: '1px solid rgba(60,80,120,0.2)',
+            marginBottom: isTV ? 14 : 18,
           }}
         >
           <div
@@ -88,18 +100,23 @@ export const NewsScene: React.FC<NewsSceneProps> = ({
               fontSize: headerSize,
               color: '#4a80d0',
               fontFamily: '"PingFang SC", "Helvetica Neue", sans-serif',
-              letterSpacing: 4,
+              letterSpacing: 3,
               fontWeight: 600,
+              textShadow: '0 0 20px rgba(74,128,208,0.25)',
             }}
           >
-            {displayDate} · 今日热点 · 板块新闻
+            {displayDate} · 资金催化
           </div>
           <div
             style={{
               fontSize: pageSize,
-              color: '#667788',
+              color: '#556677',
               fontFamily: '"Helvetica Neue", sans-serif',
               fontVariantNumeric: 'tabular-nums',
+              background: 'rgba(30,50,80,0.35)',
+              padding: isTV ? '2px 8px' : '3px 10px',
+              borderRadius: 4,
+              border: '1px solid rgba(60,80,120,0.2)',
             }}
           >
             {pageIndex + 1} / {totalPages}
@@ -111,66 +128,80 @@ export const NewsScene: React.FC<NewsSceneProps> = ({
             flex: 1,
             display: 'flex',
             flexDirection: isTV ? 'row' : 'column',
-            gap: isTV ? 16 : sectorGap,
-            justifyContent: isTV ? 'center' : 'flex-start',
-            alignItems: isTV ? 'stretch' : undefined,
+            gap: sectorGap,
+            justifyContent: 'center',
+            alignItems: 'stretch',
           }}
         >
           {page.sectors.map((sn, si) => {
             const color = sectorColor(sn.sector);
             const sectorDelay = si * 8;
-            const sectorOpacity = Math.min(1, Math.max(0, (frame - sectorDelay) / 10));
+            const sectorProgress = Math.min(1, Math.max(0, (frame - sectorDelay) / 14));
+            const sectorOpacity = sectorProgress;
+            const sectorTranslateY = interpolate(sectorProgress, [0, 1], [24, 0]);
 
             return (
               <div
                 key={sn.sector}
                 style={{
                   opacity: sectorOpacity,
+                  transform: `translateY(${sectorTranslateY}px)`,
                   flex: isTV ? 1 : undefined,
-                  background: isTV ? 'rgba(20,30,50,0.6)' : undefined,
-                  borderRadius: isTV ? 8 : 0,
-                  border: isTV ? '1px solid rgba(60,80,120,0.3)' : undefined,
-                  padding: isTV ? 12 : 0,
+                  background: 'rgba(10, 20, 40, 0.6)',
+                  borderRadius: cardRadius,
+                  border: '1px solid rgba(60, 80, 120, 0.2)',
+                  boxShadow: `0 4px 24px rgba(0,0,0,0.25), inset 0 1px 0 rgba(255,255,255,0.03)`,
+                  padding: cardPad,
                   display: 'flex',
                   flexDirection: 'column',
                 }}
               >
-                <div
+                  <div
                   style={{
                     display: 'flex',
                     alignItems: 'center',
-                    gap: isTV ? 8 : 14,
+                    gap: isTV ? 6 : 10,
                     marginBottom: isTV ? 8 : 12,
-                    borderBottom: isTV ? '1px solid rgba(60,80,120,0.3)' : undefined,
-                    paddingBottom: isTV ? 6 : 0,
+                    paddingBottom: isTV ? 6 : 10,
+                    borderBottom: '1px solid rgba(60, 80, 120, 0.12)',
                   }}
                 >
                   <div
                     style={{
-                      width: isTV ? 3 : 6,
-                      height: isTV ? 16 : 28,
+                      width: isTV ? 3 : 4,
+                      height: isTV ? 14 : 20,
                       borderRadius: 2,
                       background: color,
-                      boxShadow: `0 0 8px ${color}66`,
+                      boxShadow: `0 0 10px ${color}44`,
                     }}
                   />
                   <span
                     style={{
                       fontSize: sectorNameSize,
                       fontWeight: 700,
-                      color: '#e0e8f0',
+                      color: '#dce4ec',
                       fontFamily: '"PingFang SC", "Helvetica Neue", sans-serif',
-                      textShadow: `0 0 12px ${color}44`,
+                      textShadow: `0 0 12px ${color}22`,
+                      letterSpacing: 1,
                     }}
                   >
                     {sn.sector}
                   </span>
                 </div>
 
-                <div style={{ display: 'flex', flexDirection: 'column', gap: isTV ? 4 : newsGap, flex: 1 }}>
-                  {sn.news.map((item, ni) => {
+                  <div
+                  style={{
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: isTV ? 6 : 10,
+                    flex: 1,
+                  }}
+                >
+                  {sn.news.slice(0, 2).map((item, ni) => {
                     const newsDelay = sectorDelay + 6 + ni * 4;
-                    const newsOpacity = Math.min(1, Math.max(0, (frame - newsDelay) / 8));
+                    const newsProgress = Math.min(1, Math.max(0, (frame - newsDelay) / 10));
+                    const newsOpacity = newsProgress;
+                    const newsTranslateY = interpolate(newsProgress, [0, 1], [8, 0]);
                     const isLevelA = item.level === 'A';
 
                     return (
@@ -178,43 +209,77 @@ export const NewsScene: React.FC<NewsSceneProps> = ({
                         key={ni}
                         style={{
                           opacity: newsOpacity,
+                          transform: `translateY(${newsTranslateY}px)`,
                           display: 'flex',
                           alignItems: 'flex-start',
-                          gap: isTV ? 6 : 12,
+                          gap: isTV ? 6 : 10,
+                          padding: isTV ? '3px 0' : '2px 0',
                         }}
                       >
                         {isLevelA && (
                           <span
                             style={{
-                              fontSize: isTV ? 11 : 14,
+                              fontSize: badgeFontSize,
                               fontWeight: 700,
-                              color: '#ff4444',
-                              background: 'rgba(255,68,68,0.15)',
+                              color: '#ff6b6b',
+                              background: 'rgba(255,60,60,0.1)',
                               borderRadius: 3,
-                              padding: isTV ? '2px 4px' : '3px 8px',
-                              fontFamily: '"Helvetica Neue", sans-serif',
+                              padding: isTV ? '1px 5px' : '2px 6px',
+                              fontFamily: '"PingFang SC", "Helvetica Neue", sans-serif',
                               flexShrink: 0,
-                              marginTop: isTV ? 3 : 4,
+                              marginTop: isTV ? 2 : 3,
+                              border: '1px solid rgba(255,80,80,0.15)',
                             }}
                           >
                             热
                           </span>
                         )}
-                        <span
-                          style={{
-                            fontSize: newsTitleSize,
-                            color: isLevelA ? '#ffaaaa' : '#aabbcc',
-                            fontFamily: '"PingFang SC", "Helvetica Neue", sans-serif',
-                            lineHeight: 1.4,
-                            overflow: 'hidden',
-                            textOverflow: 'ellipsis',
-                            display: '-webkit-box',
-                            WebkitLineClamp: 2,
-                            WebkitBoxOrient: 'vertical' as const,
-                          }}
-                        >
-                          {item.title}
-                        </span>
+                          <div style={{ flex: 1, minWidth: 0 }}>
+                          <div
+                            style={{
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: isTV ? 6 : 8,
+                              marginBottom: item.brief ? (isTV ? 3 : 5) : 0,
+                            }}
+                          >
+                            <span
+                              style={{
+                                flexShrink: 0,
+                                fontSize: isTV ? 13 : 18,
+                                fontWeight: 700,
+                                color,
+                                fontFamily: '"Helvetica Neue", "PingFang SC", sans-serif',
+                                fontVariantNumeric: 'tabular-nums',
+                              }}
+                            >
+                              催化{ni + 1}
+                            </span>
+                            <span
+                              style={{
+                                fontSize: newsTitleSize,
+                                color: isLevelA ? '#e8c8c8' : '#b0c0d0',
+                                fontFamily: '"PingFang SC", "Helvetica Neue", sans-serif',
+                                lineHeight: 1.35,
+                              }}
+                            >
+                              {item.title}
+                            </span>
+                          </div>
+                          {item.brief && (
+                            <div
+                              style={{
+                                fontSize: briefSize,
+                                color: '#5a6a7a',
+                                fontFamily: '"PingFang SC", "Helvetica Neue", sans-serif',
+                                lineHeight: 1.35,
+                                marginTop: isTV ? 1 : 2,
+                              }}
+                            >
+                              内容：{item.brief}
+                            </div>
+                          )}
+                        </div>
                       </div>
                     );
                   })}
@@ -226,15 +291,23 @@ export const NewsScene: React.FC<NewsSceneProps> = ({
 
         <div
           style={{
-            marginTop: isTV ? 12 : 16,
-            fontSize: pageSize,
-            color: '#556677',
-            fontFamily: '"PingFang SC", "Helvetica Neue", sans-serif',
-            letterSpacing: 2,
-            textAlign: 'center',
+            marginTop: isTV ? 10 : 14,
+            paddingTop: isTV ? 8 : 10,
+            borderTop: '1px solid rgba(60,80,120,0.12)',
+            display: 'flex',
+            justifyContent: 'center',
           }}
         >
-          数据来源：财联社 · 仅供参考
+          <span
+            style={{
+              fontSize: pageSize,
+              color: '#3a4a5a',
+              fontFamily: '"PingFang SC", "Helvetica Neue", sans-serif',
+              letterSpacing: 2,
+            }}
+          >
+            新闻解释催化，资金确认方向 · 仅供参考
+          </span>
         </div>
       </div>
     </>

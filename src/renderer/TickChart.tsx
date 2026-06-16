@@ -1,5 +1,6 @@
 import React, { useMemo } from 'react';
 import type { SectorTick } from './types.ts';
+import { getVideoLayout } from './layout.ts';
 
 interface TickChartProps {
   sectorTicks: SectorTick[];
@@ -27,15 +28,15 @@ function easeOutQuad(t: number): number {
   return 1 - (1 - t) * (1 - t);
 }
 
-/** Convert "HH:MM" to x-axis position (0-300), matching the XTICK positions.
- *  XTICKS model: morning 0→120 (09:30→11:30), afternoon 180→300 (13:00→15:00).
- *  The 90-min lunch break is compressed into 60 units of chart space.
+/** Convert "HH:MM" to x-axis position (0-240), matching the XTICK positions.
+ *  XTICKS model: morning 0→120 (09:30→11:30), afternoon 120→240 (13:00→15:00).
+ *  The 90-min lunch break is compressed into 0 units of chart space (merged).
  */
 function timeToTradingMinutes(t: string): number {
   const [h, m] = t.split(':').map(Number);
   let val = h * 60 + m - (9 * 60 + 30);
   if (val < 0) val = 0;
-  if (h >= 13) val -= 30; // compress 90 min lunch → 60 chart units
+  if (h >= 13) val -= 90; // compress 90 min lunch → 0 chart units (merged)
   return val;
 }
 
@@ -73,6 +74,46 @@ function buildAreaPath(
   return d;
 }
 
+interface InflectionMarker {
+  sectorName: string;
+  color: string;
+  index: number;
+  time: string;
+  value: number;
+  delta: number;
+  label: string;
+}
+
+function clamp(value: number, min: number, max: number): number {
+  return Math.max(min, Math.min(max, value));
+}
+
+/** 全部曲线标签：按终点 Y 排序后均匀分布，保证垂直方向绝不重叠。 */
+function resolveAllLabelPositions(
+  items: Array<{ name: string; rawY: number }>,
+  topBound: number,
+  bottomBound: number,
+): Map<string, { rawY: number; adjY: number }> {
+  const positions = new Map<string, { rawY: number; adjY: number }>();
+  if (items.length === 0) return positions;
+
+  const sorted = [...items].sort((a, b) => a.rawY - b.rawY);
+  const span = bottomBound - topBound;
+  const step = span / Math.max(sorted.length - 1, 1);
+
+  sorted.forEach((item, i) => {
+    positions.set(item.name, { rawY: item.rawY, adjY: topBound + i * step });
+  });
+  return positions;
+}
+
+function buildInflectionLabel(name: string, delta: number): string {
+  if (delta >= 0) {
+    return `${name}资金加速`;
+  }
+  return `${name}资金转弱`;
+}
+
 export const TickChart: React.FC<TickChartProps> = ({
   sectorTicks,
   frame,
@@ -86,13 +127,16 @@ export const TickChart: React.FC<TickChartProps> = ({
   xLim: propXLim,
 }) => {
   const isTV = format === 'tv';
-  const xMax = propXLim ? propXLim[1] : 330;
+  const configuredXMin = propXLim ? propXLim[0] : 0;
+  const configuredXMax = propXLim ? propXLim[1] : (session === 'morning' ? 120 : 240);
   const isMorning = session === 'morning';
 
-  const chartLeft = isTV ? 80 : 50;
-  const chartRight = isTV ? width * 0.72 : 580;
-  const chartTop = isTV ? 150 : 180;
-  const chartBottom = isTV ? height * 0.86 : height * 0.83;
+  const layout = getVideoLayout(width, height, format);
+  const chartLeft = layout.chartLeft;
+  const chartRight = layout.chartRight;
+  const chartTop = layout.chartTop;
+  const chartBottom = layout.chartBottom;
+  const labelMaxX = layout.labelMaxX;
 
   const chartW = chartRight - chartLeft;
   const chartH = chartBottom - chartTop;
@@ -116,6 +160,27 @@ export const TickChart: React.FC<TickChartProps> = ({
     });
   }, [coloredTicks]);
 
+  const dataXBounds = useMemo(() => {
+    let min = Number.POSITIVE_INFINITY;
+    let max = Number.NEGATIVE_INFINITY;
+    for (const sector of cumulativeData) {
+      for (const time of sector.times) {
+        const minute = timeToTradingMinutes(time);
+        if (minute < min) min = minute;
+        if (minute > max) max = minute;
+      }
+    }
+    if (!Number.isFinite(min) || !Number.isFinite(max)) {
+      return {min: configuredXMin, max: configuredXMax};
+    }
+    const minSpan = (configuredXMax - configuredXMin) * 0.5;
+    const paddedMax = Math.min(configuredXMax, Math.max(max, min + minSpan));
+    return {
+      min: Math.max(configuredXMin, min),
+      max: paddedMax,
+    };
+  }, [cumulativeData, configuredXMin, configuredXMax]);
+
   const sortedByAbs = useMemo(() => {
     return [...cumulativeData].sort((a, b) => {
       const lastA = a.cum.length > 0 ? Math.abs(a.cum[a.cum.length - 1]) : 0;
@@ -123,6 +188,47 @@ export const TickChart: React.FC<TickChartProps> = ({
       return lastB - lastA;
     });
   }, [cumulativeData]);
+
+  const progress = frame / totalFrames;
+  const numPoints = cumulativeData.length > 0 ? cumulativeData[0].cum.length : 1;
+  const currentIdx = Math.min(Math.floor(progress * numPoints), numPoints - 1);
+
+  const inflectionMarkers = useMemo<InflectionMarker[]>(() => {
+    const topSectors = sortedByAbs.slice(0, isTV ? 4 : 3);
+    const markers: InflectionMarker[] = [];
+    const minGap = Math.max(2, Math.floor(numPoints * 0.1));
+
+    for (const sector of topSectors) {
+      if (sector.data.length < 4 || sector.cum.length < 4) continue;
+
+      let bestIdx = -1;
+      let bestDelta = 0;
+      for (let i = 1; i < sector.data.length; i++) {
+        const delta = sector.data[i];
+        if (i < minGap || i > sector.data.length - minGap) continue;
+        if (Math.abs(delta) > Math.abs(bestDelta)) {
+          bestDelta = delta;
+          bestIdx = i;
+        }
+      }
+
+      if (bestIdx < 0 || Math.abs(bestDelta) < 0.5) continue;
+
+      markers.push({
+        sectorName: sector.name,
+        color: sector.color,
+        index: bestIdx,
+        time: sector.times[bestIdx] ?? '',
+        value: sector.cum[bestIdx] ?? 0,
+        delta: bestDelta,
+        label: buildInflectionLabel(sector.name, bestDelta),
+      });
+    }
+
+    return markers
+      .sort((a, b) => a.index - b.index)
+      .slice(0, isTV ? 4 : 3);
+  }, [sortedByAbs, isTV, numPoints]);
 
   const yBounds = useMemo(() => {
     if (cumulativeData.length === 0) return { min: -100, max: 300 };
@@ -140,17 +246,17 @@ export const TickChart: React.FC<TickChartProps> = ({
     };
   }, [cumulativeData]);
 
-  const xScale = (v: number) => chartLeft + (v / xMax) * chartW;
+  const xScale = (v: number) => {
+    const range = dataXBounds.max - dataXBounds.min || 1;
+    const normalized = (v - dataXBounds.min) / range;
+    return chartLeft + Math.max(0, Math.min(1, normalized)) * chartW;
+  };
   const yScale = (v: number) => {
     const range = yBounds.max - yBounds.min;
     if (range === 0) return (chartTop + chartBottom) / 2;
     const normalized = (v - yBounds.min) / range;
     return chartBottom - normalized * chartH;
   };
-
-  const progress = frame / totalFrames;
-  const numPoints = cumulativeData.length > 0 ? cumulativeData[0].cum.length : 1;
-  const currentIdx = Math.min(Math.floor(progress * numPoints), numPoints - 1);
 
   const yTickStep = useMemo(() => {
     const dataRange = yBounds.max - yBounds.min;
@@ -168,6 +274,92 @@ export const TickChart: React.FC<TickChartProps> = ({
 
   const yZero = yScale(0);
 
+  const inflectionMarkersJSX = inflectionMarkers.map((marker, i) => {
+    if (marker.index > currentIdx) return null;
+
+    const age = currentIdx - marker.index;
+    const fadeIn = Math.min(1, age / 2);
+    const fadeOut = Math.min(1, Math.max(0, (numPoints * 0.28 - age) / Math.max(1, numPoints * 0.08)));
+    const opacity = Math.max(0, Math.min(fadeIn, fadeOut));
+    if (opacity <= 0) return null;
+
+    const x = xScale(timeToTradingMinutes(marker.time));
+    const y = yScale(marker.value);
+    const boxW = isTV ? 152 : 180;
+    const boxH = isTV ? 42 : 52;
+    const offsetY = (i % 2 === 0 ? -1 : 1) * (isTV ? 46 : 56);
+    const boxX = clamp(x + (isTV ? 12 : 10), chartLeft + 6, Math.min(chartRight - boxW - 6, labelMaxX - boxW - 4));
+    const boxY = clamp(y + offsetY, chartTop + 6, chartBottom - boxH - 6);
+    const isPositive = marker.delta >= 0;
+    const valueText = `${isPositive ? '+' : ''}${marker.delta.toFixed(1)}亿`;
+
+    return (
+      <g key={`inflection-${marker.sectorName}`} opacity={opacity}>
+        <line
+          x1={x}
+          y1={y}
+          x2={boxX}
+          y2={boxY + boxH / 2}
+          stroke={marker.color}
+          strokeWidth={1}
+          opacity={0.45}
+        />
+        <circle
+          cx={x}
+          cy={y}
+          r={isTV ? 5 : 7}
+          fill={marker.color}
+          stroke="#ffffff"
+          strokeWidth={1.2}
+          opacity={0.95}
+        />
+        <circle
+          cx={x}
+          cy={y}
+          r={isTV ? 13 : 18}
+          fill={marker.color}
+          opacity={0.14 + Math.sin(frame * 0.22 + i) * 0.04}
+          style={{ filter: 'blur(3px)' }}
+        />
+        <rect
+          x={boxX}
+          y={boxY}
+          width={boxW}
+          height={boxH}
+          rx={7}
+          fill="rgba(8, 18, 34, 0.88)"
+          stroke={marker.color}
+          strokeWidth={1}
+          opacity={0.96}
+        />
+        <text
+          x={boxX + (isTV ? 10 : 14)}
+          y={boxY + (isTV ? 16 : 22)}
+          fill="#dce4ec"
+          fontSize={isTV ? 14 : 20}
+          fontWeight={700}
+          textAnchor="start"
+          dominantBaseline="middle"
+          style={{ fontFamily: '"PingFang SC", "Helvetica Neue", sans-serif' }}
+        >
+          {marker.label}
+        </text>
+        <text
+          x={boxX + (isTV ? 10 : 14)}
+          y={boxY + (isTV ? 31 : 43)}
+          fill={isPositive ? '#f87171' : '#4ade80'}
+          fontSize={isTV ? 13 : 18}
+          fontWeight={700}
+          textAnchor="start"
+          dominantBaseline="middle"
+          style={{ fontFamily: '"Helvetica Neue", "PingFang SC", sans-serif', fontVariantNumeric: 'tabular-nums' }}
+        >
+          {marker.time}  单笔{valueText}
+        </text>
+      </g>
+    );
+  });
+
   // ─── Entrance animation: global curve reveal ───
   // Curves start appearing from frame 10, fully visible by frame 120
   const CURVE_REVEAL_START = 10;
@@ -178,30 +370,24 @@ export const TickChart: React.FC<TickChartProps> = ({
       ? 1
       : easeOutQuad((frame - CURVE_REVEAL_START) / (CURVE_REVEAL_END - CURVE_REVEAL_START));
 
+  const labelCount = cumulativeData.length;
+  const labelFontSize = isTV
+    ? (labelCount > 20 ? 11 : labelCount > 14 ? 12 : 14)
+    : (labelCount > 20 ? 13 : labelCount > 14 ? 14 : 16);
+
   const labelPositions = React.useMemo(() => {
-    const positions = new Map<string, { rawY: number; adjY: number }>();
-    if (cumulativeData.length === 0) return positions;
+    if (cumulativeData.length === 0) return new Map<string, { rawY: number; adjY: number }>();
 
-    // Sort sectors by endpoint Y position (top-to-bottom order matching the chart)
-    const sorted = cumulativeData
-      .map((s) => {
-        const yVal = s.cum.length > 0 ? s.cum[currentIdx] : 0;
-        return { name: s.name, rawY: yScale(yVal) };
-      })
-      .sort((a, b) => a.rawY - b.rawY);
-
-    // Evenly distribute all labels across chart height
-    const padding = 15;
+    const padding = 16;
     const topBound = chartTop + padding;
     const bottomBound = chartBottom - padding;
-    const step = (bottomBound - topBound) / Math.max(sorted.length - 1, 1);
 
-    sorted.forEach((item, i) => {
-      const adjY = topBound + i * step;
-      positions.set(item.name, { rawY: item.rawY, adjY });
+    const labelCandidates = cumulativeData.map((s) => {
+      const yVal = s.cum.length > 0 ? s.cum[currentIdx] : 0;
+      return { name: s.name, rawY: yScale(yVal) };
     });
 
-    return positions;
+    return resolveAllLabelPositions(labelCandidates, topBound, bottomBound);
   }, [cumulativeData, currentIdx, yScale, chartTop, chartBottom]);
 
   // ─── Flow particles: pre-compute particle positions along each curve ───
@@ -255,7 +441,7 @@ export const TickChart: React.FC<TickChartProps> = ({
     }
 
     return particles;
-  }, [cumulativeData, sortedByAbs, currentIdx, frame, xMax, xScale, yScale, isTV]);
+  }, [cumulativeData, sortedByAbs, currentIdx, frame, xScale, yScale, isTV]);
 
   const curvesJSX = cumulativeData.map((sector) => {
     const rankIdx = sortedByAbs.findIndex(s => s.name === sector.name);
@@ -296,12 +482,16 @@ export const TickChart: React.FC<TickChartProps> = ({
     const endY = visibleCum.length > 0 ? yScale(visibleCum[visibleCum.length - 1]) : 0;
 
     const showLabel = pointR > 0;
-    const showValueLabel = pointR > 0;
     const labelPos = labelPositions.get(sector.name);
     const labelY = labelPos ? labelPos.adjY : endY;
 
-    // Area fill color: green for positive, red for negative
+    // 标签统一放在图表与排行榜之间的固定列，右对齐，避免各曲线 X 不同导致重叠
+    const labelColumnX = labelMaxX - 4;
+    const leaderEndX = labelColumnX - 6;
+    const textAnchor = 'end' as const;
     const lastVal = visibleCum.length > 0 ? visibleCum[visibleCum.length - 1] : 0;
+    const valueText = `${lastVal >= 0 ? '+' : ''}${lastVal.toFixed(1)}`;
+    const showStructureBar = labelCount <= 10;
     const areaColor = lastVal >= 0 ? '#4ade80' : '#f87171';
     const areaOpacity = sectorReveal * 0.08 * eventPulse;
 
@@ -345,16 +535,43 @@ export const TickChart: React.FC<TickChartProps> = ({
 
         {showLabel && (
           <g>
-            {Math.abs(labelY - endY) > 2 && (
-              <line x1={endX + pointR + 2} y1={endY} x2={endX + pointR + 8} y2={labelY} stroke={sector.color} strokeWidth={1} opacity={0.4} />
-            )}
-            <line x1={endX + pointR + 8} y1={labelY} x2={endX + pointR + 16} y2={labelY} stroke={sector.color} strokeWidth={1} opacity={0.4} />
-            <text x={endX + pointR + 19} y={labelY + 1} fill={sector.color} fontSize={isTV ? 16 : 22} fontWeight={500} textAnchor="start" dominantBaseline="middle" style={{ textShadow: `0 0 4px ${sector.color}33`, fontFamily: '"PingFang SC", "Helvetica Neue", sans-serif' }}>
-              {sector.name}
+            <line
+              x1={endX + pointR + 2}
+              y1={endY}
+              x2={leaderEndX}
+              y2={labelY}
+              stroke={sector.color}
+              strokeWidth={1}
+              opacity={0.35}
+            />
+            <line
+              x1={leaderEndX}
+              y1={labelY}
+              x2={labelColumnX}
+              y2={labelY}
+              stroke={sector.color}
+              strokeWidth={1}
+              opacity={0.35}
+            />
+            <text
+              x={labelColumnX}
+              y={labelY + 1}
+              fontSize={labelFontSize}
+              fontWeight={600}
+              textAnchor={textAnchor}
+              dominantBaseline="middle"
+              style={{ fontFamily: '"PingFang SC", "Helvetica Neue", sans-serif' }}
+            >
+              <tspan fill={sector.color} style={{ textShadow: `0 0 4px ${sector.color}33` }}>
+                {sector.name}
+              </tspan>
+              <tspan fill={lastVal >= 0 ? '#f87171' : '#4ade80'} dx={5}>
+                {valueText}
+              </tspan>
             </text>
-            {(sector.superNet !== undefined || sector.bigNet !== undefined) &&
+            {showStructureBar && (sector.superNet !== undefined || sector.bigNet !== undefined) &&
               (Math.abs(sector.superNet ?? 0) > 0 || Math.abs(sector.bigNet ?? 0) > 0) && (
-                <g transform={`translate(${endX + pointR + 19}, ${labelY + 12})`}>
+                <g transform={`translate(${labelColumnX - (isTV ? 36 : 48)}, ${labelY + 12})`}>
                   {(() => {
                     const superW = Math.abs(sector.superNet ?? 0);
                     const bigW = Math.abs(sector.bigNet ?? 0);
@@ -374,19 +591,14 @@ export const TickChart: React.FC<TickChartProps> = ({
               )}
           </g>
         )}
-
-        {showValueLabel && (
-          <text x={endX + pointR + 120} y={labelY + 1} fill={visibleCum[currentIdx] >= 0 ? '#f87171' : '#4ade80'} fontSize={isTV ? 16 : 22} fontWeight={500} textAnchor="start" dominantBaseline="middle" style={{ fontFamily: '"Helvetica Neue", Arial, sans-serif', fontVariantNumeric: 'tabular-nums' }}>
-            {visibleCum[currentIdx] >= 0 ? '+' : ''}{visibleCum[currentIdx].toFixed(1)}
-          </text>
-        )}
       </g>
     );
   });
 
   const XTICKS = isMorning
     ? [{ pos: 0, label: '09:30' }, { pos: 30, label: '10:00' }, { pos: 60, label: '10:30' }, { pos: 90, label: '11:00' }, { pos: 120, label: '11:30' }]
-    : [{ pos: 0, label: '09:30' }, { pos: 60, label: '10:30' }, { pos: 120, label: '11:30' }, { pos: 180, label: '13:00' }, { pos: 240, label: '14:00' }, { pos: 300, label: '15:00' }];
+    : [{ pos: 0, label: '09:30' }, { pos: 60, label: '10:30' }, { pos: 120, label: '11:30/13:00' }, { pos: 180, label: '14:00' }, { pos: 240, label: '15:00' }];
+  const visibleXTicks = XTICKS.filter((t) => t.pos >= dataXBounds.min && t.pos <= dataXBounds.max);
 
   // Zero line pulse
   const zeroPulse = Math.sin(frame * 0.08) * 0.15 + 0.7;
@@ -394,7 +606,7 @@ export const TickChart: React.FC<TickChartProps> = ({
   return (
     <svg width={width} height={height} style={{ position: 'absolute', top: 0, left: 0, zIndex: 5, pointerEvents: 'none', overflow: 'visible' }}>
       {/* Grid lines */}
-      {XTICKS.map((t, i) => (
+      {visibleXTicks.map((t, i) => (
         <line key={`xgrid${i}`} x1={xScale(t.pos)} y1={chartTop} x2={xScale(t.pos)} y2={chartBottom} stroke="#1e2d45" strokeWidth={0.8} opacity={0.5} />
       ))}
       {yTicks.map((v) => (
@@ -411,7 +623,7 @@ export const TickChart: React.FC<TickChartProps> = ({
       )}
 
       {/* X-axis labels */}
-      {XTICKS.map((t, i) => (
+      {visibleXTicks.map((t, i) => (
         <text key={`xlabel${i}`} x={xScale(t.pos)} y={chartBottom + 22} fill="#5a6577" fontSize={isTV ? 14 : 20} fontWeight={500} textAnchor="middle" fontFamily='"Helvetica Neue", Arial, sans-serif'>{t.label}</text>
       ))}
 
@@ -434,6 +646,9 @@ export const TickChart: React.FC<TickChartProps> = ({
       {flowParticles.map((p, i) => (
         <circle key={`flow-${p.sectorName}-${i}`} cx={p.cx} cy={p.cy} r={p.r} fill={p.color} opacity={p.opacity} style={{ filter: 'blur(1px)' }} />
       ))}
+
+      {/* Inflection markers */}
+      {inflectionMarkersJSX}
 
       {/* Progress line */}
       {cumulativeData.length > 0 && cumulativeData[0].times.length > 0 && currentIdx >= 0 && (

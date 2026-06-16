@@ -10,6 +10,7 @@ import {
   IconEdit,
   IconSound,
   IconMessage,
+  IconCompass,
 } from '@arco-design/web-react/icon';
 import DashboardPage from './pages/DashboardPage';
 import { TickPage } from './pages/TickPage';
@@ -21,10 +22,11 @@ import { NotesPage } from './pages/NotesPage';
 import FundTab from './fund/FundTab';
 import { TTSPage } from './pages/TTSPage';
 import { DebatePage } from './pages/DebatePage';
+import { DailyReportPage } from './pages/DailyReportPage';
 import { api } from './api';
 import { Sidebar } from './components/ui/sidebar';
 
-type Page = 'dashboard' | 'tick' | 'generate' | 'preview' | 'config' | 'news' | 'fund' | 'notes' | 'tts' | 'debate';
+type Page = 'dashboard' | 'tick' | 'generate' | 'preview' | 'config' | 'news' | 'fund' | 'notes' | 'tts' | 'debate' | 'dailyreport';
 
 const allNavItems: { key: Page; label: string; icon: React.ReactNode; staticOnly?: boolean }[] = [
   { key: 'dashboard', label: '仪表盘', icon: <IconDashboard /> },
@@ -37,6 +39,7 @@ const allNavItems: { key: Page; label: string; icon: React.ReactNode; staticOnly
   { key: 'preview', label: '视频预览', icon: <IconEye />, staticOnly: true },
   { key: 'news', label: '新闻资讯', icon: <IconFile /> },
   { key: 'config', label: 'AI 配置', icon: <IconSettings />, staticOnly: true },
+  { key: 'dailyreport', label: '每日日报', icon: <IconCompass />, staticOnly: true },
 ];
 
 export default function App() {
@@ -86,6 +89,7 @@ export default function App() {
             {page === 'notes' && <NotesPage />}
             {page === 'tts' && <TTSPage />}
             {page === 'debate' && <DebatePage />}
+            {page === 'dailyreport' && <DailyReportPage />}
           </Suspense>
         </div>
       </main>

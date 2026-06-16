@@ -137,7 +137,7 @@ export function GeneratePage({ dates, onDone }: GeneratePageProps) {
   const [tickDate, setTickDate] = useState('');
   const [tickSession, setTickSession] = useState('full');
   const [tickCopyMode, setTickCopyMode] = useState('ai');
-  const [tickFormat, setTickFormat] = useState('all');
+  const [tickFormat, setTickFormat] = useState('mobile');
   const tickSSE = useSSE();
   const [tickStatus, setTickStatus] = useState<{ type: 'success' | 'error' | 'info' | ''; text: string }>({ type: '', text: '' });
 
@@ -247,9 +247,9 @@ export function GeneratePage({ dates, onDone }: GeneratePageProps) {
           onChange={v => setTickFormat(v as string)}
           style={{ width: 120 }}
           options={[
-            { label: '全部', value: 'all' },
-            { label: '横版 16:9', value: 'tv' },
             { label: '竖版 9:16', value: 'mobile' },
+            { label: '横版 16:9', value: 'tv' },
+            { label: '全部', value: 'all' },
           ]}
         />
       </div>

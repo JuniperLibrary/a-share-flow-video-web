@@ -1,5 +1,6 @@
 import React from 'react';
 import type { SectorData } from './types.ts';
+import { getVideoLayout } from './layout.ts';
 
 interface RankingPanelProps {
   sectors: SectorData[];
@@ -25,7 +26,8 @@ const RankingGroup: React.FC<{
   highlightId?: string;
   frame: number;
   scale: number;
-}> = ({ title, sectors, isPositive, visibleCount, highlightId, frame, scale }) => {
+  compact?: boolean;
+}> = ({ title, sectors, isPositive, visibleCount, highlightId, frame, scale, compact = false }) => {
   const color = isPositive ? '#f87171' : '#4ade80';
   const arrow = isPositive ? '↑' : '↓';
   const displaySectors = sectors.slice(0, 18);
@@ -54,9 +56,13 @@ const RankingGroup: React.FC<{
 
         return (
           <div
-            key={sector.name}
+            key={sector.name || `sector-${i}`}
             style={{
-              display: 'flex',
+              display: 'grid',
+              gridTemplateColumns: compact
+                ? `${26 * scale}px minmax(${56 * scale}px, 1fr) auto`
+                : `${26 * scale}px minmax(${72 * scale}px, 1fr) auto`,
+              gap: `${4 * scale}px`,
               alignItems: 'center',
               padding: `${5 * scale}px 0`,
               opacity: Math.max(0, opacity),
@@ -105,37 +111,38 @@ const RankingGroup: React.FC<{
                 fontSize: 15 * scale,
                 fontWeight: 600,
                 color: isHighlighted ? '#ddeeff' : '#ccddee',
-                flex: 1,
                 overflow: 'hidden',
                 textOverflow: 'ellipsis',
                 whiteSpace: 'nowrap',
                 position: 'relative',
                 zIndex: 1,
+                minWidth: 0,
               }}
             >
-              {sector.name}
+              {sector.name || '—'}
             </span>
 
             <span
               style={{
-                fontSize: 15 * scale,
+                fontSize: compact ? 13 * scale : 15 * scale,
                 fontWeight: 700,
                 color,
                 fontVariantNumeric: 'tabular-nums' as const,
                 textShadow: `0 0 8px ${color}44`,
-                minWidth: 70 * scale,
                 textAlign: 'right',
                 position: 'relative',
                 zIndex: 1,
+                whiteSpace: 'nowrap',
+                minWidth: 0,
               }}
             >
               {isPositive ? '+' : ''}{sector.net.toFixed(1)}亿
-              {sector.rate !== 0 && (
+              {!compact && sector.rate !== 0 && (
                 <span style={{ fontSize: 12 * scale, color: isPositive ? '#f87171' : '#4ade80', opacity: 0.7, marginLeft: 4 * scale }}>
                   ({sector.rate > 0 ? '+' : ''}{sector.rate.toFixed(1)}%)
                 </span>
               )}
-              {sector.changePct !== undefined && sector.changePct !== 0 && (
+              {!compact && sector.changePct !== undefined && sector.changePct !== 0 && (
                 <span
                   style={{
                     fontSize: 11 * scale,
@@ -152,7 +159,7 @@ const RankingGroup: React.FC<{
                   {sector.changePct > 0 ? '+' : ''}{sector.changePct.toFixed(2)}%
                 </span>
               )}
-              {(sector.superNet !== 0 || sector.bigNet !== 0) && (
+              {!compact && (sector.superNet !== 0 || sector.bigNet !== 0) && (
                 <span
                   style={{
                     display: 'inline-block',
@@ -218,10 +225,11 @@ export const RankingPanel: React.FC<RankingPanelProps> = ({
 }) => {
   const isTV = format === 'tv';
   const scale = isTV ? 1.1 : 1.5;
+  const layout = getVideoLayout(width, height, format);
 
-  const panelLeft = isTV ? width * 0.78 : width * 0.70;
-  const panelTop = isTV ? 110 : 180;
-  const panelWidth = isTV ? width * 0.18 : width * 0.28;
+  const panelLeft = layout.rankingPanelLeft;
+  const panelTop = layout.rankingPanelTop;
+  const panelWidth = layout.rankingPanelWidth;
 
   const inflowSectors = sectors.filter((s) => s.net >= 0).sort((a, b) => b.net - a.net);
   const outflowSectors = sectors.filter((s) => s.net < 0).sort((a, b) => a.net - b.net);
@@ -246,6 +254,10 @@ export const RankingPanel: React.FC<RankingPanelProps> = ({
         width: panelWidth,
         zIndex: 10,
         fontFamily: '"PingFang SC", "Helvetica Neue", sans-serif',
+        background: 'linear-gradient(90deg, rgba(8,14,26,0.92) 0%, rgba(8,14,26,0.78) 100%)',
+        borderRadius: 8,
+        padding: `${8 * scale}px ${10 * scale}px`,
+        boxSizing: 'border-box',
       }}
     >
       <div
@@ -271,6 +283,7 @@ export const RankingPanel: React.FC<RankingPanelProps> = ({
           highlightId={highlightId}
           frame={frame}
           scale={scale}
+          compact={!isTV}
         />
       )}
 
@@ -283,6 +296,7 @@ export const RankingPanel: React.FC<RankingPanelProps> = ({
           highlightId={highlightId}
           frame={frame}
           scale={scale}
+          compact={!isTV}
         />
       )}
     </div>

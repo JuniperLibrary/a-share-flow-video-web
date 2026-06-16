@@ -51,6 +51,11 @@ export interface SectorTick {
   mainRate?: number;
   volume?: number;
   turnover?: number;
+  turnoverRate?: number;
+  leadStockName?: string;
+  leadStockChangePct?: number;
+  totalMarketCap?: number;
+  circulatingMarketCap?: number;
 }
 
 export interface BloombergVideoProps {
@@ -82,13 +87,18 @@ export interface BloombergVideoProps {
   scene4Frames?: number;
   scene5Frames?: number;
   baseAnimationFrames?: number;
+  chartNarrationAudios?: string[];
+  chartNarrationSegments?: number[];
+  chartNarrationTexts?: string[];
   newsPages?: NewsPage[];
   newsAudioFiles?: string[];
   newsAudioFrames?: number[];
+  newsNarrationTexts?: string[];
 }
 
 export interface NewsItem {
   title: string;
+  brief?: string;
   level: string;
   time: string;
 }
