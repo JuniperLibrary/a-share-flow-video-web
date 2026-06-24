@@ -1,109 +1,37 @@
-import { useState, useEffect, useRef, useMemo } from 'react';
-import { Button, DatePicker, Message } from '@arco-design/web-react';
-import { IconRefresh, IconDownload } from '@arco-design/web-react/icon';
-import html2canvas from 'html2canvas';
+import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
+import { Button, DatePicker, Message as ArcoMessage } from '@arco-design/web-react';
+import { IconRefresh, IconDownload, IconImage } from '@arco-design/web-react/icon';
+import { Loader2 } from 'lucide-react';
 import { api } from '../api';
-import { PageHeader } from '../components/ui/page-header';
 import { EmptyState } from '../components/ui/empty-state';
-import { GlassPanel } from '../components/ui/glass-panel';
-import { cn, netTextColor } from '../lib/utils';
-import type { DailyReport, TimelineEvent } from '../types';
-
-function formatNet(n: number): string {
-  return `${n >= 0 ? '+' : ''}${n.toFixed(2)}亿`;
-}
-
-function formatChangePct(r: number): string {
-  if (!Number.isFinite(r)) return '—';
-  return `${r >= 0 ? '+' : ''}${r.toFixed(2)}%`;
-}
-
-function formatDateLabel(dateStr: string): string {
-  return `${dateStr.replace(/-/g, '/')} 收盘`;
-}
-
-function SectionDivider() {
-  return <div className="border-t border-hairline my-5" />;
-}
-
-function SectionHeader({ title }: { title: string }) {
-  return (
-    <div className="flex items-center gap-3 mb-4">
-      <span className="w-1 h-4 rounded-full bg-primary" />
-      <h2 className="text-sm font-semibold text-ink">{title}</h2>
-    </div>
-  );
-}
-
-function SectorBar({ rank, name, value, pct, maxAbs, isInflow, turnoverRate, leadStockName, leadStockChangePct }: {
-  rank: number;
-  name: string;
-  value: number;
-  pct: number;
-  maxAbs: number;
-  isInflow: boolean;
-  turnoverRate?: number;
-  leadStockName?: string;
-  leadStockChangePct?: number;
-}) {
-  const barPct = maxAbs > 0 ? (Math.abs(value) / maxAbs) * 100 : 0;
-  return (
-    <div className="flex items-center gap-2 py-1">
-      <span className="text-[10px] text-ink-3 font-mono w-4 text-right shrink-0">{rank}</span>
-      <span className="text-xs text-ink w-20 truncate shrink-0" title={name}>{name}</span>
-      <div className="flex-1 h-1.5 rounded-full overflow-hidden bg-surface-2">
-        <div
-          className={cn('h-full rounded-full', isInflow ? 'bg-inflow' : 'bg-outflow')}
-          style={{ width: `${Math.min(barPct, 100)}%` }}
-        />
-      </div>
-      <span className={cn('text-xs font-mono tabular-nums w-20 text-right shrink-0', netTextColor(value))}>
-        {formatNet(value)}
-      </span>
-      <span className={cn('text-[10px] font-mono tabular-nums w-12 text-right shrink-0', netTextColor(pct))}>
-        {formatChangePct(pct)}
-      </span>
-      <span className="text-[10px] font-mono tabular-nums w-10 text-right shrink-0 text-ink-3">
-        {turnoverRate != null ? `${turnoverRate.toFixed(1)}%` : '-'}
-      </span>
-      {leadStockName ? (
-        <span className="text-[10px] w-24 text-right shrink-0 text-ink-3 truncate" title={`${leadStockName} ${formatChangePct(leadStockChangePct ?? 0)}`}>
-          <span className="text-ink-3">{leadStockName}</span>
-          {leadStockChangePct != null && (
-            <span className={cn('ml-1 font-mono', netTextColor(leadStockChangePct))}>
-              {formatChangePct(leadStockChangePct)}
-            </span>
-          )}
-        </span>
-      ) : (
-        <span className="text-[10px] w-24 text-right shrink-0 text-ink-3">-</span>
-      )}
-    </div>
-  );
-}
-
-function TimelineRow({ event }: { event: TimelineEvent }) {
-  const sentimentColor = event.sentiment === 'positive' ? 'text-inflow' : event.sentiment === 'negative' ? 'text-outflow' : 'text-ink-2';
-  return (
-    <div className="flex gap-3 py-2 border-b border-hairline last:border-0">
-      <span className="text-[11px] text-ink-3 font-mono shrink-0 w-10">{event.time}</span>
-      <div className="flex-1 min-w-0">
-        <div className={cn('text-xs font-medium', sentimentColor)}>{event.title}</div>
-        {event.description && <div className="text-[11px] text-ink-3 mt-0.5 line-clamp-2">{event.description}</div>}
-      </div>
-      {event.sector && <span className="text-[10px] text-ink-3 shrink-0 px-1.5 py-0.5 rounded bg-surface-2 h-fit">{event.sector}</span>}
-    </div>
-  );
-}
+import { SocialKnowledgeCard } from '../components/daily-report/SocialKnowledgeCard';
+import { BloombergHeader } from '../components/daily-report/BloombergHeader';
+import { MarketOverview } from '../components/daily-report/MarketOverview';
+import { SectorFlowTable } from '../components/daily-report/SectorFlowTable';
+import { TimelinePanel } from '../components/daily-report/TimelinePanel';
+import { NewsBriefs } from '../components/daily-report/NewsBriefs';
+import { AnalysisPanel } from '../components/daily-report/AnalysisPanel';
+import {
+  SOCIAL_CARD_FORMATS,
+  exportAllCards,
+  exportCardPng,
+  previewScale,
+  type SocialCardFormat,
+} from '../lib/social-card';
+import { cn } from '../lib/utils';
+import type { DailyReport } from '../types';
 
 export function DailyReportPage() {
-  const reportRef = useRef<HTMLDivElement>(null);
+  const exportRefs = useRef<(HTMLDivElement | null)[]>([]);
   const [dates, setDates] = useState<string[]>([]);
   const [selectedDate, setSelectedDate] = useState('');
   const [report, setReport] = useState<DailyReport | null>(null);
   const [loading, setLoading] = useState(true);
   const [generating, setGenerating] = useState(false);
   const [downloading, setDownloading] = useState(false);
+  const [activeCard, setActiveCard] = useState(0);
+  const [format, setFormat] = useState<SocialCardFormat>('xhs');
+  const [showCards, setShowCards] = useState(false);
 
   const parsed = useMemo(() => {
     if (!report?.report) return null;
@@ -111,10 +39,36 @@ export function DailyReportPage() {
       const obj = JSON.parse(report.report);
       report._parsed = obj;
       return obj as NonNullable<DailyReport['_parsed']>;
-    } catch { return null; }
+    } catch {
+      return null;
+    }
   }, [report]);
 
-  useEffect(() => { loadDates(); }, []);
+  const cards = parsed?.cards ?? [];
+  const spec = SOCIAL_CARD_FORMATS[format];
+  const scale = previewScale(format);
+  const previewHeight = spec.height * scale;
+
+  const selectedIdx = useMemo(() => {
+    if (!selectedDate || dates.length === 0) return -1;
+    return dates.indexOf(selectedDate);
+  }, [selectedDate, dates]);
+
+  const handlePrevDate = useCallback(() => {
+    if (selectedIdx > 0) {
+      setSelectedDate(dates[selectedIdx - 1]);
+    }
+  }, [selectedIdx, dates]);
+
+  const handleNextDate = useCallback(() => {
+    if (selectedIdx < dates.length - 1) {
+      setSelectedDate(dates[selectedIdx + 1]);
+    }
+  }, [selectedIdx, dates]);
+
+  useEffect(() => {
+    loadDates();
+  }, []);
 
   useEffect(() => {
     if (selectedDate) {
@@ -124,6 +78,11 @@ export function DailyReportPage() {
     }
   }, [selectedDate]);
 
+  useEffect(() => {
+    setActiveCard(0);
+    exportRefs.current = [];
+  }, [report?.date, cards.length, format]);
+
   async function loadDates() {
     try {
       const data = await api.getDailyReportDates();
@@ -131,7 +90,7 @@ export function DailyReportPage() {
       if (data.dates?.length > 0) {
         setSelectedDate(data.dates[0]);
       }
-    } catch { /* ignore */ }
+    } catch {}
     setLoading(false);
   }
 
@@ -151,291 +110,240 @@ export function DailyReportPage() {
     try {
       const data = await api.generateDailyReport(date);
       if (data.report) {
-        try { data._parsed = JSON.parse(data.report); } catch { /* ignore */ }
+        try {
+          data._parsed = JSON.parse(data.report);
+        } catch {} 
       }
       setReport(data);
       if (!dates.includes(date)) {
-        setDates(prev => [date, ...prev]);
+        setDates((prev) => [date, ...prev]);
       }
-    } catch { /* ignore */ }
+    } catch {
+      ArcoMessage.error('生成日报失败，请确认当日已有板块数据');
+    }
     setGenerating(false);
   }
 
-  async function handleDownloadImage() {
-    if (!reportRef.current || !report) return;
+  async function handleDownloadCurrent() {
+    const el = exportRefs.current[activeCard];
+    if (!el || !report) return;
     setDownloading(true);
     try {
-      const canvas = await html2canvas(reportRef.current, {
-        backgroundColor: '#0f0f14',
-        scale: 2,
-        useCORS: true,
-        logging: false,
-      });
-      const link = document.createElement('a');
-      link.download = `日报_${report.date || selectedDate}.png`;
-      link.href = canvas.toDataURL('image/png');
-      link.click();
+      await exportCardPng(
+        el,
+        `日报_${report.date || selectedDate}_${activeCard + 1}_${spec.label}.png`,
+        format,
+      );
     } catch (err) {
-      Message.error('截图生成失败');
-      console.error('html2canvas error:', err);
+      ArcoMessage.error('导出失败');
+      console.error(err);
     } finally {
       setDownloading(false);
     }
   }
 
-  const p = parsed;
-  const hasSectors = p && (p.topInflows?.length > 0 || p.topOutflows?.length > 0);
-  const maxAbs = p ? Math.max(
-    ...(p.topInflows || []).map(s => Math.abs(s.net)),
-    ...(p.topOutflows || []).map(s => Math.abs(s.net)),
-    1,
-  ) : 1;
+  async function handleDownloadAll() {
+    if (!report) return;
+    const elements = exportRefs.current.filter(Boolean) as HTMLElement[];
+    if (elements.length === 0) return;
+    setDownloading(true);
+    try {
+      await exportAllCards(elements, report.date || selectedDate, format);
+      ArcoMessage.success(`已导出 ${elements.length} 张${spec.label}卡片`);
+    } catch (err) {
+      ArcoMessage.error('批量导出失败');
+      console.error(err);
+    } finally {
+      setDownloading(false);
+    }
+  }
+
+  if (loading) {
+    return (
+      <div className="flex min-h-[400px] items-center justify-center">
+        <Loader2 className="h-6 w-6 animate-spin text-ink-3" />
+      </div>
+    );
+  }
 
   return (
-    <div className="relative min-h-screen px-5 py-5">
-      <div className="relative">
-        <PageHeader
-          title="每日日报"
-          meta={<span>收盘后自动生成的大盘资金流向总结与明日展望</span>}
+    <div className="space-y-4">
+      <BloombergHeader
+        date={selectedDate}
+        session={report?.session || 'full'}
+        generated={report?.generated}
+        loading={generating}
+        onGenerate={handleGenerate}
+        onPrevDate={selectedIdx > 0 ? handlePrevDate : undefined}
+        onNextDate={selectedIdx >= 0 && selectedIdx < dates.length - 1 ? handleNextDate : undefined}
+        hasPrev={selectedIdx > 0}
+        hasNext={selectedIdx >= 0 && selectedIdx < dates.length - 1}
+      />
+
+      <div className="flex items-center gap-3">
+        <DatePicker
+          style={{ width: 160 }}
+          value={selectedDate}
+          onChange={(v) => setSelectedDate(v || '')}
+          placeholder="选择日期"
         />
+        <Button
+          type="primary"
+          loading={generating}
+          onClick={handleGenerate}
+          icon={<IconRefresh />}
+          className="!bg-primary !border-primary !text-primary-ink !font-semibold border-0"
+          size="small"
+        >
+          {generating ? '生成中…' : '生成日报'}
+        </Button>
+      </div>
 
-        <div className="flex items-center gap-3 mb-6">
-          <DatePicker
-            style={{ width: 160 }}
-            value={selectedDate}
-            onChange={(v) => setSelectedDate(v || '')}
-            placeholder="选择日期"
+      {!report ? (
+        <EmptyState
+          title="暂无日报"
+          description={
+            selectedDate
+              ? '该日期还没有日报，点击「生成日报」创建'
+              : '选择一个日期或点击生成按钮'
+          }
+        />
+      ) : (
+        <>
+          <MarketOverview
+            netTotal={report.netTotal ?? parsed?.netTotal ?? 0}
+            inflowCount={report.inflowCount ?? parsed?.inflowCount ?? 0}
+            outflowCount={report.outflowCount ?? parsed?.outflowCount ?? 0}
+            superNetTotal={report.superNetTotal ?? parsed?.superNetTotal ?? 0}
+            bigNetTotal={report.bigNetTotal ?? parsed?.bigNetTotal ?? 0}
+            structureDesc={report.structureDesc ?? parsed?.structureDesc ?? ''}
           />
-          <Button
-            type="primary"
-            loading={generating}
-            onClick={handleGenerate}
-            icon={<IconRefresh />}
-            className="!bg-primary !border-primary !text-primary-ink !font-semibold shadow-glow-primary hover:!brightness-110"
-          >
-            {generating ? '生成中…' : '生成日报'}
-          </Button>
-          {report && (
-            <Button
-              onClick={handleDownloadImage}
-              loading={downloading}
-              icon={<IconDownload />}
-              className="!bg-surface-2 !border-hairline !text-ink hover:!bg-hairline-active !font-semibold"
-            >
-              下载图片
-            </Button>
-          )}
-        </div>
 
-        {loading ? (
-          <EmptyState compact title="加载中..." />
-        ) : !report ? (
-          <EmptyState
-            title="暂无日报"
-            description={selectedDate ? `该日期还没有日报，点击"生成日报"按钮创建` : '选择一个日期或点击生成按钮'}
-          />
-        ) : (
-          <div ref={reportRef} className="py-2">
+          <div className="grid gap-4 lg:grid-cols-[1fr_360px]">
+            <SectorFlowTable
+              topInflows={parsed?.topInflows ?? []}
+              topOutflows={parsed?.topOutflows ?? []}
+            />
+            <TimelinePanel events={parsed?.timeline ?? []} />
+          </div>
 
-            <GlassPanel className="p-6 space-y-0">
+          <div className="grid gap-4 lg:grid-cols-[1fr_360px]">
+            <NewsBriefs news={parsed?.newsBriefs ?? []} />
+            <AnalysisPanel
+              summary={report.summary || parsed?.summary || ''}
+              outlook={report.outlook || parsed?.outlook || ''}
+            />
+          </div>
 
-              <div className="flex items-center justify-between mb-1">
+          {cards.length > 0 && (
+            <div className="rounded-xl border border-white/[0.06] bg-black/30 backdrop-blur-sm">
+              <button
+                type="button"
+                onClick={() => setShowCards(!showCards)}
+                className="flex w-full items-center justify-between px-5 py-3 text-left transition-colors hover:bg-white/[0.02]"
+              >
                 <div className="flex items-center gap-2">
-                  <span className="w-2 h-2 rounded-full bg-primary shadow-glow-primary" />
-                  <h1 className="text-lg font-semibold text-ink">每日资金流向报告</h1>
+                  <IconImage className="h-4 w-4 text-ink-3" />
+                  <span className="text-sm font-semibold text-white">社交知识卡片</span>
+                  <span className="rounded bg-white/[0.04] px-1.5 py-0.5 text-[11px] text-ink-3">
+                    {cards.length} 张
+                  </span>
                 </div>
-                <span className="text-xs text-ink-3 font-mono">{formatDateLabel(report.date || selectedDate)}</span>
-              </div>
-              <p className="text-[11px] text-ink-3 ml-4">大盘资金流向 · 板块排行 · 明日展望</p>
+                <span className={cn('text-xs text-ink-3 transition-transform', showCards && 'rotate-180')}>
+                  ▼
+                </span>
+              </button>
 
-              <SectionDivider />
-
-              {p && (
-                <div className="grid grid-cols-1 md:grid-cols-5 gap-6 pb-2">
-                  <div className="md:col-span-3">
-                    <div className="text-[11px] text-ink-3 font-medium tracking-wide">净流向</div>
-                    <div className={cn(
-                      'text-[40px] font-bold tracking-tight leading-none font-mono tabular-nums mt-2',
-                      netTextColor(p.netTotal),
-                    )}>
-                      {p.netTotal >= 0 ? '+' : ''}{p.netTotal.toFixed(2)}
-                      <span className="text-base font-sans font-semibold text-ink-3 ml-1.5 align-baseline">亿</span>
+              {showCards && (
+                <div className="border-t border-white/[0.06] px-5 py-4">
+                  <div className="mb-4 flex flex-wrap items-center gap-4">
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs text-ink-3">发布格式</span>
+                      <select
+                        value={format}
+                        onChange={(e) => setFormat(e.target.value as SocialCardFormat)}
+                        className="rounded-lg border border-white/[0.06] bg-black/40 px-2 py-1 text-xs text-white outline-none"
+                      >
+                        <option value="xhs">小红书 3:4</option>
+                        <option value="douyin">抖音 9:16</option>
+                      </select>
                     </div>
-                    <div className="flex gap-6 mt-3">
-                      <div>
-                        <span className="text-[10px] text-ink-3 uppercase tracking-wide">净流入</span>
-                        <div className="text-base font-semibold text-inflow font-mono tabular-nums">{p.inflowCount}</div>
-                      </div>
-                      <div>
-                        <span className="text-[10px] text-ink-3 uppercase tracking-wide">净流出</span>
-                        <div className="text-base font-semibold text-outflow font-mono tabular-nums">{p.outflowCount}</div>
-                      </div>
-                      <div>
-                        <span className="text-[10px] text-ink-3 uppercase tracking-wide">板块总数</span>
-                        <div className="text-base font-semibold text-ink-2 font-mono tabular-nums">{(p.inflowCount || 0) + (p.outflowCount || 0)}</div>
+                    <div className="flex items-center gap-2">
+                      <Button
+                        size="mini"
+                        onClick={handleDownloadCurrent}
+                        loading={downloading}
+                        icon={<IconDownload />}
+                      >
+                        下载当前卡片
+                      </Button>
+                      <Button
+                        size="mini"
+                        type="outline"
+                        onClick={handleDownloadAll}
+                        loading={downloading}
+                        icon={<IconDownload />}
+                      >
+                        下载全部 ({cards.length} 张)
+                      </Button>
+                    </div>
+                  </div>
+
+                  <div className="mb-4 flex flex-wrap items-center gap-2">
+                    {cards.map((card, idx) => (
+                      <button
+                        key={card.index}
+                        type="button"
+                        onClick={() => setActiveCard(idx)}
+                        className={cn(
+                          'rounded-full border px-3 py-1.5 text-xs transition-colors',
+                          activeCard === idx
+                            ? 'border-primary/40 bg-primary/10 text-primary'
+                            : 'border-hairline bg-black/20 text-ink-3 hover:text-ink-2',
+                        )}
+                      >
+                        第 {card.index} 张 · {card.tag}
+                      </button>
+                    ))}
+                  </div>
+
+                  <div className="flex flex-col items-center">
+                    <p className="mb-3 text-xs text-ink-3">
+                      预览比例 {spec.hint} · 导出为 PNG 可直接上传
+                    </p>
+                    <div
+                      className="overflow-hidden rounded-[20px] border border-hairline shadow-lg"
+                      style={{ width: spec.width * scale, height: previewHeight }}
+                    >
+                      <div
+                        style={{
+                          width: spec.width,
+                          height: spec.height,
+                          transform: `scale(${scale})`,
+                          transformOrigin: 'top left',
+                        }}
+                      >
+                        <SocialKnowledgeCard card={cards[activeCard]} format={format} />
                       </div>
                     </div>
                   </div>
-                  <div className="md:col-span-2 flex flex-col justify-center gap-2.5 border-t md:border-t-0 md:border-l border-hairline pt-4 md:pt-0 md:pl-6">
-                    {[
-                      { label: '超大单', value: p.superNetTotal },
-                      { label: '大单', value: p.bigNetTotal },
-                    ].map(item => (
-                      <div key={item.label} className="flex items-center justify-between">
-                        <span className="text-xs text-ink-3">{item.label}</span>
-                        <div className="flex items-center gap-2">
-                          <div className={cn('w-16 h-1 rounded-full', item.value > 0 ? 'bg-inflow/40' : item.value < 0 ? 'bg-outflow/40' : 'bg-surface-3')}>
-                            <div
-                              className={cn('h-full rounded-full', item.value > 0 ? 'bg-inflow' : 'bg-outflow')}
-                              style={{ width: `${Math.min(Math.abs(item.value) / Math.max(Math.abs(p.netTotal), 1) * 100, 100)}%` }}
-                            />
-                          </div>
-                          <span className={cn('text-xs font-mono font-semibold tabular-nums w-20 text-right', netTextColor(item.value))}>
-                            {formatNet(item.value)}
-                          </span>
-                        </div>
+
+                  <div className="fixed left-[-9999px] top-0" aria-hidden>
+                    {cards.map((card, idx) => (
+                      <div
+                        key={`export-${format}-${card.index}`}
+                        ref={(el) => { exportRefs.current[idx] = el; }}
+                      >
+                        <SocialKnowledgeCard card={card} format={format} />
                       </div>
                     ))}
-                    <div className="flex items-center justify-between">
-                      <span className="text-xs text-ink-3">结构</span>
-                      <span className="text-xs text-ink-2 text-right max-w-[180px]">{p.structureDesc}</span>
-                    </div>
                   </div>
                 </div>
               )}
-
-              {hasSectors && (
-                <>
-                  <SectionDivider />
-                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                    {p!.topInflows?.length > 0 && (
-                      <div>
-                        <div className="flex items-center gap-2 mb-3">
-                          <span className="w-1 h-3 rounded-full bg-inflow" />
-                          <h3 className="text-sm font-semibold text-ink">流入排行</h3>
-                        </div>
-                        <div className="flex items-center gap-2 pb-1.5 mb-1 border-b border-hairline text-[10px] text-ink-3 font-medium tracking-wide uppercase">
-                          <span className="w-4 text-right shrink-0">#</span>
-                          <span className="w-20 truncate shrink-0">板块</span>
-                          <span className="flex-1" />
-                          <span className="w-20 text-right shrink-0">净流向</span>
-                          <span className="w-12 text-right shrink-0">涨跌</span>
-                          <span className="w-10 text-right shrink-0">换手</span>
-                          <span className="w-24 text-right shrink-0">领涨股</span>
-                        </div>
-                        {p!.topInflows.map((s, i) => (
-                          <SectorBar key={s.name} rank={i + 1} name={s.name} value={s.net} pct={s.changePct} maxAbs={maxAbs} isInflow turnoverRate={s.turnoverRate} leadStockName={s.leadStockName} leadStockChangePct={s.leadStockChangePct} />
-                        ))}
-                      </div>
-                    )}
-                    {p!.topOutflows?.length > 0 && (
-                      <div>
-                        <div className="flex items-center gap-2 mb-3">
-                          <span className="w-1 h-3 rounded-full bg-outflow" />
-                          <h3 className="text-sm font-semibold text-ink">流出排行</h3>
-                        </div>
-                        <div className="flex items-center gap-2 pb-1.5 mb-1 border-b border-hairline text-[10px] text-ink-3 font-medium tracking-wide uppercase">
-                          <span className="w-4 text-right shrink-0">#</span>
-                          <span className="w-20 truncate shrink-0">板块</span>
-                          <span className="flex-1" />
-                          <span className="w-20 text-right shrink-0">净流向</span>
-                          <span className="w-12 text-right shrink-0">涨跌</span>
-                          <span className="w-10 text-right shrink-0">换手</span>
-                          <span className="w-24 text-right shrink-0">领涨股</span>
-                        </div>
-                        {p!.topOutflows.map((s, i) => (
-                          <SectorBar key={s.name} rank={i + 1} name={s.name} value={s.net} pct={s.changePct} maxAbs={maxAbs} isInflow={false} turnoverRate={s.turnoverRate} leadStockName={s.leadStockName} leadStockChangePct={s.leadStockChangePct} />
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                </>
-              )}
-
-              {(report.summary || report.outlook) && (
-                <>
-                  <SectionDivider />
-                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                    {report.summary && (
-                      <div className="pl-4 border-l-2 border-l-inflow">
-                        <div className="text-xs font-semibold text-inflow mb-2">今日总结</div>
-                        <div className="text-sm text-ink-2 leading-relaxed whitespace-pre-wrap">{report.summary}</div>
-                      </div>
-                    )}
-                    {report.outlook && (
-                      <div className="pl-4 border-l-2 border-l-outflow">
-                        <div className="text-xs font-semibold text-outflow mb-2">明日展望</div>
-                        <div className="text-sm text-ink-2 leading-relaxed whitespace-pre-wrap">{report.outlook}</div>
-                      </div>
-                    )}
-                  </div>
-                </>
-              )}
-
-              {p?.timeline && p.timeline.length > 0 && (
-                <>
-                  <SectionDivider />
-                  <div>
-                    <SectionHeader title="时间线" />
-                    <div className="max-h-64 overflow-y-auto">
-                      {p.timeline.map((ev, i) => (
-                        <TimelineRow key={i} event={ev} />
-                      ))}
-                    </div>
-                  </div>
-                </>
-              )}
-
-              {p?.newsBriefs && p.newsBriefs.length > 0 && (
-                <>
-                  <SectionDivider />
-                  <div>
-                    <SectionHeader title="要闻" />
-                    <div className="space-y-1.5">
-                      {p.newsBriefs.map((nb, i) => {
-                        const levelColor = nb.level === 'A' ? 'text-inflow' : nb.level === 'B' ? 'text-primary' : 'text-ink-3';
-                        return (
-                          <div key={i} className="flex items-baseline gap-2 py-1 border-b border-hairline last:border-0">
-                            <span className={cn('text-[10px] font-semibold shrink-0', levelColor)}>[{nb.level}]</span>
-                            <span className="text-xs text-ink-2 flex-1">{nb.title}</span>
-                            <span className="text-[10px] text-ink-3 font-mono shrink-0">{nb.time}</span>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  </div>
-                </>
-              )}
-
-              {p?.copywriting && (
-                <>
-                  <SectionDivider />
-                  <div>
-                    <SectionHeader title="口播文案" />
-                    <div className="text-sm text-ink-2 leading-relaxed whitespace-pre-wrap">{p.copywriting}</div>
-                  </div>
-                </>
-              )}
-
-              {report.report && (
-                <>
-                  <SectionDivider />
-                  <details>
-                    <summary className="text-xs text-ink-3 cursor-pointer hover:text-ink-2 select-none">
-                      <span className="inline-block w-1.5 h-1.5 rounded-full bg-ink-3 mr-2" />
-                      完整数据 JSON
-                    </summary>
-                    <pre className="text-[11px] text-ink-3 leading-relaxed overflow-auto max-h-80 whitespace-pre-wrap font-mono mt-3">
-                      {JSON.stringify(parsed, null, 2)}
-                    </pre>
-                  </details>
-                </>
-              )}
-
-            </GlassPanel>
-          </div>
-        )}
-      </div>
+            </div>
+          )}
+        </>
+      )}
     </div>
   );
 }
