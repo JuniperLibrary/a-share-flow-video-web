@@ -144,6 +144,38 @@ export interface NewsBrief {
   title: string;
   level: string;
   time: string;
+  brief?: string;
+  sectors?: string[];
+}
+
+export interface ReportMetric {
+  label: string;
+  value: string;
+  note?: string;
+  tone?: 'up' | 'down' | 'neutral';
+}
+
+export interface ReportHighlight {
+  title: string;
+  detail: string;
+  tone?: 'up' | 'down' | 'neutral';
+}
+
+export interface ReportBullet {
+  title: string;
+  detail?: string;
+}
+
+export interface ReportCard {
+  index: number;
+  total: number;
+  tag: string;
+  title: string;
+  subtitle: string;
+  metrics?: ReportMetric[];
+  highlights?: ReportHighlight[];
+  bullets?: ReportBullet[];
+  footer?: string;
 }
 
 export interface TimelineEvent {
@@ -161,6 +193,13 @@ export interface DailyReport {
   summary: string;
   outlook: string;
   report?: string;
+  netTotal?: number;
+  inflowCount?: number;
+  outflowCount?: number;
+  superNetTotal?: number;
+  bigNetTotal?: number;
+  structureDesc?: string;
+  generated?: boolean;
   // parsed from report JSON string
   _parsed?: {
     date: string;
@@ -176,6 +215,7 @@ export interface DailyReport {
     structureDesc: string;
     summary: string;
     outlook: string;
+    cards?: ReportCard[];
     timeline?: TimelineEvent[];
     newsBriefs?: NewsBrief[];
     copywriting?: string;
