@@ -21,6 +21,10 @@ export default defineConfig({
         target: process.env.VITE_API_TARGET || 'http://localhost:8084',
         changeOrigin: true,
       },
+      '/output': {
+        target: process.env.VITE_API_TARGET || 'http://localhost:8084',
+        changeOrigin: true,
+      },
     },
   },
 })
