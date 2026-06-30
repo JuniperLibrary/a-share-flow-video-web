@@ -102,11 +102,11 @@ export const Header: React.FC<HeaderProps> = ({
           <div
             style={{
               color: '#8899aa',
-              fontSize: 22 * scale,
-              fontWeight: 300,
+              fontSize: 30 * scale,
+              fontWeight: 600,
               letterSpacing: 3,
               fontFamily: '"Helvetica Neue", Arial, sans-serif',
-              opacity: 0.8,
+              opacity: 0.9,
             }}
           >
             {displayDate}
@@ -173,7 +173,7 @@ export const Header: React.FC<HeaderProps> = ({
               style={{
                 fontSize: 36 * scale,
                 fontWeight: 700,
-                letterSpacing: 4,
+                letterSpacing: 2.6,
                 fontFamily: '"PingFang SC", "Helvetica Neue", sans-serif',
                 color: titleColors[i],
                 textShadow: `0 0 20px ${titleColors[i]}44, 0 2px 8px rgba(0,0,0,0.5)`,
@@ -221,9 +221,11 @@ export const Header: React.FC<HeaderProps> = ({
               fontWeight: 700,
               color: '#ffffff',
               fontFamily: '"PingFang SC", "Helvetica Neue", sans-serif',
-              letterSpacing: 4,
+              letterSpacing: isTV ? 1.6 : 2,
               lineHeight: 1.4,
               textShadow: `0 4px 24px rgba(0,0,0,0.6), 0 0 60px ${sentimentColor}22`,
+              maxWidth: isTV ? '74%' : '86%',
+              margin: '0 auto',
             }}
           >
             {hookText}
@@ -236,7 +238,7 @@ export const Header: React.FC<HeaderProps> = ({
               color: sentimentColor,
               fontWeight: 400,
               fontFamily: '"PingFang SC", "Helvetica Neue", sans-serif',
-              letterSpacing: 3,
+              letterSpacing: isTV ? 2 : 2.4,
               opacity: 0.7,
             }}
           >

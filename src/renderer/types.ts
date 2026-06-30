@@ -41,7 +41,7 @@ export interface SectorTick {
   name: string;
   color: string;
   data: number[];
-  times: string[];
+  times?: string[];
   rate: number;
   changePct?: number;
   superNet?: number;
@@ -58,10 +58,31 @@ export interface SectorTick {
   circulatingMarketCap?: number;
 }
 
+export interface CatalysisSectorAnalysis {
+  sector: string;
+  analysis: string;
+  insights: string[];
+}
+
+export interface CatalysisResult {
+  sectors: CatalysisSectorAnalysis[];
+}
+
+export interface MainStructureResult {
+  conclusion: string;
+  concentration: string;
+  risk: string;
+  structure: string;
+  outlook: string;
+  signal?: string;
+  action?: string;
+}
+
 export interface BloombergVideoProps {
   dateStr: string;
   displayDate: string;
   totalFrames?: number;
+  times?: string[];
   sectors: SectorData[];
   events?: MarketEvent[];
   timelineEvents?: TimelineEvent[];
@@ -88,12 +109,17 @@ export interface BloombergVideoProps {
   scene5Frames?: number;
   baseAnimationFrames?: number;
   chartNarrationAudios?: string[];
+  chartNarrationFrames?: number[];
   chartNarrationSegments?: number[];
   chartNarrationTexts?: string[];
   newsPages?: NewsPage[];
   newsAudioFiles?: string[];
   newsAudioFrames?: number[];
   newsNarrationTexts?: string[];
+  mainStructureAudio?: string;
+  mainStructureFrames?: number;
+  catalysisResult?: CatalysisResult;
+  mainStructureResult?: MainStructureResult;
 }
 
 export interface NewsItem {

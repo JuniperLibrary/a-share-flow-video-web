@@ -46,6 +46,10 @@ export interface CLSNewsRow {
   ctime: string;
   shareurl: string;
   sectors: string;
+  classify_status: string;
+  retry_count: number;
+  last_retry_at: string;
+  last_error: string;
   created_at: string;
 }
 
@@ -111,9 +115,16 @@ export async function getDashboardData() {
   // Use the latest date's sector data for ranking
   const latestDate = dates[0];
   const latestSectors = sectors.filter(s => s.datetime.startsWith(latestDate));
+  const latestByName = new Map<string, SectorRow>();
+  for (const row of latestSectors) {
+    const prev = latestByName.get(row.name);
+    if (!prev || row.datetime > prev.datetime) {
+      latestByName.set(row.name, row);
+    }
+  }
 
   // Sort by net to get ranking
-  const sorted = [...latestSectors].sort((a, b) => b.net - a.net);
+  const sorted = [...latestByName.values()].sort((a, b) => b.net - a.net);
   const ranking = sorted.map(s => ({ name: s.name, net: s.net, rate: s.rate, category: '' }));
 
   const inflowCount = ranking.filter(s => s.net > 0).length;

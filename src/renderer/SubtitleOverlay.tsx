@@ -8,20 +8,46 @@ interface SubtitleOverlayProps {
   height: number;
 }
 
-function splitSentences(text: string): string[] {
+function normalizeSubtitleText(text: string): string {
   return text
-    .split(/[。！？!?]/)
-    .map((part) => part.replace(/\s+/g, ' ').trim())
-    .filter(Boolean);
+    .replace(/\r\n/g, '\n')
+    .replace(/\s+/g, ' ')
+    .replace(/[“”]/g, '"')
+    .trim();
 }
 
 function splitSubtitle(text: string, maxLineLength: number): string[] {
-  const runes = Array.from(text.replace(/[，、]/g, ' ').replace(/\s+/g, ' ').trim());
-  const lines: string[] = [];
-  for (let i = 0; i < runes.length && lines.length < 2; i += maxLineLength) {
-    lines.push(runes.slice(i, i + maxLineLength).join(''));
+  const cleaned = normalizeSubtitleText(text);
+  if (!cleaned) return [];
+
+  const rawParts = cleaned.split('\n').map(s => s.trim()).filter(Boolean);
+  const merged = rawParts.join(' ');
+  const runes = Array.from(merged);
+  if (runes.length <= maxLineLength) return [merged];
+
+  const targets = new Set(['，', '、', ' ', '；', '：', '。', '！', '？', ',', ';', ':', '!', '?']);
+  const center = maxLineLength;
+  let best = -1;
+  let bestDist = 1e9;
+  const lo = Math.max(6, center - 8);
+  const hi = Math.min(runes.length - 6, center + 10);
+  for (let i = lo; i <= hi; i++) {
+    if (!targets.has(runes[i])) continue;
+    const dist = Math.abs(i - center);
+    if (dist < bestDist) {
+      bestDist = dist;
+      best = i;
+    }
   }
-  return lines;
+  if (best < 0) best = Math.min(runes.length - 1, center);
+
+  const l1 = runes.slice(0, best + 1).join('').trim();
+  let l2 = runes.slice(best + 1).join('').trim();
+  if (Array.from(l2).length > maxLineLength) {
+    l2 = Array.from(l2).slice(0, Math.max(0, maxLineLength-1)).join('') + '…';
+  }
+  const lines = [l1, l2].filter(Boolean);
+  return lines.slice(0, 2);
 }
 
 export const SubtitleOverlay: React.FC<SubtitleOverlayProps> = ({
@@ -34,18 +60,14 @@ export const SubtitleOverlay: React.FC<SubtitleOverlayProps> = ({
   const { durationInFrames } = useVideoConfig();
   const isTV = format === 'tv';
   const lines = React.useMemo(() => {
-    const sentences = splitSentences(text);
-    if (sentences.length === 0) return [];
-    const index = Math.min(
-      sentences.length - 1,
-      Math.floor((frame / Math.max(1, durationInFrames)) * sentences.length),
-    );
-    return splitSubtitle(sentences[index], isTV ? 24 : 15);
-  }, [text, isTV, frame, durationInFrames]);
+    return splitSubtitle(text, isTV ? 26 : 16);
+  }, [text, isTV]);
 
   if (lines.length === 0) return null;
 
   const fadeIn = Math.min(1, frame / 8);
+  const fadeOut = Math.min(1, Math.max(0, (durationInFrames - frame) / 10));
+  const opacity = fadeIn * fadeOut;
   const bottom = isTV ? height * 0.07 : height * 0.13;
   const fontSize = isTV ? 34 : 54;
   const lineHeight = 1.28;
@@ -60,25 +82,27 @@ export const SubtitleOverlay: React.FC<SubtitleOverlayProps> = ({
         alignItems: 'center',
         justifyContent: 'flex-end',
         paddingBottom: bottom,
-        opacity: fadeIn,
+        opacity,
       }}
     >
       <div
         style={{
           maxWidth,
           padding: isTV ? '14px 28px' : '18px 30px',
-          borderRadius: 8,
-          background: 'rgba(3, 10, 22, 0.72)',
-          border: '1px solid rgba(120, 150, 190, 0.22)',
+          borderRadius: 12,
+          background: 'rgba(3, 10, 22, 0.62)',
+          border: '1px solid rgba(140, 180, 220, 0.20)',
           boxShadow: '0 12px 34px rgba(0,0,0,0.35)',
+          backdropFilter: 'blur(10px)',
+          WebkitBackdropFilter: 'blur(10px)',
           color: '#ffffff',
           fontFamily: '"PingFang SC", "Helvetica Neue", sans-serif',
           fontSize,
-          fontWeight: 800,
+          fontWeight: 700,
           lineHeight,
           textAlign: 'center',
           textShadow: '0 3px 12px rgba(0,0,0,0.7)',
-          letterSpacing: 0,
+          letterSpacing: isTV ? 0.6 : 0.4,
         }}
       >
         {lines.map((line, index) => (

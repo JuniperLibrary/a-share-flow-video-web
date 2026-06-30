@@ -1,4 +1,4 @@
-import type { DateItem, Sector, ConfigData, NewsListResponse, NewsSearchResponse, NewsStatusResponse, NewsDateResponse, DebateScript, DebateAudioTurn, DebateProbeReport, DebateHistoryEntry, DailyReport, TTSResult } from './types';
+import type { DateItem, Sector, ConfigData, NewsListResponse, NewsSearchResponse, NewsStatusResponse, NewsDateResponse, DebateScript, DebateAudioTurn, DebateProbeReport, DebateHistoryEntry, DailyReport, TTSResult, SectorCatalogItem, SectorWatchItem, SectorCategory } from './types';
 import { apiUrl } from './utils';
 import * as staticData from './lib/staticData';
 
@@ -53,6 +53,36 @@ interface Note {
   updated_at: string;
 }
 
+interface TickStatusResponse {
+  running: boolean;
+  date: string;
+  tickCount: number;
+  errCount: number;
+  lastTick: string;
+  intervalMinutes: number;
+}
+
+interface TickDataPoint {
+  Time: string;
+  Name: string;
+  Net: number;
+  Rate: number;
+  ChangePct: number;
+  SuperNet: number;
+  SuperRate: number;
+  BigNet: number;
+  BigRate: number;
+  MainRate: number;
+  Volume: number;
+  Turnover: number;
+  BKCode: string;
+  TurnoverRate: number;
+  LeadStockName: string;
+  LeadStockChangePct: number;
+  TotalMarketCap: number;
+  CirculatingMarketCap: number;
+}
+
 export const api = {
   isStaticMode: () => staticMode,
 
@@ -102,33 +132,39 @@ export const api = {
     return request<{ total: number }>('/api/news/count').catch(() => ({ total: 0 }));
   },
 
-  getNews: async (limit?: number, offset?: number): Promise<NewsListResponse> => {
+  getNews: async (limit?: number, offset?: number, classifyStatus?: string): Promise<NewsListResponse> => {
     if (staticMode) {
       const all = await staticData.getCLSNews();
-      const records = all.slice(offset || 0, (offset || 0) + (limit || 50));
-      return { records, total: all.length, limit: limit || 50, offset: offset || 0 };
+      const filtered = classifyStatus && classifyStatus !== 'all'
+        ? all.filter((n) => n.classify_status === classifyStatus)
+        : all;
+      const records = filtered.slice(offset || 0, (offset || 0) + (limit || 50));
+      return { records, total: filtered.length, limit: limit || 50, offset: offset || 0 };
     }
-    return request<NewsListResponse>(`/api/news?limit=${limit ?? 50}&offset=${offset ?? 0}`);
+    const statusQuery = classifyStatus && classifyStatus !== 'all' ? `&classify_status=${encodeURIComponent(classifyStatus)}` : '';
+    return request<NewsListResponse>(`/api/news?limit=${limit ?? 50}&offset=${offset ?? 0}${statusQuery}`);
   },
 
-  searchNews: async (q: string, limit?: number, offset?: number): Promise<NewsSearchResponse> => {
+  searchNews: async (q: string, limit?: number, offset?: number, classifyStatus?: string): Promise<NewsSearchResponse> => {
     if (staticMode) {
       const all = await staticData.getCLSNews();
-      const filtered = all.filter(n => n.title.includes(q) || n.brief.includes(q));
+      const filtered = all.filter(n => (n.title.includes(q) || n.brief.includes(q)) && (!classifyStatus || classifyStatus === 'all' || n.classify_status === classifyStatus));
       const records = filtered.slice(offset || 0, (offset || 0) + (limit || 50));
       return { records, total: filtered.length, limit: limit || 50, offset: offset || 0, q };
     }
-    return request<NewsSearchResponse>(`/api/news/search?q=${encodeURIComponent(q)}&limit=${limit ?? 50}&offset=${offset ?? 0}`);
+    const statusQuery = classifyStatus && classifyStatus !== 'all' ? `&classify_status=${encodeURIComponent(classifyStatus)}` : '';
+    return request<NewsSearchResponse>(`/api/news/search?q=${encodeURIComponent(q)}&limit=${limit ?? 50}&offset=${offset ?? 0}${statusQuery}`);
   },
 
-  getNewsByDate: async (date: string, limit?: number, offset?: number): Promise<NewsDateResponse> => {
+  getNewsByDate: async (date: string, limit?: number, offset?: number, classifyStatus?: string): Promise<NewsDateResponse> => {
     if (staticMode) {
       const all = await staticData.getCLSNews();
-      const filtered = all.filter(n => n.ctime.startsWith(date));
+      const filtered = all.filter(n => n.ctime.startsWith(date) && (!classifyStatus || classifyStatus === 'all' || n.classify_status === classifyStatus));
       const records = filtered.slice(offset || 0, (offset || 0) + (limit || 50));
       return { records, total: filtered.length, limit: limit || 50, offset: offset || 0, date };
     }
-    return request<NewsDateResponse>(`/api/news/date?date=${date}&limit=${limit ?? 50}&offset=${offset ?? 0}`);
+    const statusQuery = classifyStatus && classifyStatus !== 'all' ? `&classify_status=${encodeURIComponent(classifyStatus)}` : '';
+    return request<NewsDateResponse>(`/api/news/date?date=${date}&limit=${limit ?? 50}&offset=${offset ?? 0}${statusQuery}`);
   },
 
   // ---- Below: endpoints that require a live backend, will fail in static mode ----
@@ -147,11 +183,11 @@ export const api = {
     return request<ConfigData>('/api/config');
   },
 
-  saveConfig: (api_key: string, api_base: string, model: string) =>
+  saveConfig: (api_key: string, api_base: string, model: string, models?: Record<string, string>) =>
     request<{ ok: boolean }>('/api/config', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ api_key, api_base, model }),
+      body: JSON.stringify({ api_key, api_base, model, models }),
     }),
 
   optimizeCopy: (date: string, session: string) =>
@@ -210,7 +246,27 @@ export const api = {
     }),
 
   getTickData: (date: string, session: string) =>
-    request<{ date: string; session: string; points: { Time: string; Name: string; Net: number }[] }>(`/api/tick-data/${date}?session=${session}`),
+    request<{ date: string; session: string; points: TickDataPoint[] }>(`/api/tick-data/${date}?session=${session}`),
+
+  getTickStatus: () =>
+    request<TickStatusResponse>('/api/tick/status'),
+
+  startTick: async () => {
+    const res = await fetch(apiUrl('/api/tick/start'), { method: 'POST' });
+    const body = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(body.error || `HTTP ${res.status}`);
+    return body as { ok: boolean; message: string };
+  },
+
+  stopTick: async () => {
+    const res = await fetch(apiUrl('/api/tick/stop'), { method: 'POST' });
+    const body = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(body.error || `HTTP ${res.status}`);
+    return body as { ok: boolean; message: string };
+  },
+
+  tickStreamUrl: () =>
+    apiUrl('/api/tick/stream'),
 
   saveAllSectors: (date: string) =>
     request<{ task_id: string; message: string }>(`/api/sectors-all/save/${date}`, {
@@ -237,12 +293,67 @@ export const api = {
   getSectorsAllRange: (startDate: string, endDate: string) =>
     request<{ sectors: { date: string; code: string; name: string; net: number; rate: number }[] }>(`/api/sectors-all/range?start_date=${startDate}&end_date=${endDate}`),
 
+  getSectorCatalog: async (category: SectorCategory) => {
+    if (staticMode) return { items: [] as SectorCatalogItem[] };
+    return request<{ items: SectorCatalogItem[] }>(`/api/sectors/catalog?category=${encodeURIComponent(category)}`);
+  },
+
+  getSectorWatchlist: async () => {
+    if (staticMode) return { items: [] as SectorWatchItem[] };
+    return request<{ items: SectorWatchItem[] }>('/api/sectors/watchlist');
+  },
+
+  setSectorWatchlistItem: async (item: { bk_code: string; name?: string; category?: SectorCategory; enabled?: boolean }) => {
+    if (staticMode) throw new Error('static mode');
+    const res = await fetch(apiUrl('/api/sectors/watchlist/set'), {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(item),
+    });
+    const body = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(body.error || body.message || `HTTP ${res.status}`);
+    return body as { ok: boolean; items: SectorWatchItem[] };
+  },
+
+  removeSectorWatchlistItem: async (bk_code: string) => {
+    if (staticMode) throw new Error('static mode');
+    const res = await fetch(apiUrl('/api/sectors/watchlist/remove'), {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ bk_code }),
+    });
+    const body = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(body.error || body.message || `HTTP ${res.status}`);
+    return body as { ok: boolean; items: SectorWatchItem[] };
+  },
+
   debateGenerate: (report: string, structuredReport?: Record<string, unknown>, stockCode?: string, stockName?: string) => {
     const body: Record<string, unknown> = { report };
     if (structuredReport) body.structuredReport = structuredReport;
     if (stockCode) body.stockCode = stockCode;
     if (stockName) body.stockName = stockName;
     return request<{ taskId: string; script: DebateScript }>('/api/debate/generate', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    });
+  },
+
+  debateCouncilStart: (params: {
+    report: string;
+    structuredReport?: Record<string, unknown>;
+    stockCode?: string;
+    stockName?: string;
+    reportPeriod?: string;
+    useMemory?: boolean;
+  }) => {
+    const body: Record<string, unknown> = { report: params.report };
+    if (params.structuredReport) body.structuredReport = params.structuredReport;
+    if (params.stockCode) body.stockCode = params.stockCode;
+    if (params.stockName) body.stockName = params.stockName;
+    if (params.reportPeriod) body.reportPeriod = params.reportPeriod;
+    if (params.useMemory !== undefined) body.useMemory = params.useMemory;
+    return request<{ taskId: string; script: DebateScript; phase: string; turnCount: number }>('/api/debate/council/start', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(body),
@@ -330,16 +441,26 @@ export const api = {
   stopNews: () =>
     request<{ ok: boolean; message: string }>('/api/news/stop', { method: 'POST' }),
 
+  retryNews: (id: number) =>
+    request<{ ok: boolean; message: string }>(`/api/news/retry/${id}`, { method: 'POST' }),
+
+  retryNewsBatch: (ids: number[]) =>
+    request<{ ok: boolean; queued_count: number; failed: Record<string, string> }>('/api/news/retry-batch', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ids }),
+    }),
+
   getDailyReportDates: () =>
     request<{ dates: string[] }>('/api/daily-report/dates'),
 
   getDailyReport: (date: string) =>
     request<DailyReport>(`/api/daily-report/${date}`),
 
-  generateDailyReport: (date: string, session: string = 'full') =>
+  generateDailyReport: (date: string) =>
     request<DailyReport>('/api/daily-report/generate', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ date, session }),
+      body: JSON.stringify({ date }),
     }),
 };

@@ -24,7 +24,7 @@ export function StatChip({ trend, tone, children, className }: StatChipProps) {
   const toneClasses: Record<Tone, string> = {
     inflow: 'text-inflow bg-inflow-softer border-inflow/20',
     outflow: 'text-outflow bg-outflow-softer border-outflow/20',
-    neutral: 'text-ink-2 bg-white/[0.04] border-hairline',
+    neutral: 'text-ink-2 bg-glass-subtle border-hairline',
     primary: 'text-primary bg-primary-softer border-primary/20',
   };
 

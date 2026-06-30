@@ -1,5 +1,5 @@
 import React from 'react';
-import { useCurrentFrame, Audio, staticFile } from 'remotion';
+import { useCurrentFrame, Audio, staticFile, interpolate } from 'remotion';
 import { Background } from './Background.tsx';
 
 interface NarrativeSceneProps {
@@ -41,6 +41,46 @@ const SCENE_CONFIG = {
   },
 };
 
+function clamp(v: number, min: number, max: number): number {
+  return Math.max(min, Math.min(max, v));
+}
+
+function normalizeSceneText(text: string): string {
+  return text.replace(/\r\n/g, '\n').replace(/\s+/g, ' ').trim();
+}
+
+function splitSceneText(text: string, maxLineLength: number): string[] {
+  const cleaned = normalizeSceneText(text);
+  if (!cleaned) return [];
+  const parts = cleaned.split('\n').map(s => s.trim()).filter(Boolean);
+  const merged = parts.join(' ');
+  const runes = Array.from(merged);
+  if (runes.length <= maxLineLength) return [merged];
+
+  const targets = new Set(['，', '、', ' ', '；', '：', '。', '！', '？', ',', ';', ':', '!', '?']);
+  const center = Math.min(maxLineLength, Math.max(10, Math.floor(runes.length / 2)));
+  let best = -1;
+  let bestDist = 1e9;
+  const lo = Math.max(8, center - 10);
+  const hi = Math.min(runes.length - 8, center + 12);
+  for (let i = lo; i <= hi; i++) {
+    if (!targets.has(runes[i])) continue;
+    const dist = Math.abs(i - center);
+    if (dist < bestDist) {
+      bestDist = dist;
+      best = i;
+    }
+  }
+  if (best < 0) best = center;
+
+  const l1 = runes.slice(0, best + 1).join('').trim();
+  let l2 = runes.slice(best + 1).join('').trim();
+  if (Array.from(l2).length > maxLineLength) {
+    l2 = Array.from(l2).slice(0, Math.max(0, maxLineLength-1)).join('') + '…';
+  }
+  return [l1, l2].filter(Boolean).slice(0, 2);
+}
+
 export const NarrativeScene: React.FC<NarrativeSceneProps> = ({
   sceneText,
   audioFile,
@@ -54,6 +94,10 @@ export const NarrativeScene: React.FC<NarrativeSceneProps> = ({
   const frame = useCurrentFrame();
   const isTV = format === 'tv';
   const config = SCENE_CONFIG[sceneType];
+  const lines = React.useMemo(() => {
+    return splitSceneText(sceneText, isTV ? 18 : 14);
+  }, [sceneText, isTV]);
+  const charCount = React.useMemo(() => Array.from(normalizeSceneText(sceneText)).length, [sceneText]);
 
   const isFirstHook = sceneType === 'hook1';
   const fadeIn = isFirstHook ? 1 : Math.min(1, frame / 15);
@@ -61,10 +105,20 @@ export const NarrativeScene: React.FC<NarrativeSceneProps> = ({
   const opacity = fadeIn * fadeOut;
   const textSlide = isFirstHook ? 1 : Math.min(1, Math.max(0, (frame - 10) / 20));
   const subtitleOpacity = isFirstHook ? 1 : Math.min(1, Math.max(0, (frame - 20) / 15));
+  const dateFadeIn = Math.min(1, Math.max(0, (frame - (isFirstHook ? 12 : 28)) / 10));
+  const dateOpacity = dateFadeIn * fadeOut;
+  const audioVolume = interpolate(frame, [0, 8, Math.max(0, totalFrames - 10), totalFrames], [0, 1, 1, 0], {
+    extrapolateLeft: 'clamp',
+    extrapolateRight: 'clamp',
+  });
+
+  const baseFontSize = isTV ? config.fontSize.tv : config.fontSize.mobile;
+  const fontScale = clamp(1 - Math.max(0, charCount - (isTV ? 22 : 18)) * 0.015, 0.82, 1);
+  const fontSize = Math.floor(baseFontSize * fontScale);
 
   return (
     <>
-      {audioFile && <Audio src={staticFile(audioFile)} />}
+      {audioFile && <Audio src={staticFile(audioFile)} volume={audioVolume} />}
       <Background frame={frame} totalFrames={totalFrames} sentiment="neutral" width={width} height={height} format={format} />
       <div
         style={{
@@ -83,10 +137,38 @@ export const NarrativeScene: React.FC<NarrativeSceneProps> = ({
       >
         <div
           style={{
+            position: 'absolute',
+            top: isTV ? 44 : 72,
+            left: 0,
+            right: 0,
+            display: 'flex',
+            justifyContent: 'center',
+            opacity: dateOpacity,
+            transform: `translateY(${(1 - dateFadeIn) * -10}px)`,
+          }}
+        >
+          <div
+            style={{
+              fontSize: isTV ? 24 : 32,
+              fontWeight: 800,
+              color: '#ffffff',
+              backgroundColor: 'rgba(0, 0, 0, 0.45)',
+              padding: isTV ? '10px 18px' : '12px 22px',
+              borderRadius: 999,
+              fontFamily: '"PingFang SC", "Helvetica Neue", sans-serif',
+              letterSpacing: isTV ? 1.5 : 2,
+              boxShadow: '0 10px 28px rgba(0,0,0,0.35)',
+            }}
+          >
+            {displayDate}
+          </div>
+        </div>
+        <div
+          style={{
             fontSize: isTV ? 24 : 30,
             color: config.color,
             fontFamily: '"PingFang SC", "Helvetica Neue", sans-serif',
-            letterSpacing: 4,
+            letterSpacing: isTV ? 2.2 : 2.6,
             marginBottom: isTV ? 24 : 32,
             opacity: subtitleOpacity * fadeOut,
             fontWeight: 600,
@@ -96,7 +178,7 @@ export const NarrativeScene: React.FC<NarrativeSceneProps> = ({
         </div>
         <div
           style={{
-            fontSize: isTV ? config.fontSize.tv : config.fontSize.mobile,
+            fontSize,
             fontWeight: 700,
             color: '#ffffff',
             fontFamily: '"PingFang SC", "Helvetica Neue", sans-serif',
@@ -107,20 +189,7 @@ export const NarrativeScene: React.FC<NarrativeSceneProps> = ({
             transform: `translateY(${(1 - textSlide) * 30}px)`,
           }}
         >
-          {sceneText}
-        </div>
-        <div
-          style={{
-            position: 'absolute',
-            bottom: isTV ? 40 : 60,
-            fontSize: isTV ? 14 : 16,
-            color: '#667788',
-            fontFamily: '"PingFang SC", "Helvetica Neue", sans-serif',
-            letterSpacing: 2,
-            opacity: Math.min(1, Math.max(0, (frame - 30) / 10)) * fadeOut,
-          }}
-        >
-          {displayDate}
+          {lines.length > 0 ? lines.map((l, idx) => <div key={idx}>{l}</div>) : sceneText}
         </div>
       </div>
     </>

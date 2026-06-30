@@ -1,4 +1,5 @@
 import { FileText, Eye, Copy, Check } from 'lucide-react';
+import { motion } from 'framer-motion';
 import { cn } from '@/lib/utils';
 import { useState } from 'react';
 
@@ -7,13 +8,38 @@ interface AnalysisPanelProps {
   outlook: string;
 }
 
-export function AnalysisPanel({ summary, outlook }: AnalysisPanelProps) {
+const cardVariants = {
+  hidden: { opacity: 0, y: 16 },
+  visible: { opacity: 1, y: 0, transition: { duration: 0.3 } },
+};
+
+function AnalysisFallback() {
   return (
     <div className="grid gap-3 sm:grid-cols-2">
-      <SummaryCard title="当日总结" text={summary} variant="inflow" />
-      <SummaryCard title="后续观察" text={outlook} variant="primary" />
+      <div className="rounded-xl border border-glass bg-glass border-glass px-4 py-5 backdrop-blur-sm">
+        <div className="py-6 text-center text-xs text-ink-3">分析加载异常</div>
+      </div>
     </div>
   );
+}
+
+export function AnalysisPanel({ summary, outlook }: AnalysisPanelProps) {
+  try {
+    return (
+      <motion.div
+        variants={{ hidden: {}, visible: { transition: { staggerChildren: 0.08 } } }}
+        initial="hidden"
+        animate="visible"
+        className="grid gap-3 sm:grid-cols-2"
+      >
+        <SummaryCard title="当日总结" text={summary} variant="inflow" />
+        <SummaryCard title="后续观察" text={outlook} variant="primary" />
+      </motion.div>
+    );
+  } catch (err) {
+    console.error('AnalysisPanel render error:', err);
+    return <AnalysisFallback />;
+  }
 }
 
 function SummaryCard({
@@ -29,17 +55,20 @@ function SummaryCard({
 
   if (!text) {
     return (
-      <div className="rounded-xl border border-white/[0.06] bg-black/30 px-4 py-5 backdrop-blur-sm">
+      <motion.div
+        variants={cardVariants}
+        className="rounded-xl border border-glass bg-glass border-glass px-4 py-5 backdrop-blur-sm"
+      >
         <div className="mb-2 flex items-center gap-2">
           {variant === 'inflow' ? (
             <FileText className="h-4 w-4 text-ink-3" />
           ) : (
             <Eye className="h-4 w-4 text-ink-3" />
           )}
-          <span className="text-sm font-semibold text-white">{title}</span>
+          <span className="text-sm font-semibold text-ink">{title}</span>
         </div>
         <div className="py-6 text-center text-xs text-ink-3">暂无数据</div>
-      </div>
+      </motion.div>
     );
   }
 
@@ -55,9 +84,10 @@ function SummaryCard({
   };
 
   return (
-    <div
+    <motion.div
+      variants={cardVariants}
       className={cn(
-        'rounded-xl border border-white/[0.06] border-l-2 bg-black/30 px-4 py-5 backdrop-blur-sm',
+        'rounded-xl border border-glass border-l-2 bg-glass border-glass px-4 py-5 backdrop-blur-sm transition-colors duration-200',
         borderColor,
       )}
     >
@@ -68,16 +98,16 @@ function SummaryCard({
           ) : (
             <Eye className="h-4 w-4 text-ink-3" />
           )}
-          <span className="text-sm font-semibold text-white">{title}</span>
+          <span className="text-sm font-semibold text-ink">{title}</span>
         </div>
         <button
           type="button"
           onClick={handleCopy}
-          className="flex items-center gap-1 rounded px-1.5 py-0.5 text-[11px] text-ink-3 transition-colors hover:bg-white/[0.06] hover:text-white"
+          className="flex items-center gap-1 rounded px-1.5 py-0.5 text-[11px] text-ink-3 transition-colors duration-200 hover:bg-glass-hover hover:text-ink focus-visible:ring-1 focus-visible:ring-primary/40 focus-visible:outline-none"
         >
           {copied ? (
             <>
-              <Check className="h-3 w-3 text-outflow" /> 已复制
+              <Check className="h-3 w-3 text-inflow" /> 已复制
             </>
           ) : (
             <>
@@ -87,6 +117,6 @@ function SummaryCard({
         </button>
       </div>
       <p className="text-xs leading-relaxed text-ink-2">{text}</p>
-    </div>
+    </motion.div>
   );
 }

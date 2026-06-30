@@ -10,7 +10,36 @@ const tickCalculateMetadata: CalculateMetadataFunction<Record<string, unknown>> 
   if (typeof total === 'number' && total > 0) {
     return { durationInFrames: total };
   }
-  return { durationInFrames: 2700 };
+
+  const toNum = (v: unknown) => {
+    const n = typeof v === 'number' ? v : Number(v);
+    return Number.isFinite(n) ? n : 0;
+  };
+  const toNumArray = (v: unknown) => (Array.isArray(v) ? v.map(toNum) : []);
+
+  const scene1 = toNum(props.scene1Frames);
+  const scene2 = toNum(props.scene2Frames);
+  const scene3 = toNum(props.scene3Frames);
+  const scene4 = toNum(props.scene4Frames);
+  const scene5 = toNum(props.scene5Frames);
+  const baseAnimationFrames = toNum(props.baseAnimationFrames);
+  const newsAudioFrames = toNumArray(props.newsAudioFrames);
+  const sectorTicks = Array.isArray(props.sectorTicks) ? props.sectorTicks : [];
+  const mainStructureFramesFromProps = toNum(props.mainStructureFrames);
+
+  const hasVoiceover = scene1 > 0 || newsAudioFrames.some((x) => x > 0);
+  if (!hasVoiceover) {
+    const fallback = baseAnimationFrames > 0 ? baseAnimationFrames : 2700;
+    return { durationInFrames: fallback };
+  }
+
+  const scene5End = scene1 + scene2 + scene3 + scene4 + scene5;
+  const animEnd = scene5End + baseAnimationFrames;
+  const newsTotal = newsAudioFrames.reduce((sum, x) => sum + x, 0);
+  const mainStructureFrames = sectorTicks.length > 0 ? (mainStructureFramesFromProps > 0 ? mainStructureFramesFromProps : 90) : 0;
+
+  const computed = animEnd + newsTotal + mainStructureFrames;
+  return { durationInFrames: computed > 0 ? computed : 2700 };
 };
 
 const videoCalculateMetadata: CalculateMetadataFunction<Record<string, unknown>> = ({ props }) => {

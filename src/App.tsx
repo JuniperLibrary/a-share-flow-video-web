@@ -23,13 +23,15 @@ import FundTab from './fund/FundTab';
 import { TTSPage } from './pages/TTSPage';
 import { DebatePage } from './pages/DebatePage';
 import { DailyReportPage } from './pages/DailyReportPage';
+import { ErrorBoundary } from './components/ui/ErrorBoundary';
 import { api } from './api';
 import { Sidebar } from './components/ui/sidebar';
+import { MobileHeader } from './components/ui/mobile-header';
 
 type Page = 'dashboard' | 'tick' | 'generate' | 'preview' | 'config' | 'news' | 'fund' | 'notes' | 'tts' | 'debate' | 'dailyreport';
 
 const allNavItems: { key: Page; label: string; icon: React.ReactNode; staticOnly?: boolean }[] = [
-  { key: 'dashboard', label: '仪表盘', icon: <IconDashboard /> },
+  { key: 'dashboard', label: '首页', icon: <IconDashboard /> },
   { key: 'fund', label: '基金宝', icon: <IconStar /> },
   { key: 'tts', label: 'TTS 配音', icon: <IconSound /> },
   { key: 'notes', label: '开发笔记', icon: <IconEdit /> },
@@ -68,7 +70,8 @@ export default function App() {
   };
 
   return (
-    <div className="flex min-h-screen bg-canvas">
+    <div className="flex flex-col min-h-screen bg-canvas md:flex-row">
+      <MobileHeader />
       <Sidebar
         brand="A股情绪流"
         subtitle="板块资金流向可视化"
@@ -79,7 +82,7 @@ export default function App() {
       <main className="flex-1 min-w-0 bg-canvas overflow-auto">
         <div className="p-6">
           <Suspense fallback={<div className="text-ink-3 text-sm">加载中…</div>}>
-            {page === 'dashboard' && <DashboardPage />}
+            {page === 'dashboard' && <DashboardPage onNavigate={setPage} />}
             {page === 'tick' && <TickPage />}
             {page === 'generate' && <GeneratePage dates={dates} onDone={handleDone} />}
             {page === 'preview' && <PreviewPage previewDate={previewDate} />}
@@ -89,7 +92,11 @@ export default function App() {
             {page === 'notes' && <NotesPage />}
             {page === 'tts' && <TTSPage />}
             {page === 'debate' && <DebatePage />}
-            {page === 'dailyreport' && <DailyReportPage />}
+            {page === 'dailyreport' && (
+              <ErrorBoundary>
+                <DailyReportPage />
+              </ErrorBoundary>
+            )}
           </Suspense>
         </div>
       </main>

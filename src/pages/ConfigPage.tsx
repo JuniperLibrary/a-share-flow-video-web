@@ -8,6 +8,7 @@ export function ConfigPage() {
   const [apiKey, setApiKey] = useState('');
   const [apiBase, setApiBase] = useState('https://api.openai.com/v1');
   const [model, setModel] = useState('gpt-4o-mini');
+  const [models, setModels] = useState<Record<string, string>>({});
   const [hasKey, setHasKey] = useState(false);
   const [status, setStatus] = useState('');
   const [statusType, setStatusType] = useState<'success' | 'error' | ''>('');
@@ -20,6 +21,7 @@ export function ConfigPage() {
       setHasKey(cfg.has_api_key);
       setApiBase(cfg.api_base);
       setModel(cfg.model);
+      setModels(cfg.models || {});
       setApiKey(cfg.has_api_key ? '••••••' : '');
     } catch { void 0; }
   }
@@ -27,7 +29,7 @@ export function ConfigPage() {
   async function handleSave() {
     try {
       const key = apiKey === '••••••' ? '' : apiKey;
-      await api.saveConfig(key, apiBase, model);
+      await api.saveConfig(key, apiBase, model, models);
       setStatusType('success');
       setStatus('配置已保存');
       loadConfig();
@@ -49,7 +51,7 @@ export function ConfigPage() {
           meta={<span className="text-sm text-ink-3">大模型 API 连接设置</span>}
         />
 
-        <div className="rounded-2xl border border-hairline bg-black/30 backdrop-blur-xl p-6 shadow-2xl">
+        <div className="rounded-2xl border border-hairline bg-glass border-glass p-6 shadow-2xl">
           <div className="flex items-center gap-3 mb-8">
             <div className="w-8 h-8 rounded-lg bg-primary-soft flex items-center justify-center">
               <IconLock className="text-primary" style={{ fontSize: 16 }} />
@@ -97,7 +99,7 @@ export function ConfigPage() {
                   value={apiBase}
                   onChange={setApiBase}
                   className={inputBaseClasses}
-                  prefix={<IconSettings style={{ color: '#848e9c', fontSize: 14 }} />}
+                  prefix={<IconSettings className="text-ink-3" style={{ fontSize: 14 }} />}
                 />
               </div>
               <div>
@@ -113,8 +115,38 @@ export function ConfigPage() {
                   value={model}
                   onChange={setModel}
                   className={inputBaseClasses}
-                  prefix={<IconTool style={{ color: '#848e9c', fontSize: 14 }} />}
+                  prefix={<IconTool className="text-ink-3" style={{ fontSize: 14 }} />}
                 />
+              </div>
+            </div>
+
+            <div className="rounded-xl border border-hairline bg-glass-subtle p-4 mt-4">
+              <h3 className="text-sm font-semibold text-ink mb-3">模块模型覆盖</h3>
+              <p className="text-[11px] text-ink-3 mb-4">为不同模块指定独立模型，留空使用默认模型</p>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                {[
+                  { key: 'clsnews', label: '新闻分类', icon: '📰' },
+                  { key: 'analyzer', label: '事件分析', icon: '📊' },
+                  { key: 'analyzer_multiday', label: '多日分析', icon: '📈' },
+                  { key: 'tick', label: 'Tick 分析', icon: '⏱️' },
+                  { key: 'copy', label: '文案生成', icon: '✍️' },
+                  { key: 'report', label: '日报生成', icon: '📋' },
+                  { key: 'tts', label: '语音合成', icon: '🎙️' },
+                  { key: 'debate', label: '辩论生成', icon: '💬' },
+                ].map(({ key, label, icon }) => (
+                  <div key={key}>
+                    <label className="flex items-center gap-1.5 text-[11px] text-ink-2 mb-1">
+                      <span>{icon}</span>
+                      <span>{label}</span>
+                    </label>
+                    <Input
+                      value={models[key] || ''}
+                      onChange={(val) => setModels(prev => ({ ...prev, [key]: val }))}
+                      placeholder={`默认: ${model}`}
+                      className="text-ink text-sm"
+                    />
+                  </div>
+                ))}
               </div>
             </div>
 
@@ -136,7 +168,7 @@ export function ConfigPage() {
           </div>
         </div>
 
-        <div className="rounded-2xl border border-hairline bg-black/30 backdrop-blur-xl p-6 shadow-2xl">
+        <div className="rounded-2xl border border-hairline bg-glass border-glass p-6 shadow-2xl">
           <div className="flex items-center gap-3 mb-6">
             <div className="w-8 h-8 rounded-lg bg-surface-2 flex items-center justify-center">
               <IconSettings className="text-ink-3" style={{ fontSize: 16 }} />
@@ -145,20 +177,34 @@ export function ConfigPage() {
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div className="rounded-lg border border-hairline bg-white/[0.02] p-4">
+            <div className="rounded-lg border border-hairline bg-glass-subtle p-4">
               <p className="text-xs text-ink-3 mb-1">AI 状态</p>
               <Tag color={hasKey ? 'green' : 'red'} className="!rounded !text-xs">
                 {hasKey ? '已配置' : '未配置'}
               </Tag>
             </div>
-            <div className="rounded-lg border border-hairline bg-white/[0.02] p-4">
+            <div className="rounded-lg border border-hairline bg-glass-subtle p-4">
               <p className="text-xs text-ink-3 mb-1">模型</p>
               <p className="text-sm font-mono text-ink">{model}</p>
             </div>
-            <div className="rounded-lg border border-hairline bg-white/[0.02] p-4 sm:col-span-2">
+            <div className="rounded-lg border border-hairline bg-glass-subtle p-4 sm:col-span-2">
               <p className="text-xs text-ink-3 mb-1">接口地址</p>
               <p className="text-sm font-mono text-ink truncate">{apiBase}</p>
             </div>
+            {Object.keys(models).length > 0 && (
+              <div className="rounded-lg border border-hairline bg-glass-subtle p-4 sm:col-span-2">
+                <p className="text-xs text-ink-3 mb-2">模块模型覆盖</p>
+                <div className="flex flex-wrap gap-2">
+                  {Object.entries(models).map(([key, val]) => (
+                    val ? (
+                      <Tag key={key} color="blue" className="!rounded !text-[11px]">
+                        {key}: {val}
+                      </Tag>
+                    ) : null
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
         </div>
       </div>

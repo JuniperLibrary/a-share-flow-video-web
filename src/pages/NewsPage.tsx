@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { Button, Input, Pagination } from '@arco-design/web-react';
 import { IconRefresh, IconSearch, IconStop } from '@arco-design/web-react/icon';
 import { api } from '../api';
@@ -66,6 +66,41 @@ function formatReadingNum(n: number): string {
   return String(n);
 }
 
+function classifyStatusLabel(status: string): string {
+  switch (status) {
+    case 'pending': return '待补';
+    case 'retrying': return '重试中';
+    case 'failed': return '失败';
+    case 'skipped': return '跳过';
+    case 'classified': return '已分类';
+    default: return '未知';
+  }
+}
+
+function classifyStatusClass(status: string): string {
+  switch (status) {
+    case 'pending': return 'bg-glass-sm text-ink-2 border-glass-strong';
+    case 'retrying': return 'bg-primary/10 text-primary border-primary/20';
+    case 'failed': return 'bg-outflow/10 text-outflow border-outflow/20';
+    case 'skipped': return 'bg-amber-500/10 text-amber-300 border-amber-500/20';
+    case 'classified': return 'bg-emerald-500/10 text-emerald-300 border-emerald-500/20';
+    default: return 'bg-glass-sm text-ink-2 border-glass-strong';
+  }
+}
+
+function buildFailureReasonSummary(records: CLSNewsRecord[]) {
+  const counter = new Map<string, number>();
+  for (const record of records) {
+    const reason = record.last_error?.trim();
+    if (!reason) continue;
+    counter.set(reason, (counter.get(reason) ?? 0) + 1);
+  }
+  return Array.from(counter.entries())
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 4)
+    .map(([reason, count]) => ({ reason, count }));
+}
+
 function LiveDot() {
   return (
     <span className="relative flex h-2 w-2">
@@ -78,10 +113,14 @@ function LiveDot() {
 function NewsRow({
   record,
   onSelect,
+  onRetry,
+  retrying,
   index,
 }: {
   record: CLSNewsRecord;
   onSelect: (r: CLSNewsRecord) => void;
+  onRetry: (r: CLSNewsRecord) => void;
+  retrying: boolean;
   index: number;
 }) {
   const sectors = parseSectors(record.sectors);
@@ -97,7 +136,7 @@ function NewsRow({
         className={`w-0.5 shrink-0 self-stretch ${record.level !== 'C' ? style.bar : 'bg-transparent'}`}
       />
 
-      <div className="flex-1 min-w-0 py-3 pl-3 pr-1 transition-colors duration-150 hover:bg-white/[0.02]">
+      <div className="flex-1 min-w-0 py-3 pl-3 pr-1 transition-colors duration-150 hover:bg-glass-sm">
         <div className="flex items-baseline gap-2 mb-1">
           <span className="text-xs text-ink-3 font-mono tabular-nums shrink-0 w-24 text-right">
             {formatSmartTime(record.ctime)}
@@ -108,7 +147,7 @@ function NewsRow({
           >
             {record.level}
           </span>
-          <span className="text-sm text-ink-2 leading-snug group-hover:text-white transition-colors">
+          <span className="text-sm text-ink-2 leading-snug group-hover:text-ink transition-colors">
             {record.title}
           </span>
         </div>
@@ -120,6 +159,9 @@ function NewsRow({
         )}
 
         <div className="flex flex-wrap items-center gap-2 mt-1 ml-[5.25rem]">
+          <span className={cn('inline-flex items-center px-1.5 py-0.5 text-[10px] rounded-full border', classifyStatusClass(record.classify_status))}>
+            {classifyStatusLabel(record.classify_status)}
+          </span>
           {sectors.length > 0 && (
             <div className="flex flex-wrap gap-1.5">
               {sectors.map((s) => (
@@ -146,7 +188,24 @@ function NewsRow({
               {formatReadingNum(record.reading_num)}
             </span>
           )}
+          {record.classify_status !== 'classified' && (
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                onRetry(record);
+              }}
+              disabled={retrying}
+              className="ml-auto inline-flex items-center px-2 py-0.5 text-[10px] rounded-full border border-primary/20 bg-primary/10 text-primary hover:bg-primary/15 disabled:opacity-50"
+            >
+              {retrying ? '重试中...' : '重新入队'}
+            </button>
+          )}
         </div>
+        {record.last_error && record.classify_status !== 'classified' && (
+          <div className="ml-[5.25rem] mt-1 text-[10px] text-outflow/90 truncate">
+            原因: {record.last_error}
+          </div>
+        )}
       </div>
     </div>
   );
@@ -156,9 +215,13 @@ function NewsRow({
 function NewsModal({
   record,
   onClose,
+  onRetry,
+  retrying,
 }: {
   record: CLSNewsRecord;
   onClose: () => void;
+  onRetry: (r: CLSNewsRecord) => void;
+  retrying: boolean;
 }) {
   const sectors = parseSectors(record.sectors);
   const style = LEVEL_STYLES[record.level] || LEVEL_STYLES.C;
@@ -170,17 +233,15 @@ function NewsModal({
       style={{ background: 'rgba(0,0,0,0.7)' }}
     >
       <div
-        className="relative w-full max-w-2xl max-h-[85vh] overflow-y-auto rounded-2xl border border-white/[0.08] shadow-2xl p-6 sm:p-8"
+        className="relative w-full max-w-2xl max-h-[85vh] overflow-y-auto rounded-2xl border border-glass-strong shadow-2xl p-6 sm:p-8 bg-glass-lg"
         style={{
-          background: 'linear-gradient(135deg, #0a1628 0%, #0d1f3c 100%)',
           scrollbarWidth: 'thin',
-          scrollbarColor: 'rgba(255,255,255,0.06) transparent',
         }}
         onClick={e => e.stopPropagation()}
       >
         <button
           onClick={onClose}
-          className="absolute top-4 right-4 w-8 h-8 flex items-center justify-center rounded-full text-ink-3 transition-colors hover:bg-white/[0.08] hover:text-ink-2"
+          className="absolute top-4 right-4 w-8 h-8 flex items-center justify-center rounded-full text-ink-3 transition-colors hover:bg-glass-sm hover:text-ink-2"
         >
           <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
             <line x1="18" y1="6" x2="6" y2="18" />
@@ -210,7 +271,34 @@ function NewsModal({
           )}
         </div>
 
-        <h2 className="text-lg font-semibold text-white mb-4 leading-relaxed tracking-wide">
+        <div className="flex flex-wrap items-center gap-2 mb-4">
+          <span className={cn('inline-flex items-center px-2.5 py-1 text-xs rounded-full border', classifyStatusClass(record.classify_status))}>
+            {classifyStatusLabel(record.classify_status)}
+          </span>
+          {record.retry_count > 0 && (
+            <span className="text-xs text-ink-3">已重试 {record.retry_count} 次</span>
+          )}
+          {record.last_retry_at && (
+            <span className="text-xs text-ink-3">最近重试 {formatFullTime(record.last_retry_at)}</span>
+          )}
+          {record.classify_status !== 'classified' && (
+            <button
+              onClick={() => onRetry(record)}
+              disabled={retrying}
+              className="inline-flex items-center px-3 py-1 text-xs rounded-lg border border-primary/20 bg-primary/10 text-primary hover:bg-primary/15 disabled:opacity-50"
+            >
+              {retrying ? '重试中...' : '重新入队'}
+            </button>
+          )}
+        </div>
+
+        {record.last_error && record.classify_status !== 'classified' && (
+          <div className="mb-4 rounded-lg border border-outflow/15 bg-outflow/8 px-3 py-2 text-xs text-outflow">
+            最近原因: {record.last_error}
+          </div>
+        )}
+
+        <h2 className="text-lg font-semibold text-ink mb-4 leading-relaxed tracking-wide">
           {record.title}
         </h2>
 
@@ -275,9 +363,13 @@ export function NewsPage() {
   const [page, setPage] = useState(1);
   const [pageSize] = useState(50);
   const [searchQ, setSearchQ] = useState('');
+  const [classifyFilter, setClassifyFilter] = useState<'all' | 'pending' | 'retrying' | 'failed' | 'skipped' | 'classified'>('all');
   const [status, setStatus] = useState<NewsStatusResponse | null>(null);
   const [loading, setLoading] = useState(false);
   const [selectedNews, setSelectedNews] = useState<CLSNewsRecord | null>(null);
+  const [retryingId, setRetryingId] = useState<number | null>(null);
+  const [batchRetrying, setBatchRetrying] = useState(false);
+  const [actionFeedback, setActionFeedback] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
   const [historyDate, setHistoryDate] = useState(() => {
     const d = new Date();
     const mm = String(d.getMonth() + 1).padStart(2, '0');
@@ -290,27 +382,41 @@ export function NewsPage() {
     try {
       const offset = (p - 1) * pageSize;
       if (mode === 'history') {
-        const res = await api.getNewsByDate(historyDate, pageSize, offset);
+        const res = await api.getNewsByDate(historyDate, pageSize, offset, classifyFilter);
         setRecords(res.records);
         setTotal(res.total);
       } else if (q) {
-        const res = await api.searchNews(q, pageSize, offset);
+        const res = await api.searchNews(q, pageSize, offset, classifyFilter);
         setRecords(res.records);
         setTotal(res.total);
       } else {
-        const res = await api.getNews(pageSize, offset);
+        const res = await api.getNews(pageSize, offset, classifyFilter);
         setRecords(res.records);
         setTotal(res.total);
       }
     } catch { void 0; } finally {
       setLoading(false);
     }
-  }, [pageSize, mode, historyDate]);
+  }, [pageSize, mode, historyDate, classifyFilter]);
 
   const loadStatus = useCallback(async () => {
     try {
       setStatus(await api.getNewsStatus());
     } catch { void 0; }
+  }, []);
+
+  const markNewsQueued = useCallback((ids: number[]) => {
+    const idSet = new Set(ids);
+    setRecords((prev) => prev.map((record) => (
+      idSet.has(record.id)
+        ? { ...record, classify_status: 'pending', last_error: '', last_retry_at: '', retry_count: record.retry_count }
+        : record
+    )));
+    setSelectedNews((prev) => (
+      prev && idSet.has(prev.id)
+        ? { ...prev, classify_status: 'pending', last_error: '', last_retry_at: '' }
+        : prev
+    ));
   }, []);
 
   useEffect(() => {
@@ -325,7 +431,7 @@ export function NewsPage() {
 
   const handleSearch = () => {
     setPage(1);
-    loadNews(1, searchQ.trim() || undefined);
+    void loadNews(1, searchQ.trim() || undefined);
   };
 
   const handleToggleScheduler = async () => {
@@ -337,7 +443,69 @@ export function NewsPage() {
     loadStatus();
   };
 
+  const handleRetryNews = useCallback(async (record: CLSNewsRecord) => {
+    setRetryingId(record.id);
+    setActionFeedback(null);
+    try {
+      await api.retryNews(record.id);
+      markNewsQueued([record.id]);
+      await Promise.all([
+        loadNews(page, searchQ.trim() || undefined),
+        loadStatus(),
+      ]);
+      setActionFeedback({ type: 'success', message: `新闻 ${record.id} 已重新入队` });
+    } catch {
+      setActionFeedback({ type: 'error', message: `新闻 ${record.id} 重新入队失败，请稍后重试` });
+    } finally {
+      setRetryingId(null);
+    }
+  }, [loadNews, loadStatus, markNewsQueued, page, searchQ]);
+
+  const handleRetryCurrentBatch = useCallback(async () => {
+    const ids = records
+      .filter((record) => record.classify_status !== 'classified')
+      .map((record) => record.id);
+    if (ids.length === 0) {
+      setActionFeedback({ type: 'error', message: '当前筛选下没有可重新入队的新闻' });
+      return;
+    }
+    setBatchRetrying(true);
+    setActionFeedback(null);
+    try {
+      const res = await api.retryNewsBatch(ids);
+      const failedIds = Object.keys(res.failed);
+      const queuedIds = ids.filter((id) => !failedIds.includes(String(id)));
+      if (queuedIds.length > 0) {
+        markNewsQueued(queuedIds);
+      }
+      await Promise.all([
+        loadNews(page, searchQ.trim() || undefined),
+        loadStatus(),
+      ]);
+      if (failedIds.length === 0) {
+        setActionFeedback({ type: 'success', message: `已批量重新入队 ${res.queued_count} 条新闻` });
+      } else {
+        setActionFeedback({
+          type: 'error',
+          message: `批量入队完成：成功 ${res.queued_count} 条，失败 ${failedIds.length} 条`,
+        });
+      }
+    } catch {
+      setActionFeedback({ type: 'error', message: '批量重新入队失败，请稍后重试' });
+    } finally {
+      setBatchRetrying(false);
+    }
+  }, [loadNews, loadStatus, markNewsQueued, page, records, searchQ]);
+
   const isRunning = status?.status === 'running';
+  const retryableCount = records.filter((record) => record.classify_status !== 'classified').length;
+  const failureReasonSummary = useMemo(() => buildFailureReasonSummary(records), [records]);
+  const statusCards = useMemo(() => ([
+    { key: 'pending', label: '待补标签', value: status?.pending_count ?? 0, tone: 'text-ink-2 border-glass-strong bg-glass-subtle' },
+    { key: 'retrying', label: '重试中', value: status?.retrying_count ?? 0, tone: 'text-primary border-primary/20 bg-primary/8' },
+    { key: 'failed', label: '失败积压', value: status?.failed_count ?? 0, tone: 'text-outflow border-outflow/20 bg-outflow/8' },
+    { key: 'classified', label: '已分类', value: status?.classified_count ?? 0, tone: 'text-emerald-300 border-emerald-500/20 bg-emerald-500/8' },
+  ]), [status]);
 
   const handleModeSwitch = (m: 'live' | 'history') => {
     setMode(m);
@@ -352,6 +520,23 @@ export function NewsPage() {
     }
   };
 
+  const StatusTab = ({ value, label }: { value: typeof classifyFilter; label: string }) => (
+    <button
+      onClick={() => {
+        setClassifyFilter(value);
+        setPage(1);
+      }}
+      className={cn(
+        'px-3 py-1.5 text-[11px] font-semibold rounded-lg transition-all border',
+        classifyFilter === value
+          ? 'bg-primary-soft text-primary border-primary/30 shadow-glow-primary'
+          : 'bg-glass-subtle text-ink-3 border-hairline hover:text-ink',
+      )}
+    >
+      {label}
+    </button>
+  );
+
   const ModeTab = ({ value, label }: { value: 'live' | 'history'; label: string }) => (
     <button
       onClick={() => handleModeSwitch(value)}
@@ -359,7 +544,7 @@ export function NewsPage() {
         'px-4 py-1.5 text-xs font-semibold rounded-lg transition-all border',
         mode === value
           ? 'bg-primary text-primary-ink border-primary shadow-glow-primary'
-          : 'bg-white/[0.04] text-ink-3 border-hairline hover:text-ink',
+          : 'bg-glass-subtle text-ink-3 border-hairline hover:text-ink',
       )}
     >
       {label}
@@ -378,7 +563,7 @@ export function NewsPage() {
           title={
             <span className="flex items-center gap-3">
               <span>财联社新闻</span>
-              <span className="flex items-center gap-1 rounded-lg border border-hairline bg-black/20 p-0.5">
+              <span className="flex items-center gap-1 rounded-lg border border-hairline bg-glass-sm border-glass p-0.5">
                 <ModeTab value="live" label="实时" />
                 <ModeTab value="history" label="历史" />
               </span>
@@ -387,7 +572,7 @@ export function NewsPage() {
           actions={
             mode === 'live' ? (
               <>
-                <div className="flex items-center gap-2 rounded-xl border border-hairline bg-black/20 backdrop-blur-xl px-3 py-1.5">
+                <div className="flex items-center gap-2 rounded-xl border border-hairline bg-glass-sm border-glass backdrop-blur-xl px-3 py-1.5">
                   {isRunning ? (
                     <>
                       <LiveDot />
@@ -414,6 +599,16 @@ export function NewsPage() {
                       </span>
                     </>
                   )}
+                  {((status?.pending_count ?? 0) > 0 || (status?.retrying_count ?? 0) > 0 || (status?.failed_count ?? 0) > 0) && (
+                    <>
+                      <span className="text-xs text-ink-3 mx-0.5">|</span>
+                      <span className="text-xs text-ink-3 flex items-center gap-2">
+                        {(status?.pending_count ?? 0) > 0 && <span>待补 {status?.pending_count}</span>}
+                        {(status?.retrying_count ?? 0) > 0 && <span className="text-primary">重试中 {status?.retrying_count}</span>}
+                        {(status?.failed_count ?? 0) > 0 && <span className="text-outflow">失败 {status?.failed_count}</span>}
+                      </span>
+                    </>
+                  )}
                 </div>
 
                 <button
@@ -427,6 +622,19 @@ export function NewsPage() {
                 >
                   {isRunning ? <IconStop style={{ fontSize: 13 }} /> : <IconRefresh style={{ fontSize: 13 }} />}
                   {isRunning ? '停止轮询' : '启动轮询'}
+                </button>
+                <button
+                  onClick={handleRetryCurrentBatch}
+                  disabled={!isRunning || retryableCount === 0 || batchRetrying}
+                  className={cn(
+                    'flex items-center gap-1.5 px-3 py-2 text-xs font-semibold rounded-lg transition-all border',
+                    !isRunning || retryableCount === 0 || batchRetrying
+                      ? 'bg-glass-subtle text-ink-3 border-hairline opacity-60 cursor-not-allowed'
+                      : 'bg-primary/10 text-primary border-primary/20 hover:bg-primary/15',
+                  )}
+                >
+                  <IconRefresh style={{ fontSize: 13 }} />
+                  {batchRetrying ? '批量入队中...' : `批量重试当前筛选${retryableCount > 0 ? ` (${retryableCount})` : ''}`}
                 </button>
               </>
             ) : undefined
@@ -455,14 +663,7 @@ export function NewsPage() {
               value={searchQ}
               onChange={val => setSearchQ(val)}
               onPressEnter={handleSearch}
-              style={{
-                width: '100%',
-                paddingLeft: 36,
-                background: 'rgba(0,0,0,0.3)',
-                border: '1px solid rgba(255,255,255,0.08)',
-                color: '#e5e7eb',
-                borderRadius: 8,
-              }}
+              className="w-full pl-9 bg-glass border border-glass rounded-lg text-ink"
             />
           </div>
           <Button
@@ -479,20 +680,73 @@ export function NewsPage() {
           </Button>
         </div>
 
+        <div className="flex flex-wrap items-center gap-2">
+          <StatusTab value="all" label="全部" />
+          <StatusTab value="pending" label="待补" />
+          <StatusTab value="retrying" label="重试中" />
+          <StatusTab value="failed" label="失败" />
+          <StatusTab value="skipped" label="跳过" />
+          <StatusTab value="classified" label="已分类" />
+        </div>
+
+        {actionFeedback && (
+          <div
+            className={cn(
+              'rounded-xl border px-4 py-3 text-sm',
+              actionFeedback.type === 'success'
+                ? 'border-emerald-500/20 bg-emerald-500/8 text-emerald-300'
+                : 'border-outflow/20 bg-outflow/8 text-outflow',
+            )}
+          >
+            {actionFeedback.message}
+          </div>
+        )}
+
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+          {statusCards.map((card) => (
+            <div key={card.key} className={cn('rounded-xl border px-4 py-3', card.tone)}>
+              <div className="text-[11px] tracking-wide text-ink-3">{card.label}</div>
+              <div className="mt-2 text-2xl font-semibold tabular-nums">{card.value}</div>
+            </div>
+          ))}
+        </div>
+
+        {failureReasonSummary.length > 0 && (
+          <div className="rounded-xl border border-hairline bg-glass-sm border-glass px-4 py-3">
+            <div className="flex items-center justify-between gap-3">
+              <div>
+                <div className="text-sm font-semibold text-ink">当前列表失败原因</div>
+                <div className="text-xs text-ink-3 mt-1">基于当前筛选结果聚合，方便定位主要积压原因</div>
+              </div>
+            </div>
+            <div className="mt-3 flex flex-wrap gap-2">
+              {failureReasonSummary.map((item) => (
+                <span
+                  key={item.reason}
+                  className="inline-flex items-center gap-2 rounded-full border border-outflow/15 bg-outflow/8 px-3 py-1 text-xs text-outflow"
+                >
+                  <span>{item.reason}</span>
+                  <span className="rounded-full bg-glass-subtle px-1.5 py-0.5 text-[10px] text-ink-2">{item.count}</span>
+                </span>
+              ))}
+            </div>
+          </div>
+        )}
+
         {/* ── News list ── */}
         <div className="divide-y divide-white/[0.04]">
           {loading ? (
             <div className="space-y-0 py-12">
               {Array.from({ length: 10 }).map((_, i) => (
                 <div key={i} className="flex items-stretch py-3 animate-pulse">
-                  <div className="w-0.5 shrink-0 bg-white/5" />
+                  <div className="w-0.5 shrink-0 bg-glass-subtle" />
                   <div className="flex-1 pl-3 pr-1">
                     <div className="flex items-baseline gap-2 mb-1">
-                      <div className="h-3 w-24 rounded bg-white/5 shrink-0" />
-                      <div className="h-3 w-6 rounded bg-white/5 shrink-0" />
-                      <div className="h-4 w-3/4 rounded bg-white/5" />
+                      <div className="h-3 w-24 rounded bg-glass-subtle shrink-0" />
+                      <div className="h-3 w-6 rounded bg-glass-subtle shrink-0" />
+                      <div className="h-4 w-3/4 rounded bg-glass-subtle" />
                     </div>
-                    <div className="h-3 w-1/2 rounded bg-white/5 ml-[5.25rem]" />
+                    <div className="h-3 w-1/2 rounded bg-glass-subtle ml-[5.25rem]" />
                   </div>
                 </div>
               ))}
@@ -514,6 +768,8 @@ export function NewsPage() {
                 key={r.id}
                 record={r}
                 onSelect={setSelectedNews}
+                onRetry={handleRetryNews}
+                retrying={retryingId === r.id}
                 index={i}
               />
             ))
@@ -538,6 +794,8 @@ export function NewsPage() {
       {selectedNews && (
         <NewsModal
           record={selectedNews}
+          onRetry={handleRetryNews}
+          retrying={retryingId === selectedNews.id}
           onClose={() => setSelectedNews(null)}
         />
       )}

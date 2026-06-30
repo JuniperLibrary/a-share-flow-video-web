@@ -137,6 +137,7 @@ export function DebatePage() {
   const [report, setReport] = useState('');
   const [richReport, setRichReport] = useState<Record<string, unknown> | null>(null);
   const [stage, setStage] = useState<Stage>('idle');
+  const [useNewOrchestrator, setUseNewOrchestrator] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [warning, setWarning] = useState<string | null>(null);
   const [format, setFormat] = useState<Format>('mobile');
@@ -164,6 +165,25 @@ export function DebatePage() {
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const isBusy = stage !== 'idle' && stage !== 'error' && stage !== 'done';
   const isWorking = stage === 'script' || stage === 'audio' || stage === 'render';
+
+  const PENDING_TASK_KEY = 'debate_pending_task';
+
+  function savePendingTask(tid: string, s: DebateScript | null, audio: DebateAudioTurn[] | null, stg: Stage) {
+    try {
+      sessionStorage.setItem(PENDING_TASK_KEY, JSON.stringify({
+        taskId: tid,
+        script: s,
+        audioTurns: audio,
+        stage: stg,
+      }));
+    } catch { /* ignore */ }
+  }
+
+  function clearPendingTask() {
+    try {
+      sessionStorage.removeItem(PENDING_TASK_KEY);
+    } catch { /* ignore */ }
+  }
 
   const loadHistory = useCallback(async () => {
     setHistoryLoading(true);
@@ -274,6 +294,7 @@ export function DebatePage() {
         const st = await api.debateRenderStatus(tid);
         setRenderStatus(st.status);
         if (st.status === 'done') {
+          clearPendingTask();
           setVideoUrl(st.videoUrl ?? null);
           setProbe(st.probe ?? null);
           setStage('done');
@@ -281,12 +302,14 @@ export function DebatePage() {
           if (pollRef.current) clearInterval(pollRef.current);
           pollRef.current = null;
         } else if (st.status === 'error') {
+          clearPendingTask();
           setError(st.error ?? '渲染失败');
           setStage('error');
           setRenderProgress(null);
           if (pollRef.current) clearInterval(pollRef.current);
           pollRef.current = null;
         } else if (st.status === 'cancelled') {
+          clearPendingTask();
           setError('渲染已取消');
           setStage('idle');
           setRenderProgress(null);
@@ -301,6 +324,28 @@ export function DebatePage() {
       }
     }, 2000);
   }, []);
+
+  // 恢复 pending task
+  useEffect(() => {
+    const raw = sessionStorage.getItem(PENDING_TASK_KEY);
+    if (!raw) return;
+    try {
+      const pending = JSON.parse(raw);
+      if (!pending.taskId) return;
+      // 只恢复 render 阶段（script/audio 无法恢复）
+      if (pending.stage !== 'render') {
+        clearPendingTask();
+        return;
+      }
+      setTaskId(pending.taskId);
+      if (pending.script) setScript(pending.script);
+      if (pending.audioTurns) setAudioTurns(pending.audioTurns);
+      setStage(pending.stage as Stage);
+      startPolling(pending.taskId);
+    } catch {
+      clearPendingTask();
+    }
+  }, [startPolling]);
 
   const handleCancelRender = useCallback(async () => {
     if (pollRef.current) {
@@ -361,24 +406,38 @@ export function DebatePage() {
 
     try {
       setStage('script');
-      const genRes = await api.debateGenerate(report, richReport ?? undefined, stockCode || undefined, stockName || undefined);
+      let genRes;
+      if (useNewOrchestrator) {
+        genRes = await api.debateCouncilStart({
+          report,
+          structuredReport: richReport ?? undefined,
+          stockCode: stockCode || undefined,
+          stockName: stockName || undefined,
+        });
+      } else {
+        genRes = await api.debateGenerate(report, richReport ?? undefined, stockCode || undefined, stockName || undefined);
+      }
       setTaskId(genRes.taskId);
       setScript(genRes.script);
+      savePendingTask(genRes.taskId, genRes.script, null, 'script');
 
       setStage('audio');
       const audioRes = await api.debateAudio(genRes.taskId, genRes.script);
       setAudioTurns(audioRes.audioTurns);
+      savePendingTask(genRes.taskId, genRes.script, audioRes.audioTurns, 'audio');
 
       setStage('render');
       setRenderProgress('启动渲染...');
       setRenderStatus('pending');
+      savePendingTask(genRes.taskId, genRes.script, audioRes.audioTurns, 'render');
       await api.debateRender(genRes.taskId, genRes.script, audioRes.audioTurns, format);
       startPolling(genRes.taskId);
     } catch (e) {
+      clearPendingTask();
       setError(e instanceof Error ? e.message : '出错了');
       setStage('error');
     }
-  }, [report, format, richReport, startPolling, stockCode, stockName]);
+  }, [report, format, richReport, startPolling, stockCode, stockName, useNewOrchestrator]);
 
   async function retryStage() {
     if (!script && stage === 'error') {
@@ -524,6 +583,26 @@ export function DebatePage() {
                     label="电视 16:9"
                     icon={<Tv className="w-3.5 h-3.5" />}
                   />
+                </div>
+                <div className="flex items-center gap-1.5 text-[11px]">
+                  <span className={cn('transition-colors', !useNewOrchestrator ? 'text-ink-3' : 'text-ink-muted')}>经典</span>
+                  <button
+                    onClick={() => setUseNewOrchestrator(!useNewOrchestrator)}
+                    disabled={isBusy}
+                    className={cn(
+                      'relative w-9 h-5 rounded-full transition-all duration-200 disabled:opacity-40',
+                      useNewOrchestrator ? 'bg-primary/30' : 'bg-surface-3',
+                    )}
+                    title={useNewOrchestrator ? '当前: 多智能体辩论' : '当前: 经典辩论'}
+                  >
+                    <span
+                      className={cn(
+                        'absolute top-0.5 w-4 h-4 rounded-full bg-primary transition-all duration-200',
+                        useNewOrchestrator ? 'left-[18px]' : 'left-0.5',
+                      )}
+                    />
+                  </button>
+                  <span className={cn('transition-colors', useNewOrchestrator ? 'text-primary' : 'text-ink-muted')}>多智能体</span>
                 </div>
                 <button
                   onClick={handleReset}
@@ -828,7 +907,7 @@ function FetchReportCard({
         <div className="flex items-center gap-2">
           <div className="relative flex-1">
             {stockName && stockCode ? (
-              <div className="flex items-center gap-2 bg-black/40 border border-primary/30 rounded-lg px-3 py-2.5">
+              <div className="flex items-center gap-2 bg-glass-md border-glass border border-primary/30 rounded-lg px-3 py-2.5">
                 <span className="text-xs font-medium text-primary">{stockName}</span>
                 <span className="text-[10px] text-ink-3 font-mono">{stockCode}</span>
                 <button
@@ -863,7 +942,7 @@ function FetchReportCard({
                       onCloseSearch();
                     }
                   }}
-                  className="w-full bg-black/40 border border-hairline rounded-lg pl-9 pr-3 py-2.5 text-sm text-ink placeholder-ink-muted focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary/20 transition-all duration-200 disabled:opacity-40"
+                  className="w-full bg-glass-md border-glass border border-hairline rounded-lg pl-9 pr-3 py-2.5 text-sm text-ink placeholder-ink-muted focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary/20 transition-all duration-200 disabled:opacity-40"
                 />
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-ink-muted" />
                 {searching && (
@@ -1016,10 +1095,10 @@ function ReportCard({
             placeholder="粘贴 A 股上市公司财报关键内容（营收、利润、增速、风险等）"
             rows={8}
             disabled={isBusy}
-            className="w-full bg-black/40 border border-hairline rounded-lg px-4 py-3 text-sm text-ink placeholder-ink-muted focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary/20 transition-all duration-200 disabled:opacity-40 resize-y font-light leading-relaxed"
+            className="w-full bg-glass-md border-glass border border-hairline rounded-lg px-4 py-3 text-sm text-ink placeholder-ink-muted focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary/20 transition-all duration-200 disabled:opacity-40 resize-y font-light leading-relaxed"
             maxLength={20000}
           />
-          <div className="absolute bottom-3 right-3 text-[10px] font-mono text-ink-muted bg-black/60 px-2 py-0.5 rounded">
+          <div className="absolute bottom-3 right-3 text-[10px] font-mono text-ink-muted bg-glass-lg border-glass px-2 py-0.5 rounded">
             {report.length}/20000
           </div>
         </div>

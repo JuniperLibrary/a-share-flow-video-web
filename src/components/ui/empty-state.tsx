@@ -31,7 +31,7 @@ export function EmptyState({
       <div
         className={cn(
           'flex items-center justify-center rounded-full',
-          'bg-white/[0.03] border border-hairline text-ink-3',
+          'bg-glass-subtle border border-hairline text-ink-3',
           compact ? 'h-10 w-10 mb-3' : 'h-14 w-14 mb-4',
         )}
       >

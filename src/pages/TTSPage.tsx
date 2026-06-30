@@ -85,7 +85,7 @@ export function TTSPage() {
                   value={topic}
                   onChange={(e) => setTopic(e.target.value)}
                   placeholder="输入主题，如：黄金为什么暴跌"
-                  className="w-full bg-black/30 border border-hairline rounded-lg px-3 py-2 text-sm text-ink placeholder:text-ink-4 outline-none focus:border-primary/50 transition-all"
+                  className="w-full bg-glass border-glass border border-hairline rounded-lg px-3 py-2 text-sm text-ink placeholder:text-ink-4 outline-none focus:border-primary/50 transition-all"
                   onKeyDown={(e) => e.key === 'Enter' && handleGenerateScript()}
                 />
                 <Button
@@ -104,13 +104,13 @@ export function TTSPage() {
             <div className="rounded-xl border border-hairline bg-surface-glass-low backdrop-blur-xl p-5">
               <h3 className="text-xs font-semibold text-ink-3 uppercase tracking-wider mb-2">主题示例</h3>
               <div className="space-y-1.5 text-sm text-ink-3">
-                <div className="px-2.5 py-1.5 rounded-md bg-black/20 cursor-pointer hover:bg-black/30 transition-all" onClick={() => setTopic('黄金为什么暴跌')}>
+                <div className="px-2.5 py-1.5 rounded-md bg-glass-sm border-glass cursor-pointer hover:bg-glass border-glass transition-all" onClick={() => setTopic('黄金为什么暴跌')}>
                   黄金为什么暴跌
                 </div>
-                <div className="px-2.5 py-1.5 rounded-md bg-black/20 cursor-pointer hover:bg-black/30 transition-all" onClick={() => setTopic('半导体板块为何大涨')}>
+                <div className="px-2.5 py-1.5 rounded-md bg-glass-sm border-glass cursor-pointer hover:bg-glass border-glass transition-all" onClick={() => setTopic('半导体板块为何大涨')}>
                   半导体板块为何大涨
                 </div>
-                <div className="px-2.5 py-1.5 rounded-md bg-black/20 cursor-pointer hover:bg-black/30 transition-all" onClick={() => setTopic('A股最近为什么调整')}>
+                <div className="px-2.5 py-1.5 rounded-md bg-glass-sm border-glass cursor-pointer hover:bg-glass border-glass transition-all" onClick={() => setTopic('A股最近为什么调整')}>
                   A股最近为什么调整
                 </div>
               </div>

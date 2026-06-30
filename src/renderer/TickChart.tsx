@@ -4,6 +4,7 @@ import { getVideoLayout } from './layout.ts';
 
 interface TickChartProps {
   sectorTicks: SectorTick[];
+  times?: string[];
   frame: number;
   totalFrames: number;
   activeEventSector?: string | null;
@@ -116,6 +117,7 @@ function buildInflectionLabel(name: string, delta: number): string {
 
 export const TickChart: React.FC<TickChartProps> = ({
   sectorTicks,
+  times,
   frame,
   totalFrames,
   activeEventSector,
@@ -141,12 +143,18 @@ export const TickChart: React.FC<TickChartProps> = ({
   const chartW = chartRight - chartLeft;
   const chartH = chartBottom - chartTop;
 
+  const sharedTimes = useMemo(() => {
+    if (times && times.length > 0) return times;
+    return sectorTicks[0]?.times ?? [];
+  }, [times, sectorTicks]);
+
   const coloredTicks = useMemo(() => {
     return sectorTicks.map((s, i) => ({
       ...s,
       color: PALETTE[i % PALETTE.length],
+      times: (s.times && s.times.length > 0) ? s.times : sharedTimes,
     }));
-  }, [sectorTicks]);
+  }, [sectorTicks, sharedTimes]);
 
   const cumulativeData = useMemo(() => {
     return coloredTicks.map(s => {

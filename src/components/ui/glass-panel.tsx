@@ -14,13 +14,13 @@ export function GlassPanel({
   ...props
 }: GlassPanelProps) {
   const densityMap = {
-    low: 'bg-black/30 backdrop-blur-sm',
-    medium: 'bg-black/40 backdrop-blur-md',
-    high: 'bg-black/50 backdrop-blur-lg',
+    low: 'bg-glass border-glass',
+    medium: 'bg-glass-md border-glass backdrop-blur-md',
+    high: 'bg-glass-lg border-glass backdrop-blur-lg',
   };
 
   const glowMap = {
-    default: 'border border-white/[0.06]',
+    default: 'border border-glass',
     'glow-primary': 'border border-primary/20 shadow-glow-primary',
     'glow-danger': 'border border-inflow/20 shadow-glow-danger',
     'glow-success': 'border border-outflow/20 shadow-glow-success',

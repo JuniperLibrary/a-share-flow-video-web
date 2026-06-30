@@ -13,6 +13,7 @@ export function formatNet(n: number): string {
 
 export function formatNetCompact(n: number): string {
   if (isNaN(n)) return '—';
+  if (n === 0) return '0.0亿';
   const abs = Math.abs(n);
   const sign = n > 0 ? '+' : '-';
   if (abs >= 10000) return `${sign}${(abs / 10000).toFixed(1)}万亿`;

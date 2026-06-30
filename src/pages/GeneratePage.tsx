@@ -48,7 +48,7 @@ function GeneratorCard({
   onPreview?: () => void;
 }) {
   return (
-    <div className={`rounded-2xl border ${accentBorder} bg-black/30 backdrop-blur-xl p-5 shadow-2xl flex flex-col h-full`}>
+    <div className={`rounded-2xl border ${accentBorder} bg-glass border-glass p-5 shadow-2xl flex flex-col h-full`}>
       {/* Header */}
       <div className="flex items-center gap-3 mb-1">
         <span className="text-lg opacity-60">{icon}</span>
@@ -96,9 +96,9 @@ function GeneratorCard({
 
       {/* Logs */}
       {logs.length > 0 && (
-        <div className="rounded-lg bg-black/30 border border-hairline p-3 flex-1 min-h-0 max-h-48 overflow-y-auto custom-scrollbar">
+        <div className="rounded-lg bg-glass border-glass border border-hairline p-3 flex-1 min-h-0 max-h-48 overflow-y-auto custom-scrollbar">
           <div className="flex items-center gap-2 mb-2 text-xs text-ink-3">
-            <span className="w-1 h-1 rounded-full bg-white/20" />
+            <span className="w-1 h-1 rounded-full bg-glass-subtle" />
             生成日志
           </div>
           <div className="space-y-1">
@@ -202,14 +202,14 @@ export function GeneratePage({ dates, onDone }: GeneratePageProps) {
     <>
       <div>
         <div className="flex items-center gap-1.5 mb-1.5">
-          <span className="w-1 h-1 rounded-full bg-white/30" />
+          <span className="w-1 h-1 rounded-full bg-glass-sm" />
           <span className="text-xs text-ink-3">采集日期</span>
         </div>
         <DatePicker value={tickDate} onChange={setTickDate} style={{ width: 150 }} />
       </div>
       <div>
         <div className="flex items-center gap-1.5 mb-1.5">
-          <span className="w-1 h-1 rounded-full bg-white/30" />
+          <span className="w-1 h-1 rounded-full bg-glass-sm" />
           <span className="text-xs text-ink-3">时段</span>
         </div>
         <Select
@@ -224,7 +224,7 @@ export function GeneratePage({ dates, onDone }: GeneratePageProps) {
       </div>
       <div>
         <div className="flex items-center gap-1.5 mb-1.5">
-          <span className="w-1 h-1 rounded-full bg-white/30" />
+          <span className="w-1 h-1 rounded-full bg-glass-sm" />
           <span className="text-xs text-ink-3">文案模式</span>
         </div>
         <Select
@@ -239,7 +239,7 @@ export function GeneratePage({ dates, onDone }: GeneratePageProps) {
       </div>
       <div>
         <div className="flex items-center gap-1.5 mb-1.5">
-          <span className="w-1 h-1 rounded-full bg-white/30" />
+          <span className="w-1 h-1 rounded-full bg-glass-sm" />
           <span className="text-xs text-ink-3">视频格式</span>
         </div>
         <Select
@@ -260,14 +260,14 @@ export function GeneratePage({ dates, onDone }: GeneratePageProps) {
     <>
       <div>
         <div className="flex items-center gap-1.5 mb-1.5">
-          <span className="w-1 h-1 rounded-full bg-white/30" />
+          <span className="w-1 h-1 rounded-full bg-glass-sm" />
           <span className="text-xs text-ink-3">截止日期</span>
         </div>
         <DatePicker value={mdDate} onChange={setMdDate} style={{ width: 150 }} />
       </div>
       <div>
         <div className="flex items-center gap-1.5 mb-1.5">
-          <span className="w-1 h-1 rounded-full bg-white/30" />
+          <span className="w-1 h-1 rounded-full bg-glass-sm" />
           <span className="text-xs text-ink-3">对比天数</span>
         </div>
         <Select
@@ -283,7 +283,7 @@ export function GeneratePage({ dates, onDone }: GeneratePageProps) {
       </div>
       <div>
         <div className="flex items-center gap-1.5 mb-1.5">
-          <span className="w-1 h-1 rounded-full bg-white/30" />
+          <span className="w-1 h-1 rounded-full bg-glass-sm" />
           <span className="text-xs text-ink-3">文案模式</span>
         </div>
         <Select

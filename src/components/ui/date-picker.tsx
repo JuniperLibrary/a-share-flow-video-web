@@ -170,7 +170,7 @@ export function DatePicker({ value, onChange, placeholder = '选择日期', disa
         {value && (
           <span
             onClick={handleClear}
-            className="text-gray-500 hover:text-gray-300 transition-colors ml-1"
+            className="text-ink-3 hover:text-ink-2 transition-colors ml-1"
             style={{ fontSize: 11 }}
           >
             ✕
@@ -204,7 +204,7 @@ export function DatePicker({ value, onChange, placeholder = '选择日期', disa
               <button
                 type="button"
                 onClick={handlePrevYear}
-                className="p-1 rounded-md hover:bg-white/10 transition-colors text-gray-400 hover:text-white"
+                className="p-1 rounded-md hover:bg-glass-sm transition-colors text-ink-3 hover:text-ink"
                 style={{ fontSize: 11 }}
               >
                 «
@@ -212,20 +212,20 @@ export function DatePicker({ value, onChange, placeholder = '选择日期', disa
               <button
                 type="button"
                 onClick={handlePrevMonth}
-                className="p-1 rounded-md hover:bg-white/10 transition-colors text-gray-400 hover:text-white"
+                className="p-1 rounded-md hover:bg-glass-sm transition-colors text-ink-3 hover:text-ink"
                 style={{ fontSize: 13 }}
               >
                 ‹
               </button>
             </div>
-            <span className="text-sm font-medium text-white">
+            <span className="text-sm font-medium text-ink">
               {year}年{month + 1}月
             </span>
             <div className="flex items-center gap-1">
               <button
                 type="button"
                 onClick={handleNextMonth}
-                className="p-1 rounded-md hover:bg-white/10 transition-colors text-gray-400 hover:text-white"
+                className="p-1 rounded-md hover:bg-glass-sm transition-colors text-ink-3 hover:text-ink"
                 style={{ fontSize: 13 }}
               >
                 ›
@@ -233,7 +233,7 @@ export function DatePicker({ value, onChange, placeholder = '选择日期', disa
               <button
                 type="button"
                 onClick={handleNextYear}
-                className="p-1 rounded-md hover:bg-white/10 transition-colors text-gray-400 hover:text-white"
+                className="p-1 rounded-md hover:bg-glass-sm transition-colors text-ink-3 hover:text-ink"
                 style={{ fontSize: 11 }}
               >
                 »
@@ -244,7 +244,7 @@ export function DatePicker({ value, onChange, placeholder = '选择日期', disa
           {/* Weekdays */}
           <div className="grid grid-cols-7 px-3 pt-2">
             {WEEKDAYS.map(day => (
-              <div key={day} className="text-center text-[10px] text-gray-500 py-1 font-medium">
+              <div key={day} className="text-center text-[10px] text-ink-3 py-1 font-medium">
                 {day}
               </div>
             ))}
@@ -324,7 +324,7 @@ export function DatePicker({ value, onChange, placeholder = '选择日期', disa
             >
               今天
             </button>
-            <span className="text-[10px] text-gray-600">
+            <span className="text-[10px] text-ink-3">
               {selectedStr || '未选择'}
             </span>
           </div>

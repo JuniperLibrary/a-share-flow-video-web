@@ -178,7 +178,7 @@ export function PreviewPage({ previewDate: propPreviewDate }: { previewDate?: st
                 </div>
 
                 {activeVideo && (
-                  <div className="rounded-xl overflow-hidden border border-hairline bg-black/50">
+                  <div className="rounded-xl overflow-hidden border border-hairline bg-glass-lg border-glass">
                     <video
                       controls
                       autoPlay

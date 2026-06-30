@@ -114,7 +114,7 @@ function NoteCard({
                 ref={inputRef}
                 value={editContent}
                 onChange={(e) => setEditContent(e.target.value)}
-                className="w-full bg-black/40 border border-hairline rounded-lg px-3 py-2 text-sm text-ink outline-none focus:border-primary resize-none"
+                className="w-full bg-glass-md border-glass border border-hairline rounded-lg px-3 py-2 text-sm text-ink outline-none focus:border-primary resize-none"
                 rows={3}
               />
               <div className="flex items-center gap-2">
@@ -370,7 +370,7 @@ export function NotesPage() {
                 value={newContent}
                 onChange={(e) => setNewContent(e.target.value)}
                 placeholder="写一条笔记..."
-                className="w-full bg-black/40 border border-hairline rounded-lg px-4 py-3 text-sm text-ink outline-none focus:border-primary resize-none transition-all"
+                className="w-full bg-glass-md border-glass border border-hairline rounded-lg px-4 py-3 text-sm text-ink outline-none focus:border-primary resize-none transition-all"
                 rows={2}
                 onKeyDown={(e) => {
                   if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {

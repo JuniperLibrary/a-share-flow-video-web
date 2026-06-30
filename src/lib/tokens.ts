@@ -1,7 +1,7 @@
 /**
- * Programmatic access to design system tokens.
- * Use this for canvas-based libraries (chart.js, recharts stroke, etc.)
- * that can't read CSS variables directly. All values mirror DESIGN.md.
+ * Design system tokens.
+ * Static values for chart libraries that need stable hex colors.
+ * For theme-aware values, use getThemeTokens().
  */
 
 export const tokens = {
@@ -58,3 +58,57 @@ export const tokens = {
 } as const;
 
 export type Tokens = typeof tokens;
+
+function cssVar(name: string): string {
+  return getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+}
+
+export function getThemeTokens() {
+  return {
+    canvas: cssVar('--canvas'),
+    surface: {
+      1: cssVar('--surface-1'),
+      2: cssVar('--surface-2'),
+      3: cssVar('--surface-3'),
+    },
+    ink: {
+      DEFAULT: cssVar('--ink'),
+      2: cssVar('--ink-2'),
+      3: cssVar('--ink-3'),
+      muted: cssVar('--ink-muted'),
+    },
+    hairline: {
+      DEFAULT: cssVar('--hairline'),
+      strong: cssVar('--hairline-strong'),
+      active: cssVar('--hairline-active'),
+    },
+    primary: {
+      DEFAULT: cssVar('--chart-1'),
+      soft: cssVar('--primary-soft'),
+      softer: cssVar('--primary-softer'),
+      ink: cssVar('--primary-ink'),
+    },
+    inflow: {
+      DEFAULT: cssVar('--inflow'),
+      light: cssVar('--inflow-light'),
+      muted: cssVar('--inflow-muted'),
+      softer: cssVar('--inflow-softer'),
+    },
+    outflow: {
+      DEFAULT: cssVar('--outflow'),
+      light: cssVar('--outflow-light'),
+      muted: cssVar('--outflow-muted'),
+      softer: cssVar('--outflow-softer'),
+    },
+    warning: cssVar('--warning'),
+    info: cssVar('--info'),
+    chart: {
+      1: cssVar('--chart-1'),
+      2: cssVar('--chart-2'),
+      3: cssVar('--chart-3'),
+      4: cssVar('--chart-4'),
+      5: cssVar('--chart-5'),
+      6: cssVar('--chart-6'),
+    },
+  };
+}

@@ -1,48 +1,15 @@
 import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
-import { Button, Tag, Input, Modal } from '@arco-design/web-react';
+import { Button, Input, Modal } from '@arco-design/web-react';
 import { IconPlayArrow, IconDelete, IconCopy, IconHistory } from '@arco-design/web-react/icon';
-import { apiUrl } from '../utils';
 import { api } from '../api';
-import type { CLSNewsRecord } from '../types';
+import type { CLSNewsRecord, SectorCatalogItem, SectorCategory, SectorWatchItem } from '../types';
+import { useTickFeed } from '../hooks/useTickFeed';
+import type { TickPoint } from '../hooks/useTickFeed';
 import { DatePicker } from '../components/ui/date-picker';
 import { PageHeader } from '../components/ui/page-header';
 import { EmptyState } from '../components/ui/empty-state';
 import { tokens } from '../lib/tokens';
 import { cn, netTextColor } from '../lib/utils';
-
-interface TickPoint {
-  Time: string;
-  Name: string;
-  Net: number;
-  Rate: number;
-  ChangePct: number;
-  SuperNet: number;
-  SuperRate: number;
-  BigNet: number;
-  BigRate: number;
-  MainRate: number;
-  Volume: number;
-  Turnover: number;
-  BKCode: string;
-  TurnoverRate: number;
-  LeadStockName: string;
-  LeadStockChangePct: number;
-  TotalMarketCap: number;
-  CirculatingMarketCap: number;
-}
-
-interface TickSnapshot {
-  points: TickPoint[];
-  date: string;
-  running: boolean;
-  count: number;
-  lastTime: string;
-}
-
-interface SSEMessage {
-  type: string;
-  text: string;
-}
 
 interface SortState {
   field: string;
@@ -59,6 +26,12 @@ interface SectorData {
   maxChange: number;
   direction: 'up' | 'down' | 'flat';
 }
+
+const SECTOR_CATEGORIES: { key: SectorCategory; label: string }[] = [
+  { key: 'industry', label: '行业' },
+  { key: 'concept', label: '概念' },
+  { key: 'region', label: '地域' },
+];
 
 function formatNet(n: number): string {
   return `${n >= 0 ? '+' : ''}${n.toFixed(2)}亿`;
@@ -243,129 +216,138 @@ function SectorTrendChart({ points }: { points: TickPoint[] }) {
   );
 }
 
-const AUTO_START_BEFORE = 5;
-
-function todayAtHHMM(hours: number, minutes: number): number {
-  const d = new Date();
-  d.setHours(hours, minutes, 0, 0);
-  return d.getTime();
-}
-
-function getNextAutoStart(now: number): { time: number; label: string } | null {
-  const windows = [
-    { open: todayAtHHMM(9, 30), after: todayAtHHMM(9, 35), label: '早盘' },
-    { open: todayAtHHMM(13, 0), after: todayAtHHMM(13, 5), label: '午盘' },
-  ];
-  for (const w of windows) {
-    const start = w.open - AUTO_START_BEFORE * 60 * 1000;
-    if (now < start) return { time: start, label: w.label };
-  }
-  return null;
-}
-
-function isWeekend(): boolean {
-  const day = new Date().getDay();
-  return day === 0 || day === 6;
-}
-
-function isInAutoWindow(now: number): boolean {
-  const windows = [
-    { start: todayAtHHMM(9, 30) - AUTO_START_BEFORE * 60 * 1000, end: todayAtHHMM(9, 35) },
-    { start: todayAtHHMM(13, 0) - AUTO_START_BEFORE * 60 * 1000, end: todayAtHHMM(13, 5) },
-  ];
-  return windows.some(w => now >= w.start && now <= w.end);
-}
-
 export function TickPage() {
-  const [snapshot, setSnapshot] = useState<TickSnapshot | null>(null);
   const [filterSector, setFilterSector] = useState('');
-  const [now, setNow] = useState(Date.now());
-  const [connected, setConnected] = useState(false);
-  const [error, setError] = useState<string | null>(null);
   const [trendSector, setTrendSector] = useState<SectorData | null>(null);
   const [sectorNews, setSectorNews] = useState<CLSNewsRecord[]>([]);
   const [newsLoading, setNewsLoading] = useState(false);
   const [mode, setMode] = useState<'live' | 'history'>('live');
-  const [historyDate, setHistoryDate] = useState('');
-  const [availableDates, setAvailableDates] = useState<string[]>([]);
-  const [tickDataLoading, setTickDataLoading] = useState(false);
   const [sortState, setSortState] = useState<SortState | null>(null);
-  const abortRef = useRef<AbortController | null>(null);
-  const autoStartSuppressed = useRef(false);
-  const reconnectTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [watchlistOpen, setWatchlistOpen] = useState(false);
+  const [watchlistLoading, setWatchlistLoading] = useState(false);
+  const [watchlistSaving, setWatchlistSaving] = useState(false);
+  const [watchlistItems, setWatchlistItems] = useState<SectorWatchItem[]>([]);
+  const [catalogLoadingByCategory, setCatalogLoadingByCategory] = useState<Record<SectorCategory, boolean>>({
+    industry: false,
+    concept: false,
+    region: false,
+  });
+  const [catalogByCategory, setCatalogByCategory] = useState<Record<SectorCategory, SectorCatalogItem[]>>({
+    industry: [],
+    concept: [],
+    region: [],
+  });
+  const [watchlistFeedback, setWatchlistFeedback] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
+  const [watchlistSearch, setWatchlistSearch] = useState('');
+  const {
+    snapshot,
+    now,
+    connected,
+    error,
+    historyDate,
+    availableDates,
+    tickDataLoading,
+    nextAutoStart,
+    showAutoCountdown,
+    connectingRef,
+    clearSnapshot,
+    setHistoryDate,
+    handleStart,
+    handleStop,
+  } = useTickFeed(mode);
 
-  useEffect(() => {
-    const interval = setInterval(() => setNow(Date.now()), 1000);
-    return () => clearInterval(interval);
-  }, []);
-
-  const loadDateData = useCallback(async (date: string) => {
-    setTickDataLoading(true);
-    try {
-      const dataRes = await fetch(apiUrl(`/api/tick-data/${date}`));
-      if (!dataRes.ok) return;
-      const tickData = await dataRes.json();
-      if (tickData.points?.length) {
-        const times = new Set(tickData.points.map((p: TickPoint) => p.Time));
-        setSnapshot({
-          points: tickData.points,
-          date: tickData.date,
-          running: false,
-          count: times.size,
-          lastTime: tickData.points[tickData.points.length - 1].Time,
-        });
-      } else {
-        setSnapshot(null);
-      }
-    } catch { void 0; }
-    setTickDataLoading(false);
-  }, []);
-
-  useEffect(() => {
-    const initPage = async () => {
-      try {
-        const datesRes = await fetch(apiUrl('/api/dates'));
-        const datesData = await datesRes.json();
-        const dates: string[] = (datesData.dates || []).map((d: any) => d.date);
-        dates.sort();
-        setAvailableDates(dates);
-        if (dates.length === 0) return;
-
-        const latest = dates[dates.length - 1];
-        setHistoryDate(latest);
-
-        const res = await fetch(apiUrl('/api/tick/status'));
-        const data = await res.json();
-        if (data.running) {
-          autoStartSuppressed.current = false;
-          await connectSSE();
-          return;
-        }
-
-        await loadDateData(latest);
-      } catch { void 0; }
-    };
-    initPage();
-  }, [loadDateData]);
-
-  const autoStartTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  useEffect(() => {
-    if (isWeekend() || mode !== 'live') return;
-    if (autoStartSuppressed.current || connected) return;
-    if (isInAutoWindow(Date.now())) {
-      handleStart();
+  const watchlistIndex = useMemo(() => {
+    const map = new Map<string, SectorWatchItem>();
+    for (const it of watchlistItems) {
+      map.set(it.bk_code, it);
     }
-    if (autoStartTimerRef.current) clearInterval(autoStartTimerRef.current);
-    autoStartTimerRef.current = setInterval(() => {
-      if (autoStartSuppressed.current) return;
-      if (!connected && isInAutoWindow(Date.now())) {
-        handleStart();
-      }
-    }, 30000);
-    return () => {
-      if (autoStartTimerRef.current) clearInterval(autoStartTimerRef.current);
-    };
-  }, [connected]);
+    return map;
+  }, [watchlistItems]);
+
+  const watchlistEnabledCount = useMemo(
+    () => watchlistItems.filter((it) => it.enabled).length,
+    [watchlistItems],
+  );
+
+  const loadWatchlist = useCallback(async () => {
+    if (api.isStaticMode()) {
+      setWatchlistItems([]);
+      return;
+    }
+    setWatchlistLoading(true);
+    try {
+      const res = await api.getSectorWatchlist();
+      setWatchlistItems(res.items || []);
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : '加载失败';
+      setWatchlistFeedback({ type: 'error', message: msg });
+      setWatchlistItems([]);
+    } finally {
+      setWatchlistLoading(false);
+    }
+  }, []);
+
+  const loadCatalog = useCallback(async (category: SectorCategory) => {
+    if (api.isStaticMode()) {
+      setCatalogByCategory((prev) => ({ ...prev, [category]: [] }));
+      return;
+    }
+    setCatalogLoadingByCategory((prev) => ({ ...prev, [category]: true }));
+    try {
+      const res = await api.getSectorCatalog(category);
+      setCatalogByCategory((prev) => ({ ...prev, [category]: res.items || [] }));
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : '加载失败';
+      setWatchlistFeedback({ type: 'error', message: msg });
+      setCatalogByCategory((prev) => ({ ...prev, [category]: [] }));
+    } finally {
+      setCatalogLoadingByCategory((prev) => ({ ...prev, [category]: false }));
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!watchlistOpen) return;
+    void loadWatchlist();
+    for (const c of SECTOR_CATEGORIES) {
+      void loadCatalog(c.key);
+    }
+  }, [loadCatalog, loadWatchlist, watchlistOpen]);
+
+  const handleUpsertWatchItem = useCallback(async (item: { bk_code: string; name?: string; category?: SectorCategory; enabled?: boolean }) => {
+    if (api.isStaticMode()) {
+      setWatchlistFeedback({ type: 'error', message: '静态模式不可用' });
+      return;
+    }
+    setWatchlistSaving(true);
+    try {
+      const res = await api.setSectorWatchlistItem(item);
+      setWatchlistItems(res.items || []);
+      setWatchlistFeedback({ type: 'success', message: '已保存' });
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : '保存失败';
+      setWatchlistFeedback({ type: 'error', message: msg });
+    } finally {
+      setWatchlistSaving(false);
+    }
+  }, []);
+
+  const handleRemoveWatchItem = useCallback(async (bk_code: string) => {
+    if (api.isStaticMode()) {
+      setWatchlistFeedback({ type: 'error', message: '静态模式不可用' });
+      return;
+    }
+    setWatchlistSaving(true);
+    try {
+      const res = await api.removeSectorWatchlistItem(bk_code);
+      setWatchlistItems(res.items || []);
+      setWatchlistFeedback({ type: 'success', message: '已移除' });
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : '移除失败';
+      setWatchlistFeedback({ type: 'error', message: msg });
+    } finally {
+      setWatchlistSaving(false);
+    }
+  }, []);
 
   useEffect(() => {
     if (!trendSector) {
@@ -386,118 +368,6 @@ export function TickPage() {
       setNewsLoading(false);
     });
   }, [trendSector]);
-
-  useEffect(() => {
-    if (mode === 'history' && historyDate) {
-      loadDateData(historyDate);
-    }
-  }, [mode, historyDate, loadDateData]);
-
-  async function connectSSE() {
-    if (abortRef.current) abortRef.current.abort();
-    setError(null);
-
-    const controller = new AbortController();
-    abortRef.current = controller;
-
-    try {
-      const res = await fetch(apiUrl('/api/tick/stream'), { signal: controller.signal });
-      if (!res.body) throw new Error('no body');
-
-      const reader = res.body.getReader();
-      const decoder = new TextDecoder();
-      let buf = '';
-
-      setConnected(true);
-
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-
-        buf += decoder.decode(value, { stream: true });
-        const lines = buf.split('\n');
-        buf = lines.pop() || '';
-
-        for (const line of lines) {
-          if (!line.trim()) continue;
-          try {
-            const msg: SSEMessage = JSON.parse(line);
-            if (msg.type === 'tick') {
-              const data: TickSnapshot = JSON.parse(msg.text);
-              setSnapshot(data);
-              setConnected(true);
-            }
-          } catch { void 0; }
-        }
-      }
-    } catch {
-      setConnected(false);
-      setError('连接断开，尝试重连...');
-      reconnectTimer.current = setTimeout(() => {
-        if (!autoStartSuppressed.current) {
-          connectSSE();
-        }
-      }, 5000);
-    } finally {
-      if (abortRef.current === controller) {
-        abortRef.current = null;
-      }
-    }
-  }
-
-  function disconnectSSE() {
-    autoStartSuppressed.current = true;
-    if (reconnectTimer.current) {
-      clearTimeout(reconnectTimer.current);
-      reconnectTimer.current = null;
-    }
-    if (abortRef.current) {
-      abortRef.current.abort();
-      abortRef.current = null;
-    }
-    setConnected(false);
-  }
-
-  async function handleStart() {
-    autoStartSuppressed.current = false;
-    setError(null);
-    try {
-      const res = await fetch(apiUrl('/api/tick/start'), { method: 'POST' });
-      if (!res.ok) {
-        if (reconnectTimer.current) {
-          clearTimeout(reconnectTimer.current);
-          reconnectTimer.current = null;
-        }
-        if (abortRef.current) {
-          abortRef.current.abort();
-          abortRef.current = null;
-        }
-        setConnected(false);
-        const body = await res.json().catch(() => ({}));
-        const errMsg = body.error || '';
-        if (!errMsg.includes('采集中')) {
-          setError(errMsg || '启动失败');
-        }
-        return;
-      }
-    } catch (e) {
-      setError(e instanceof Error ? e.message : '启动失败');
-      return;
-    }
-    await connectSSE();
-  }
-
-  async function handleStop() {
-    autoStartSuppressed.current = true;
-    if (reconnectTimer.current) {
-      clearTimeout(reconnectTimer.current);
-      reconnectTimer.current = null;
-    }
-    try {
-      await fetch(apiUrl('/api/tick/stop'), { method: 'POST' });
-    } catch { void 0; }
-    disconnectSSE();
-  }
 
   async function copyData() {
     if (!snapshot?.points?.length) return;
@@ -548,8 +418,6 @@ export function TickPage() {
   const topSector = filteredRows.length > 0 ? filteredRows[0] : null;
   const worstSector = filteredRows.length > 0 ? filteredRows[filteredRows.length - 1] : null;
 
-  const nextAutoStart = getNextAutoStart(now);
-  const showAutoCountdown = !connected && !autoStartSuppressed.current && nextAutoStart !== null;
   const autoStartMs = nextAutoStart ? nextAutoStart.time - now : 0;
   const autoStartMin = Math.floor(autoStartMs / 60000);
   const autoStartSec = Math.floor((autoStartMs % 60000) / 1000);
@@ -561,6 +429,14 @@ export function TickPage() {
       return null;
     });
   }, []);
+
+  const handleFilterChange = (value: string) => {
+    setFilterSector(value);
+    // auto-trigger collection when user types a sector name in live mode
+    if (mode === 'live' && !connected && value.trim() && !connectingRef.current) {
+      void handleStart();
+    }
+  };
 
   const filterInputClass = '!bg-surface-2 !border-hairline !text-ink !h-8 !text-xs';
 
@@ -700,7 +576,7 @@ export function TickPage() {
                 </Button>
               )}
               <Button
-                onClick={() => setSnapshot(null)}
+                onClick={clearSnapshot}
                 icon={<IconDelete />}
                 className="!bg-surface-2 !border-hairline !text-ink-3 !h-8 !text-xs hover:!bg-surface-3"
               >
@@ -713,11 +589,20 @@ export function TickPage() {
               >
                 复制数据
               </Button>
+              <Button
+                onClick={() => {
+                  setWatchlistFeedback(null);
+                  setWatchlistOpen(true);
+                }}
+                className="!bg-surface-2 !border-hairline !text-ink-3 !h-8 !text-xs hover:!bg-surface-3"
+              >
+                自选板块
+              </Button>
               <div className="flex items-center gap-3 ml-auto">
                 <div className="w-44">
                   <Input
                     value={filterSector}
-                    onChange={setFilterSector}
+                    onChange={handleFilterChange}
                     placeholder="筛选板块..."
                     className={filterInputClass}
                   />
@@ -949,6 +834,178 @@ export function TickPage() {
           </div>
         </div>
       </div>
+
+      <Modal
+        visible={watchlistOpen}
+        onCancel={() => setWatchlistOpen(false)}
+        footer={null}
+        closable={true}
+        maskClosable={true}
+        style={{ width: 1040, borderRadius: 16 }}
+        title={
+          <div className="flex items-center gap-3">
+            <span className="text-ink font-semibold text-base">自选板块</span>
+            <span className="text-xs text-ink-3">用于 tick 采集时的板块范围（开盘 09:30-15:00 禁止变更）</span>
+          </div>
+        }
+      >
+        <div className="space-y-4">
+          {watchlistFeedback && (
+            <div
+              className={cn(
+                'rounded-xl border px-4 py-3 text-xs',
+                watchlistFeedback.type === 'success'
+                  ? 'border-emerald-500/20 bg-emerald-500/8 text-emerald-300'
+                  : 'border-outflow/20 bg-outflow/8 text-outflow',
+              )}
+            >
+              {watchlistFeedback.message}
+            </div>
+          )}
+
+          <div className="relative">
+            <Input
+              value={watchlistSearch}
+              onChange={setWatchlistSearch}
+              placeholder="搜索板块名称或代码..."
+              className="!bg-surface-2 !border-hairline !text-ink !h-9 !text-sm"
+              allowClear
+            />
+          </div>
+
+          <div className="rounded-2xl border border-hairline bg-surface-1 backdrop-blur-xl p-4 shadow-2xl">
+            <div className="flex items-center justify-between gap-3 mb-4">
+              <div>
+                <div className="text-sm font-semibold text-ink">东方财富板块库</div>
+                <div className="mt-0.5 text-xs text-ink-3">
+                  已启用 {watchlistLoading ? '…' : watchlistEnabledCount} / {watchlistLoading ? '…' : watchlistItems.length}（在列表项上标记状态即可）
+                </div>
+              </div>
+              <div className="flex items-center gap-2">
+                <Button
+                  size="mini"
+                  disabled={watchlistLoading || watchlistSaving}
+                  onClick={() => loadWatchlist()}
+                  className="!h-7 !text-xs !bg-surface-2 !border-hairline !text-ink-3 hover:!bg-surface-3"
+                >
+                  同步状态
+                </Button>
+                <Button
+                  size="mini"
+                  disabled={watchlistSaving}
+                  onClick={() => {
+                    for (const c of SECTOR_CATEGORIES) {
+                      void loadCatalog(c.key);
+                    }
+                  }}
+                  className="!h-7 !text-xs !bg-surface-2 !border-hairline !text-ink-3 hover:!bg-surface-3"
+                >
+                  全部刷新
+                </Button>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+              {SECTOR_CATEGORIES.map((c) => {
+                const allItems = catalogByCategory[c.key] || [];
+                const loading = catalogLoadingByCategory[c.key] || false;
+                const filteredItems = watchlistSearch.trim()
+                  ? allItems.filter(it =>
+                      it.name.toLowerCase().includes(watchlistSearch.toLowerCase()) ||
+                      it.bk_code.toLowerCase().includes(watchlistSearch.toLowerCase())
+                    )
+                  : allItems;
+                return (
+                  <div key={c.key} className="rounded-2xl border border-hairline bg-surface-2/60 overflow-hidden">
+                    <div className="px-4 py-3 border-b border-hairline flex items-center gap-2">
+                      <div className="text-sm font-semibold text-ink">{c.label}</div>
+                      <div className="text-xs text-ink-3">{loading ? '加载中…' : watchlistSearch.trim() ? `${filteredItems.length}/${allItems.length}` : `${allItems.length}`}</div>
+                      <Button
+                        size="mini"
+                        disabled={loading}
+                        onClick={() => loadCatalog(c.key)}
+                        className="ml-auto !h-7 !text-xs !bg-surface-1 !border-hairline !text-ink-3 hover:!bg-surface-3"
+                      >
+                        刷新
+                      </Button>
+                    </div>
+
+                    <div className="p-2 max-h-[580px] overflow-auto">
+                      <div className="space-y-1.5">
+                        {filteredItems.map((it) => {
+                          const w = watchlistIndex.get(it.bk_code);
+                          const enabled = w?.enabled ?? false;
+                          return (
+                            <div
+                              key={it.bk_code}
+                              className="flex items-center gap-2 rounded-xl border border-hairline bg-surface-1 px-3 py-2 transition-colors hover:bg-surface-2"
+                            >
+                              <div className="min-w-0 flex-1">
+                                <div className="flex items-center gap-2">
+                                  <span className="text-sm text-ink truncate">{it.name}</span>
+                                  {w && (
+                                    <span
+                                      className={cn(
+                                        'text-[10px] px-2 py-0.5 rounded-full border',
+                                        enabled
+                                          ? 'border-primary/20 bg-primary/8 text-primary'
+                                          : 'border-hairline bg-surface-2 text-ink-3',
+                                      )}
+                                    >
+                                      {enabled ? '启用' : '取消'}
+                                    </span>
+                                  )}
+                                </div>
+                                <div className="text-[11px] text-ink-3 font-mono">{it.bk_code}</div>
+                              </div>
+
+                              {!w ? (
+                                <Button
+                                  size="mini"
+                                  disabled={watchlistSaving}
+                                  onClick={() => handleUpsertWatchItem({ bk_code: it.bk_code, name: it.name, category: it.category, enabled: true })}
+                                  className="!h-7 !text-xs !font-semibold !bg-primary !border-primary !text-primary-ink shadow-glow-primary hover:!brightness-110"
+                                >
+                                  加入
+                                </Button>
+                              ) : (
+                                <Button
+                                  size="mini"
+                                  disabled={watchlistSaving}
+                                  onClick={() => handleUpsertWatchItem({ bk_code: it.bk_code, name: it.name, category: it.category, enabled: !enabled })}
+                                  className={cn(
+                                    '!h-7 !text-xs !font-semibold',
+                                    enabled
+                                      ? '!bg-surface-2 !border-hairline !text-ink-3 hover:!bg-surface-3'
+                                      : '!bg-primary-soft !border-primary/20 !text-primary hover:!brightness-110',
+                                  )}
+                                >
+                                  {enabled ? '取消' : '启用'}
+                                </Button>
+                              )}
+
+                              {w && (
+                                <Button
+                                  size="mini"
+                                  status="danger"
+                                  icon={<IconDelete />}
+                                  disabled={watchlistSaving}
+                                  onClick={() => handleRemoveWatchItem(it.bk_code)}
+                                  className="!h-7 !w-7 !p-0"
+                                />
+                              )}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+      </Modal>
 
       <Modal
         visible={trendSector !== null}

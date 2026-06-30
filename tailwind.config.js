@@ -131,6 +131,7 @@ export default {
         'fade-in': 'fade-in 0.5s ease-out',
         shimmer: 'shimmer 2s linear infinite',
         'tick-flash': 'tick-flash 1.5s ease-out',
+        'ticker-scroll': 'ticker-scroll 30s linear infinite',
       },
       keyframes: {
         'pulse-glow': {
@@ -160,6 +161,10 @@ export default {
         'tick-flash': {
           '0%': { backgroundColor: 'rgba(255,255,255,0.12)' },
           '100%': { backgroundColor: 'transparent' },
+        },
+        'ticker-scroll': {
+          '0%': { transform: 'translateX(0)' },
+          '100%': { transform: 'translateX(-50%)' },
         },
       },
     },

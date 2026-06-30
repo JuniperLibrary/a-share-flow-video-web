@@ -89,15 +89,15 @@ export function SocialKnowledgeCard({ card, format, className }: SocialKnowledge
           >
             {card.tag}
           </span>
-          <span className="pt-1 text-[26px] font-mono tabular-nums" style={{ color: '#86909c' }}>
+          <span className="pt-1 text-[26px] font-mono tabular-nums text-ink-3">
             {card.index}/{card.total}
           </span>
         </div>
 
         <div className="mt-10 space-y-4">
           <h1
-            className="font-bold leading-[1.15] tracking-tight"
-            style={{ fontSize: isTall ? 64 : 58, color: '#ffffff' }}
+            className="font-bold leading-[1.15] tracking-tight text-ink"
+            style={{ fontSize: isTall ? 64 : 58 }}
           >
             {titleMain}
             {titleAccent && (
@@ -107,8 +107,8 @@ export function SocialKnowledgeCard({ card, format, className }: SocialKnowledge
             )}
           </h1>
           <p
-            className="leading-relaxed"
-            style={{ fontSize: 30, color: '#b0b8c4', lineHeight: 1.45 }}
+            className="leading-relaxed text-ink-2"
+            style={{ fontSize: 30, lineHeight: 1.45 }}
           >
             {card.subtitle}
           </p>
@@ -119,15 +119,10 @@ export function SocialKnowledgeCard({ card, format, className }: SocialKnowledge
             {metrics.map((metric: ReportMetric) => (
               <div
                 key={`${card.index}-${metric.label}`}
-                className="rounded-[24px] border px-4 py-5"
-                style={{
-                  borderColor: 'rgba(255,255,255,0.08)',
-                  background: 'rgba(0,0,0,0.22)',
-                }}
+                className="rounded-[24px] border border-glass px-4 py-5 bg-glass-sm"
               >
                 <div
-                  className="truncate text-[24px] font-medium"
-                  style={{ color: '#86909c' }}
+                  className="truncate text-[24px] font-medium text-ink-3"
                 >
                   {metric.label}
                 </div>

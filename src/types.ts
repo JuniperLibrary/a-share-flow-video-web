@@ -27,7 +27,23 @@ export interface ConfigData {
   has_api_key: boolean;
   api_base: string;
   model: string;
+  models?: Record<string, string>;
   sessions: Record<string, string>;
+}
+
+export type SectorCategory = 'industry' | 'concept' | 'region';
+
+export interface SectorCatalogItem {
+  bk_code: string;
+  name: string;
+  category: SectorCategory;
+}
+
+export interface SectorWatchItem {
+  bk_code: string;
+  name: string;
+  category: SectorCategory;
+  enabled: boolean;
 }
 
 export interface SSEMessage {
@@ -45,6 +61,10 @@ export interface CLSNewsRecord {
   ctime: string;
   shareurl: string;
   sectors: string; // JSON array string
+  classify_status: string;
+  retry_count: number;
+  last_retry_at: string;
+  last_error: string;
   created_at: string;
 }
 
@@ -64,6 +84,15 @@ export interface NewsStatusResponse {
   total_news: number;
   last_poll: string;
   last_count: number;
+  pending_count: number;
+  retrying_count: number;
+  failed_count: number;
+  skipped_count: number;
+  classified_count: number;
+  last_retry: string;
+  last_retry_at: string;
+  last_retry_queued: number;
+  last_retry_dropped: number;
 }
 
 export interface NewsDateResponse extends NewsListResponse {
@@ -127,6 +156,7 @@ export interface DebateAudioTurn {
 
 export interface SectorSummary {
   name: string;
+  category?: string;
   net: number;
   changePct: number;
   superNet: number;

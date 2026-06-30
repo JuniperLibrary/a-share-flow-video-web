@@ -1,7 +1,7 @@
 import React from 'react';
 import { useCurrentFrame, interpolate, Audio, staticFile } from 'remotion';
 import { Background } from './Background.tsx';
-import type { NewsPage } from './types.ts';
+import type { NewsPage, CatalysisResult } from './types.ts';
 
 interface NewsSceneProps {
   page: NewsPage;
@@ -13,6 +13,7 @@ interface NewsSceneProps {
   totalFrames: number;
   pageIndex: number;
   totalPages: number;
+  catalysisResult?: CatalysisResult;
 }
 
 const SECTOR_COLORS = [
@@ -41,15 +42,31 @@ export const NewsScene: React.FC<NewsSceneProps> = ({
   totalFrames,
   pageIndex,
   totalPages,
+  catalysisResult,
 }) => {
   const frame = useCurrentFrame();
   const isTV = format === 'tv';
 
-  const fadeIn = Math.min(1, frame / 18);
+  const enter = Math.min(1, frame / 10);
+  const leave = Math.min(1, Math.max(0, (totalFrames - frame) / 8));
+  const opacity = interpolate(enter * leave, [0, 1], [0.75, 1], {
+    extrapolateLeft: 'clamp',
+    extrapolateRight: 'clamp',
+  });
+  const translateY = interpolate(enter, [0, 1], [16, 0]);
+  const audioVolume = interpolate(frame, [0, 8, Math.max(0, totalFrames - 10), totalFrames], [0, 1, 1, 0], {
+    extrapolateLeft: 'clamp',
+    extrapolateRight: 'clamp',
+  });
+  const headerSweep = interpolate(frame, [0, 10, Math.max(0, totalFrames - 10), totalFrames], [0, 1, 1, 0], {
+    extrapolateLeft: 'clamp',
+    extrapolateRight: 'clamp',
+  });
 
   const headerSize = isTV ? 28 : 36;
   const sectorNameSize = isTV ? 30 : 38;
   const newsTitleSize = isTV ? 22 : 30;
+  const analysisSize = isTV ? 20 : 26;
   const briefSize = isTV ? 16 : 22;
   const pageSize = isTV ? 18 : 24;
   const badgeFontSize = isTV ? 14 : 18;
@@ -59,9 +76,20 @@ export const NewsScene: React.FC<NewsSceneProps> = ({
   const cardRadius = isTV ? 10 : 12;
   const sectorGap = isTV ? 12 : 16;
 
+  const sectorAnalysis = React.useMemo(() => {
+    if (!catalysisResult) return null;
+    const map = new Map<string, CatalysisResult['sectors'][0]>();
+    for (const s of catalysisResult.sectors) {
+      map.set(s.sector, s);
+    }
+    return map;
+  }, [catalysisResult]);
+
+  const introLead = isTV ? 6 : 10;
+
   return (
     <>
-      <Audio src={staticFile(audioFile)} />
+      <Audio src={staticFile(audioFile)} volume={audioVolume} />
       <Background
         frame={frame}
         totalFrames={totalFrames}
@@ -82,11 +110,13 @@ export const NewsScene: React.FC<NewsSceneProps> = ({
           flexDirection: 'column',
           padding: containerPad,
           zIndex: 20,
-          opacity: fadeIn,
+          opacity,
+          transform: `translateY(${translateY}px)`,
         }}
       >
         <div
           style={{
+            position: 'relative',
             display: 'flex',
             justifyContent: 'space-between',
             alignItems: 'center',
@@ -95,6 +125,19 @@ export const NewsScene: React.FC<NewsSceneProps> = ({
             marginBottom: isTV ? 14 : 18,
           }}
         >
+          <div
+            style={{
+              position: 'absolute',
+              left: 0,
+              right: 0,
+              bottom: -1,
+              height: 2,
+              opacity: 0.18 + 0.28 * headerSweep,
+              background: 'linear-gradient(90deg, rgba(74,128,208,0) 0%, rgba(170,210,255,0.9) 45%, rgba(74,128,208,0) 100%)',
+              transform: `scaleX(${Math.max(0.05, headerSweep)})`,
+              transformOrigin: 'left center',
+            }}
+          />
           <div
             style={{
               fontSize: headerSize,
@@ -136,9 +179,10 @@ export const NewsScene: React.FC<NewsSceneProps> = ({
           {page.sectors.map((sn, si) => {
             const color = sectorColor(sn.sector);
             const sectorDelay = si * 8;
-            const sectorProgress = Math.min(1, Math.max(0, (frame - sectorDelay) / 14));
+            const sectorProgress = Math.min(1, Math.max(0, (frame + introLead - sectorDelay) / 14));
             const sectorOpacity = sectorProgress;
             const sectorTranslateY = interpolate(sectorProgress, [0, 1], [24, 0]);
+            const analysis = sectorAnalysis?.get(sn.sector);
 
             return (
               <div
@@ -154,9 +198,25 @@ export const NewsScene: React.FC<NewsSceneProps> = ({
                   padding: cardPad,
                   display: 'flex',
                   flexDirection: 'column',
+                  position: 'relative',
+                  overflow: 'hidden',
                 }}
               >
-                  <div
+                <div
+                  style={{
+                    position: 'absolute',
+                    left: 0,
+                    right: 0,
+                    top: 0,
+                    height: 2,
+                    opacity: 0.18 + 0.45 * sectorProgress,
+                    background: `linear-gradient(90deg, rgba(74,128,208,0) 0%, ${color} 50%, rgba(74,128,208,0) 100%)`,
+                    backgroundSize: '200% 100%',
+                    backgroundPosition: `${Math.round((1 - sectorProgress) * 100)}% 0`,
+                    filter: `blur(${Math.max(0, 1 - sectorProgress)}px)`,
+                  }}
+                />
+                <div
                   style={{
                     display: 'flex',
                     alignItems: 'center',
@@ -164,6 +224,8 @@ export const NewsScene: React.FC<NewsSceneProps> = ({
                     marginBottom: isTV ? 8 : 12,
                     paddingBottom: isTV ? 6 : 10,
                     borderBottom: '1px solid rgba(60, 80, 120, 0.12)',
+                    position: 'relative',
+                    zIndex: 2,
                   }}
                 >
                   <div
@@ -189,20 +251,39 @@ export const NewsScene: React.FC<NewsSceneProps> = ({
                   </span>
                 </div>
 
-                  <div
+                <div
                   style={{
                     display: 'flex',
                     flexDirection: 'column',
                     gap: isTV ? 6 : 10,
                     flex: 1,
+                    position: 'relative',
+                    zIndex: 2,
                   }}
                 >
+                  {analysis && (
+                    <div
+                      style={{
+                        fontSize: analysisSize,
+                        color: '#e0e8f0',
+                        fontFamily: '"PingFang SC", "Helvetica Neue", sans-serif',
+                        lineHeight: 1.4,
+                        marginBottom: isTV ? 4 : 6,
+                        padding: isTV ? '4px 0' : '6px 0',
+                        borderBottom: '1px solid rgba(60,80,120,0.1)',
+                      }}
+                    >
+                      {analysis.analysis}
+                    </div>
+                  )}
+
                   {sn.news.slice(0, 2).map((item, ni) => {
                     const newsDelay = sectorDelay + 6 + ni * 4;
-                    const newsProgress = Math.min(1, Math.max(0, (frame - newsDelay) / 10));
+                    const newsProgress = Math.min(1, Math.max(0, (frame + introLead - newsDelay) / 10));
                     const newsOpacity = newsProgress;
                     const newsTranslateY = interpolate(newsProgress, [0, 1], [8, 0]);
                     const isLevelA = item.level === 'A';
+                    const insight = analysis?.insights[ni];
 
                     return (
                       <div
@@ -234,7 +315,7 @@ export const NewsScene: React.FC<NewsSceneProps> = ({
                             热
                           </span>
                         )}
-                          <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ flex: 1, minWidth: 0 }}>
                           <div
                             style={{
                               display: 'flex',
@@ -253,7 +334,7 @@ export const NewsScene: React.FC<NewsSceneProps> = ({
                                 fontVariantNumeric: 'tabular-nums',
                               }}
                             >
-                              催化{ni + 1}
+                              {insight ? `催化${ni + 1}` : `催化${ni + 1}`}
                             </span>
                             <span
                               style={{
@@ -263,10 +344,23 @@ export const NewsScene: React.FC<NewsSceneProps> = ({
                                 lineHeight: 1.35,
                               }}
                             >
-                              {item.title}
+                              {insight || item.title}
                             </span>
                           </div>
-                          {item.brief && (
+                          {insight && (
+                            <div
+                              style={{
+                                fontSize: briefSize,
+                                color: '#5a6a7a',
+                                fontFamily: '"PingFang SC", "Helvetica Neue", sans-serif',
+                                lineHeight: 1.35,
+                                marginTop: isTV ? 1 : 2,
+                              }}
+                            >
+                              来源：{item.title}
+                            </div>
+                          )}
+                          {!insight && item.brief && (
                             <div
                               style={{
                                 fontSize: briefSize,
