@@ -205,25 +205,25 @@ export const Header: React.FC<HeaderProps> = ({
         <div
           style={{
             position: 'absolute',
-            top: '45%',
+            top: '40%',
             left: 0,
             right: 0,
             textAlign: 'center',
             transform: 'translateY(-50%)',
-            opacity: frame < 30 ? frame / 30 : frame > 120 ? Math.max(0, (150 - frame) / 30) : 1,
+            opacity: (frame < 30 ? frame / 30 : frame > 120 ? Math.max(0, (150 - frame) / 30) : 1) * 0.82,
             zIndex: 20,
             padding: '0 40px',
           }}
         >
           <div
             style={{
-              fontSize: isTV ? 36 * scale : 48 * scale,
-              fontWeight: 700,
-              color: '#ffffff',
+              fontSize: isTV ? 34 * scale : 44 * scale,
+              fontWeight: 650,
+              color: 'rgba(255,255,255,0.92)',
               fontFamily: '"PingFang SC", "Helvetica Neue", sans-serif',
               letterSpacing: isTV ? 1.6 : 2,
               lineHeight: 1.4,
-              textShadow: `0 4px 24px rgba(0,0,0,0.6), 0 0 60px ${sentimentColor}22`,
+              textShadow: `0 2px 14px rgba(0,0,0,0.55), 0 0 40px ${sentimentColor}18`,
               maxWidth: isTV ? '74%' : '86%',
               margin: '0 auto',
             }}
@@ -239,7 +239,7 @@ export const Header: React.FC<HeaderProps> = ({
               fontWeight: 400,
               fontFamily: '"PingFang SC", "Helvetica Neue", sans-serif',
               letterSpacing: isTV ? 2 : 2.4,
-              opacity: 0.7,
+              opacity: 0.55,
             }}
           >
             今天谁在疯狂吸金？

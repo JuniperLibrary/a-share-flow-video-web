@@ -8,6 +8,7 @@ interface TickChartProps {
   frame: number;
   totalFrames: number;
   activeEventSector?: string | null;
+  highlightSector?: string;
   width?: number;
   height?: number;
   format?: 'mobile' | 'tv';
@@ -121,6 +122,7 @@ export const TickChart: React.FC<TickChartProps> = ({
   frame,
   totalFrames,
   activeEventSector,
+  highlightSector,
   width = 1080,
   height = 1920,
   format = 'mobile',
@@ -454,11 +456,13 @@ export const TickChart: React.FC<TickChartProps> = ({
   const curvesJSX = cumulativeData.map((sector) => {
     const rankIdx = sortedByAbs.findIndex(s => s.name === sector.name);
     const isActiveEvent = activeEventSector === sector.name;
+    const isHighlighted = highlightSector === sector.name;
+    const isMainlineFocus = isHighlighted && sentiment === 'mainline';
 
-    const lineWidth = isTV ? 1.8 : 3.0;
-    const glowWidth = isTV ? 6 : 10;
-    const glowOpacity = 0.1;
-    const mainOpacity = 0.8;
+    const lineWidth = isHighlighted ? (isTV ? 2.8 : 4.6) : (isTV ? 1.8 : 3.0);
+    const glowWidth = isHighlighted ? (isTV ? 10 : 16) : (isTV ? 6 : 10);
+    const glowOpacity = isHighlighted ? 0.18 : 0.1;
+    const mainOpacity = isHighlighted ? 0.96 : 0.8;
     const pointR = isTV ? 3.5 : 5.5;
     const pointOpacity = 0.75;
 
@@ -501,12 +505,13 @@ export const TickChart: React.FC<TickChartProps> = ({
     const valueText = `${lastVal >= 0 ? '+' : ''}${lastVal.toFixed(1)}`;
     const showStructureBar = labelCount <= 10;
     const areaColor = lastVal >= 0 ? '#4ade80' : '#f87171';
-    const areaOpacity = sectorReveal * 0.08 * eventPulse;
+    const areaOpacity = sectorReveal * (isHighlighted ? 0.14 : 0.08) * eventPulse;
 
     // Pulsing endpoint glow
     const pulsePhase = Math.sin(frame * 0.15 + rankIdx) * 0.3 + 0.7;
-    const glowR = pointR * (2.5 + pulsePhase * 1.5);
-    const glowOp = pointOpacity * 0.12 * pulsePhase * eventPulse * sectorReveal;
+    const glowR = pointR * (isHighlighted ? 3.6 : 2.5 + pulsePhase * 1.5);
+    const glowOp = pointOpacity * (isHighlighted ? 0.22 : 0.12) * pulsePhase * eventPulse * sectorReveal;
+    const accentColor = isMainlineFocus ? '#fbbf24' : sector.color;
 
     return (
       <g key={sector.name}>
@@ -518,7 +523,7 @@ export const TickChart: React.FC<TickChartProps> = ({
 
           {/* Outer glow */}
           {glowWidth > 0 && (
-            <path d={pathD} fill="none" stroke={sector.color} strokeWidth={glowWidth * eventPulse} opacity={glowOpacity * eventPulse * sectorReveal} strokeLinecap="round" strokeLinejoin="round" style={{ filter: 'blur(8px)' }} />
+            <path d={pathD} fill="none" stroke={accentColor} strokeWidth={glowWidth * eventPulse} opacity={glowOpacity * eventPulse * sectorReveal} strokeLinecap="round" strokeLinejoin="round" style={{ filter: 'blur(8px)' }} />
           )}
 
           {/* Thick background line */}
@@ -526,6 +531,10 @@ export const TickChart: React.FC<TickChartProps> = ({
 
           {/* Main line */}
           <path d={pathD} fill="none" stroke={sector.color} strokeWidth={lineWidth} opacity={effectiveOpacity} strokeLinecap="round" strokeLinejoin="round" />
+
+          {isMainlineFocus && (
+            <path d={pathD} fill="none" stroke="#fbbf24" strokeWidth={lineWidth * 0.42} opacity={0.45 * eventPulse * sectorReveal} strokeLinecap="round" strokeLinejoin="round" />
+          )}
 
           {/* Event highlight */}
           {isActiveEvent && (
@@ -535,8 +544,11 @@ export const TickChart: React.FC<TickChartProps> = ({
           {/* Endpoint glow + dot */}
           {currentIdx > 1 && pointR > 0 && (
             <>
-              <circle cx={endX} cy={endY} r={glowR} fill={sector.color} opacity={glowOp} style={{ filter: 'blur(4px)' }} />
-              <circle cx={endX} cy={endY} r={pointR} fill={sector.color} stroke="#ffffff" strokeWidth={1} opacity={pointOpacity * eventPulse * sectorReveal} />
+              <circle cx={endX} cy={endY} r={glowR} fill={accentColor} opacity={glowOp} style={{ filter: 'blur(4px)' }} />
+              {isHighlighted && (
+                <circle cx={endX} cy={endY} r={pointR + (isTV ? 3 : 4)} fill="none" stroke={isMainlineFocus ? '#fbbf24' : accentColor} strokeWidth={1.2} opacity={0.55 * eventPulse * sectorReveal} />
+              )}
+              <circle cx={endX} cy={endY} r={pointR} fill={sector.color} stroke="#ffffff" strokeWidth={isHighlighted ? 1.4 : 1} opacity={pointOpacity * eventPulse * sectorReveal} />
             </>
           )}
         </g>
@@ -548,29 +560,55 @@ export const TickChart: React.FC<TickChartProps> = ({
               y1={endY}
               x2={leaderEndX}
               y2={labelY}
-              stroke={sector.color}
+              stroke={accentColor}
               strokeWidth={1}
-              opacity={0.35}
+              opacity={isHighlighted ? 0.55 : 0.35}
             />
             <line
               x1={leaderEndX}
               y1={labelY}
               x2={labelColumnX}
               y2={labelY}
-              stroke={sector.color}
+              stroke={accentColor}
               strokeWidth={1}
-              opacity={0.35}
+              opacity={isHighlighted ? 0.55 : 0.35}
             />
+            {isMainlineFocus && (
+              <>
+                <rect
+                  x={labelColumnX - (isTV ? 56 : 68)}
+                  y={labelY - (isTV ? 26 : 30)}
+                  width={isTV ? 44 : 52}
+                  height={isTV ? 16 : 20}
+                  rx={999}
+                  fill="rgba(251,191,36,0.18)"
+                  stroke="rgba(251,191,36,0.6)"
+                  strokeWidth={0.8}
+                />
+                <text
+                  x={labelColumnX - (isTV ? 34 : 42)}
+                  y={labelY - (isTV ? 18 : 20)}
+                  fill="#fcd34d"
+                  fontSize={isTV ? 10 : 12}
+                  fontWeight={800}
+                  textAnchor="middle"
+                  dominantBaseline="middle"
+                  style={{ fontFamily: '"PingFang SC", "Helvetica Neue", sans-serif', letterSpacing: 1.2 }}
+                >
+                  主线
+                </text>
+              </>
+            )}
             <text
               x={labelColumnX}
               y={labelY + 1}
               fontSize={labelFontSize}
-              fontWeight={600}
+              fontWeight={isHighlighted ? 700 : 600}
               textAnchor={textAnchor}
               dominantBaseline="middle"
               style={{ fontFamily: '"PingFang SC", "Helvetica Neue", sans-serif' }}
             >
-              <tspan fill={sector.color} style={{ textShadow: `0 0 4px ${sector.color}33` }}>
+              <tspan fill={accentColor} style={{ textShadow: `0 0 4px ${accentColor}33` }}>
                 {sector.name}
               </tspan>
               <tspan fill={lastVal >= 0 ? '#f87171' : '#4ade80'} dx={5}>

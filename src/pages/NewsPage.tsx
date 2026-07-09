@@ -115,12 +115,14 @@ function NewsRow({
   onSelect,
   onRetry,
   retrying,
+  isRunning,
   index,
 }: {
   record: CLSNewsRecord;
   onSelect: (r: CLSNewsRecord) => void;
   onRetry: (r: CLSNewsRecord) => void;
   retrying: boolean;
+  isRunning: boolean;
   index: number;
 }) {
   const sectors = parseSectors(record.sectors);
@@ -194,7 +196,8 @@ function NewsRow({
                 e.stopPropagation();
                 onRetry(record);
               }}
-              disabled={retrying}
+              disabled={retrying || !isRunning}
+              title={!isRunning ? '请先启动新闻轮询' : undefined}
               className="ml-auto inline-flex items-center px-2 py-0.5 text-[10px] rounded-full border border-primary/20 bg-primary/10 text-primary hover:bg-primary/15 disabled:opacity-50"
             >
               {retrying ? '重试中...' : '重新入队'}
@@ -217,11 +220,13 @@ function NewsModal({
   onClose,
   onRetry,
   retrying,
+  isRunning,
 }: {
   record: CLSNewsRecord;
   onClose: () => void;
   onRetry: (r: CLSNewsRecord) => void;
   retrying: boolean;
+  isRunning: boolean;
 }) {
   const sectors = parseSectors(record.sectors);
   const style = LEVEL_STYLES[record.level] || LEVEL_STYLES.C;
@@ -284,7 +289,8 @@ function NewsModal({
           {record.classify_status !== 'classified' && (
             <button
               onClick={() => onRetry(record)}
-              disabled={retrying}
+              disabled={retrying || !isRunning}
+              title={!isRunning ? '请先启动新闻轮询' : undefined}
               className="inline-flex items-center px-3 py-1 text-xs rounded-lg border border-primary/20 bg-primary/10 text-primary hover:bg-primary/15 disabled:opacity-50"
             >
               {retrying ? '重试中...' : '重新入队'}
@@ -770,6 +776,7 @@ export function NewsPage() {
                 onSelect={setSelectedNews}
                 onRetry={handleRetryNews}
                 retrying={retryingId === r.id}
+                isRunning={isRunning}
                 index={i}
               />
             ))
@@ -796,6 +803,7 @@ export function NewsPage() {
           record={selectedNews}
           onRetry={handleRetryNews}
           retrying={retryingId === selectedNews.id}
+          isRunning={isRunning}
           onClose={() => setSelectedNews(null)}
         />
       )}

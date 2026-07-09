@@ -287,9 +287,12 @@ const TickAnimationScene: React.FC<{
 
   const highlightId = React.useMemo(() => {
     if (sectorsForRanking.length === 0) return undefined;
-    const top = [...sectorsForRanking].sort((a, b) => Math.abs(b.net) - Math.abs(a.net))[0];
+    const sorted = [...sectorsForRanking];
+    const top = sentiment === 'mainline'
+      ? sorted.sort((a, b) => b.net - a.net)[0]
+      : sorted.sort((a, b) => Math.abs(b.net) - Math.abs(a.net))[0];
     return top?.name;
-  }, [sectorsForRanking]);
+  }, [sectorsForRanking, sentiment]);
 
   return (
     <>
@@ -303,6 +306,7 @@ const TickAnimationScene: React.FC<{
         frame={frame}
         totalFrames={totalFrames}
         activeEventSector={activeEventSector}
+        highlightSector={highlightId}
         width={width}
         height={height}
         format={format}
@@ -316,6 +320,7 @@ const TickAnimationScene: React.FC<{
         frame={frame}
         totalFrames={totalFrames}
         highlightId={highlightId}
+        highlightMode={sentiment === 'mainline' ? 'mainline' : 'focus'}
         width={width}
         height={height}
         format={format}

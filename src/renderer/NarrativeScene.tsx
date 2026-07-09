@@ -26,12 +26,12 @@ const SCENE_CONFIG = {
   },
   twist: {
     color: '#48dbfb',
-    subtitle: '更离谱的是...',
+    subtitle: '更离谱的是',
     fontSize: { mobile: 50, tv: 40 },
   },
   answer: {
     color: '#1dd1a1',
-    subtitle: '真相是...',
+    subtitle: '真相是',
     fontSize: { mobile: 46, tv: 36 },
   },
   hook2: {
@@ -58,27 +58,34 @@ function splitSceneText(text: string, maxLineLength: number): string[] {
   if (runes.length <= maxLineLength) return [merged];
 
   const targets = new Set(['，', '、', ' ', '；', '：', '。', '！', '？', ',', ';', ':', '!', '?']);
-  const center = Math.min(maxLineLength, Math.max(10, Math.floor(runes.length / 2)));
-  let best = -1;
-  let bestDist = 1e9;
-  const lo = Math.max(8, center - 10);
-  const hi = Math.min(runes.length - 8, center + 12);
-  for (let i = lo; i <= hi; i++) {
-    if (!targets.has(runes[i])) continue;
-    const dist = Math.abs(i - center);
-    if (dist < bestDist) {
-      bestDist = dist;
-      best = i;
-    }
-  }
-  if (best < 0) best = center;
+  const lines: string[] = [];
+  let cursor = 0;
 
-  const l1 = runes.slice(0, best + 1).join('').trim();
-  let l2 = runes.slice(best + 1).join('').trim();
-  if (Array.from(l2).length > maxLineLength) {
-    l2 = Array.from(l2).slice(0, Math.max(0, maxLineLength-1)).join('') + '…';
+  while (cursor < runes.length) {
+    const remaining = runes.length - cursor;
+    if (remaining <= maxLineLength) {
+      lines.push(runes.slice(cursor).join('').trim());
+      break;
+    }
+
+    const start = cursor;
+    const end = Math.min(runes.length, cursor + maxLineLength);
+    const softLo = start + Math.floor(maxLineLength * 0.6);
+    let splitAt = -1;
+
+    for (let i = end - 1; i >= softLo; i--) {
+      if (targets.has(runes[i])) {
+        splitAt = i;
+        break;
+      }
+    }
+
+    if (splitAt < 0) splitAt = end - 1;
+    lines.push(runes.slice(start, splitAt + 1).join('').trim());
+    cursor = splitAt + 1;
   }
-  return [l1, l2].filter(Boolean).slice(0, 2);
+
+  return lines.filter(Boolean);
 }
 
 export const NarrativeScene: React.FC<NarrativeSceneProps> = ({
@@ -113,7 +120,10 @@ export const NarrativeScene: React.FC<NarrativeSceneProps> = ({
   });
 
   const baseFontSize = isTV ? config.fontSize.tv : config.fontSize.mobile;
-  const fontScale = clamp(1 - Math.max(0, charCount - (isTV ? 22 : 18)) * 0.015, 0.82, 1);
+  const lineCount = lines.length || 1;
+  const lengthScale = 1 - Math.max(0, charCount - (isTV ? 22 : 18)) * 0.015;
+  const linesScale = 1 - Math.max(0, lineCount - 2) * 0.08;
+  const fontScale = clamp(Math.min(lengthScale, linesScale), 0.68, 1);
   const fontSize = Math.floor(baseFontSize * fontScale);
 
   return (
@@ -187,6 +197,7 @@ export const NarrativeScene: React.FC<NarrativeSceneProps> = ({
             textShadow: '0 4px 24px rgba(0,0,0,0.6)',
             opacity: opacity,
             transform: `translateY(${(1 - textSlide) * 30}px)`,
+            maxWidth: isTV ? '78%' : '88%',
           }}
         >
           {lines.length > 0 ? lines.map((l, idx) => <div key={idx}>{l}</div>) : sceneText}

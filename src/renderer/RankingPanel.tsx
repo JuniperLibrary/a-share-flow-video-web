@@ -7,6 +7,7 @@ interface RankingPanelProps {
   frame: number;
   totalFrames: number;
   highlightId?: string;
+  highlightMode?: 'focus' | 'mainline';
   width?: number;
   height?: number;
   format?: 'mobile' | 'tv';
@@ -24,10 +25,11 @@ const RankingGroup: React.FC<{
   isPositive: boolean;
   visibleCount: number;
   highlightId?: string;
+  highlightMode?: 'focus' | 'mainline';
   frame: number;
   scale: number;
   compact?: boolean;
-}> = ({ title, sectors, isPositive, visibleCount, highlightId, frame, scale, compact = false }) => {
+}> = ({ title, sectors, isPositive, visibleCount, highlightId, highlightMode = 'focus', frame, scale, compact = false }) => {
   const color = isPositive ? '#f87171' : '#4ade80';
   const arrow = isPositive ? '↑' : '↓';
   const displaySectors = sectors.slice(0, 18);
@@ -52,6 +54,7 @@ const RankingGroup: React.FC<{
         const isVisible = i < visibleCount;
         const opacity = isVisible ? Math.min(1, Math.max(0.8, (frame - i * 5) / 10)) : 0;
         const isHighlighted = sector.name === highlightId;
+        const isMainlineHighlight = isHighlighted && highlightMode === 'mainline';
         const pulseOpacity = isHighlighted ? Math.min(0.4, (frame % 30) / 30) : 0;
 
         return (
@@ -68,7 +71,7 @@ const RankingGroup: React.FC<{
               opacity: Math.max(0, opacity),
               borderBottom: '1px solid rgba(42,53,80,0.15)',
               background: isHighlighted
-                ? `linear-gradient(90deg, ${sector.color}18, transparent)`
+                ? `linear-gradient(90deg, ${isMainlineHighlight ? '#fbbf241f' : `${sector.color}18`}, transparent)`
                 : i < 3
                   ? `linear-gradient(90deg, ${PODIUM_COLORS[i + 1].bg}, transparent)`
                   : undefined,
@@ -76,6 +79,20 @@ const RankingGroup: React.FC<{
               borderRadius: i < 3 ? 4 : 0,
             }}
           >
+            {isHighlighted && (
+              <div
+                style={{
+                  position: 'absolute',
+                  left: 0,
+                  top: 4 * scale,
+                  bottom: 4 * scale,
+                  width: 2,
+                  borderRadius: 999,
+                  background: isMainlineHighlight ? '#fbbf24' : sector.color,
+                  boxShadow: isMainlineHighlight ? '0 0 12px rgba(251,191,36,0.55)' : `0 0 10px ${sector.color}66`,
+                }}
+              />
+            )}
             {isHighlighted && (
               <div
                 style={{
@@ -112,14 +129,42 @@ const RankingGroup: React.FC<{
                 fontWeight: 600,
                 color: isHighlighted ? '#ddeeff' : '#ccddee',
                 overflow: 'hidden',
-                textOverflow: 'ellipsis',
-                whiteSpace: 'nowrap',
                 position: 'relative',
                 zIndex: 1,
                 minWidth: 0,
+                display: 'flex',
+                alignItems: 'center',
+                gap: 4 * scale,
               }}
             >
-              {sector.name || '—'}
+              <span
+                style={{
+                  overflow: 'hidden',
+                  textOverflow: 'ellipsis',
+                  whiteSpace: 'nowrap',
+                  minWidth: 0,
+                  flex: 1,
+                }}
+              >
+                {sector.name || '—'}
+              </span>
+              {isMainlineHighlight && (
+                <span
+                  style={{
+                    fontSize: 9 * scale,
+                    fontWeight: 800,
+                    color: '#fcd34d',
+                    padding: `${1 * scale}px ${4 * scale}px`,
+                    borderRadius: 999,
+                    background: 'rgba(251,191,36,0.12)',
+                    border: '1px solid rgba(251,191,36,0.35)',
+                    letterSpacing: 0.8,
+                    flexShrink: 0,
+                  }}
+                >
+                  主线
+                </span>
+              )}
             </span>
 
             <span
@@ -219,6 +264,7 @@ export const RankingPanel: React.FC<RankingPanelProps> = ({
   frame,
   totalFrames,
   highlightId,
+  highlightMode = 'focus',
   width = 1080,
   height = 1920,
   format = 'mobile',
@@ -281,6 +327,7 @@ export const RankingPanel: React.FC<RankingPanelProps> = ({
           isPositive={true}
           visibleCount={inflowVisible}
           highlightId={highlightId}
+          highlightMode={highlightMode}
           frame={frame}
           scale={scale}
           compact={!isTV}
@@ -294,6 +341,7 @@ export const RankingPanel: React.FC<RankingPanelProps> = ({
           isPositive={false}
           visibleCount={outflowVisible}
           highlightId={highlightId}
+          highlightMode={highlightMode}
           frame={frame}
           scale={scale}
           compact={!isTV}
