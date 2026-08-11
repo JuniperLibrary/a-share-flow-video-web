@@ -32,6 +32,17 @@ function sectorColor(name: string): string {
   return SECTOR_COLORS[Math.abs(hash) % SECTOR_COLORS.length];
 }
 
+const confidenceMeta: Record<string, { label: string; color: string; bg: string; border: string }> = {
+  high: { label: '高置信', color: '#1f2937', bg: '#69db7c', border: 'rgba(105,219,124,0.5)' },
+  medium: { label: '中置信', color: '#1f2937', bg: '#ffd43b', border: 'rgba(255,212,59,0.5)' },
+  low: { label: '低置信', color: '#f3f4f6', bg: 'rgba(130,130,150,0.4)', border: 'rgba(130,130,150,0.5)' },
+};
+
+function confidenceOf(confidence?: string) {
+  const k = (confidence || '').toLowerCase();
+  return confidenceMeta[k] || confidenceMeta.low;
+}
+
 export const NewsScene: React.FC<NewsSceneProps> = ({
   page,
   audioFile,
@@ -226,6 +237,7 @@ export const NewsScene: React.FC<NewsSceneProps> = ({
                     borderBottom: '1px solid rgba(60, 80, 120, 0.12)',
                     position: 'relative',
                     zIndex: 2,
+                    flexWrap: 'wrap',
                   }}
                 >
                   <div
@@ -249,6 +261,55 @@ export const NewsScene: React.FC<NewsSceneProps> = ({
                   >
                     {sn.sector}
                   </span>
+                  {analysis && analysis.confidence && (
+                    <span
+                      style={{
+                        fontSize: badgeFontSize,
+                        fontWeight: 700,
+                        color: confidenceOf(analysis.confidence).color,
+                        background: confidenceOf(analysis.confidence).bg,
+                        borderRadius: 4,
+                        padding: isTV ? '1px 6px' : '2px 8px',
+                        fontFamily: '"PingFang SC", "Helvetica Neue", sans-serif, sans-serif',
+                        border: `1px solid ${confidenceOf(analysis.confidence).border}`,
+                        letterSpacing: 1,
+                      }}
+                    >
+                      {confidenceOf(analysis.confidence).label}
+                    </span>
+                  )}
+                  {analysis && typeof analysis.overallScore === 'number' && !Number.isNaN(analysis.overallScore) && (
+                    <span
+                      style={{
+                        fontSize: isTV ? 12 : 16,
+                        fontWeight: 600,
+                        color: '#aab8c8',
+                        fontFamily: '"Helvetica Neue", "PingFang SC", sans-serif',
+                        fontVariantNumeric: 'tabular-nums',
+                        background: 'rgba(30,50,80,0.35)',
+                        padding: isTV ? '1px 6px' : '2px 8px',
+                        borderRadius: 4,
+                        border: '1px solid rgba(60,80,120,0.2)',
+                      }}
+                    >
+                      证据分 {analysis.overallScore.toFixed(0)}
+                    </span>
+                  )}
+                  {analysis && typeof analysis.flow === 'number' && !Number.isNaN(analysis.flow) && (
+                    <span
+                      style={{
+                        fontSize: isTV ? 12 : 16,
+                        fontWeight: 700,
+                        color: analysis.flow >= 0 ? '#51cf66' : '#ff6b6b',
+                        fontFamily: '"Helvetica Neue", "PingFang SC", sans-serif',
+                        fontVariantNumeric: 'tabular-nums',
+                        marginLeft: 'auto',
+                      }}
+                    >
+                      {analysis.flow >= 0 ? '+' : ''}
+                      {analysis.flow.toFixed(2)} 亿
+                    </span>
+                  )}
                 </div>
 
                 <div
@@ -277,106 +338,177 @@ export const NewsScene: React.FC<NewsSceneProps> = ({
                     </div>
                   )}
 
-                  {sn.news.slice(0, 2).map((item, ni) => {
-                    const newsDelay = sectorDelay + 6 + ni * 4;
-                    const newsProgress = Math.min(1, Math.max(0, (frame + introLead - newsDelay) / 10));
-                    const newsOpacity = newsProgress;
-                    const newsTranslateY = interpolate(newsProgress, [0, 1], [8, 0]);
-                    const isLevelA = item.level === 'A';
-                    const insight = analysis?.insights[ni];
+                  {(() => {
+                    const list: {
+                      key: string;
+                      delay: number;
+                      isLevelA: boolean;
+                      label?: string;
+                      score?: number;
+                      flowDelta?: number;
+                      title: string;
+                      text: string;
+                      source?: string;
+                    }[] = [];
 
-                    return (
-                      <div
-                        key={ni}
-                        style={{
-                          opacity: newsOpacity,
-                          transform: `translateY(${newsTranslateY}px)`,
-                          display: 'flex',
-                          alignItems: 'flex-start',
-                          gap: isTV ? 6 : 10,
-                          padding: isTV ? '3px 0' : '2px 0',
-                        }}
-                      >
-                        {isLevelA && (
-                          <span
-                            style={{
-                              fontSize: badgeFontSize,
-                              fontWeight: 700,
-                              color: '#ff6b6b',
-                              background: 'rgba(255,60,60,0.1)',
-                              borderRadius: 3,
-                              padding: isTV ? '1px 5px' : '2px 6px',
-                              fontFamily: '"PingFang SC", "Helvetica Neue", sans-serif',
-                              flexShrink: 0,
-                              marginTop: isTV ? 2 : 3,
-                              border: '1px solid rgba(255,80,80,0.15)',
-                            }}
-                          >
-                            热
-                          </span>
-                        )}
-                        <div style={{ flex: 1, minWidth: 0 }}>
+                    const newsCount = Math.min(2, sn.news.length);
+                    for (let ni = 0; ni < newsCount; ni++) {
+                      const newsDelay = sectorDelay + 6 + ni * 4;
+                      const item = sn.news[ni];
+                      const newInsight = analysis?.newInsights?.[ni];
+                      list.push({
+                        key: `n-${ni}`,
+                        delay: newsDelay,
+                        isLevelA: item.level === 'A',
+                        label: newInsight?.label || '',
+                        score: newInsight?.score,
+                        flowDelta: newInsight?.flowDelta,
+                        title: item.title,
+                        text: newInsight?.text || analysis?.insights?.[ni] || item.title,
+                        source: newInsight?.source || item.title,
+                      });
+                    }
+                    return list.map((row) => {
+                      const newsProgress = Math.min(1, Math.max(0, (frame + introLead - row.delay) / 10));
+                      const newsOpacity = newsProgress;
+                      const newsTranslateY = interpolate(newsProgress, [0, 1], [8, 0]);
+                      const levelAcolor = row.isLevelA ? '#ffd4d4' : undefined;
+                      return (
+                        <div
+                          key={row.key}
+                          style={{
+                            opacity: newsOpacity,
+                            transform: `translateY(${newsTranslateY}px)`,
+                            display: 'flex',
+                            alignItems: 'flex-start',
+                            gap: isTV ? 6 : 10,
+                            padding: isTV ? '3px 0' : '2px 0',
+                          }}
+                        >
                           <div
                             style={{
                               display: 'flex',
-                              alignItems: 'center',
-                              gap: isTV ? 6 : 8,
-                              marginBottom: item.brief ? (isTV ? 3 : 5) : 0,
+                              flexDirection: 'column',
+                              gap: isTV ? 4 : 6,
+                              flexShrink: 0,
                             }}
                           >
-                            <span
-                              style={{
-                                flexShrink: 0,
-                                fontSize: isTV ? 13 : 18,
-                                fontWeight: 700,
-                                color,
-                                fontFamily: '"Helvetica Neue", "PingFang SC", sans-serif',
-                                fontVariantNumeric: 'tabular-nums',
-                              }}
-                            >
-                              {insight ? `催化${ni + 1}` : `催化${ni + 1}`}
-                            </span>
-                            <span
-                              style={{
-                                fontSize: newsTitleSize,
-                                color: isLevelA ? '#e8c8c8' : '#b0c0d0',
-                                fontFamily: '"PingFang SC", "Helvetica Neue", sans-serif',
-                                lineHeight: 1.35,
-                              }}
-                            >
-                              {insight || item.title}
-                            </span>
+                            {row.isLevelA && (
+                              <span
+                                style={{
+                                  fontSize: badgeFontSize,
+                                  fontWeight: 700,
+                                  color: '#ff6b6b',
+                                  background: 'rgba(255,60,60,0.1)',
+                                  borderRadius: 3,
+                                  padding: isTV ? '1px 5px' : '2px 6px',
+                                  fontFamily: '"PingFang SC", "Helvetica Neue", sans-serif',
+                                  marginTop: isTV ? 2 : 3,
+                                  border: '1px solid rgba(255,80,80,0.15)',
+                                  textAlign: 'center',
+                                }}
+                              >
+                                热
+                              </span>
+                            )}
+                            {row.label && (
+                              <span
+                                style={{
+                                  fontSize: isTV ? 11 : 14,
+                                  fontWeight: 700,
+                                  color,
+                                  background: `${color}15`,
+                                  borderRadius: 3,
+                                  padding: isTV ? '1px 5px' : '2px 6px',
+                                  fontFamily: '"PingFang SC", "Helvetica Neue", sans-serif',
+                                  border: `1px solid ${color}33`,
+                                  textAlign: 'center',
+                                  letterSpacing: 1,
+                                  marginTop: isTV ? 0 : 2,
+                                }}
+                              >
+                                {row.label}
+                              </span>
+                            )}
+                            {typeof row.score === 'number' && !Number.isNaN(row.score) && (
+                              <span
+                                style={{
+                                  fontSize: isTV ? 10 : 12,
+                                  fontWeight: 600,
+                                  color: '#aab8c8',
+                                  fontFamily: '"Helvetica Neue", "PingFang SC", sans-serif',
+                                  fontVariantNumeric: 'tabular-nums',
+                                  textAlign: 'center',
+                                }}
+                              >
+                                {row.score.toFixed(0)}
+                              </span>
+                            )}
                           </div>
-                          {insight && (
+                          <div style={{ flex: 1, minWidth: 0 }}>
                             <div
                               style={{
-                                fontSize: briefSize,
-                                color: '#5a6a7a',
-                                fontFamily: '"PingFang SC", "Helvetica Neue", sans-serif',
-                                lineHeight: 1.35,
-                                marginTop: isTV ? 1 : 2,
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: isTV ? 6 : 8,
+                                marginBottom: 2,
                               }}
                             >
-                              来源：{item.title}
+                              <span
+                                style={{
+                                  fontSize: newsTitleSize,
+                                  color: levelAcolor || (analysis?.confidence === 'low' ? '#bcc6d0' : '#d0dae6'),
+                                  fontFamily: '"PingFang SC", "Helvetica Neue", sans-serif',
+                                  lineHeight: 1.35,
+                                }}
+                              >
+                                {row.text}
+                              </span>
                             </div>
-                          )}
-                          {!insight && item.brief && (
                             <div
                               style={{
-                                fontSize: briefSize,
-                                color: '#5a6a7a',
-                                fontFamily: '"PingFang SC", "Helvetica Neue", sans-serif',
-                                lineHeight: 1.35,
-                                marginTop: isTV ? 1 : 2,
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: isTV ? 8 : 10,
                               }}
                             >
-                              内容：{item.brief}
+                              <div
+                                style={{
+                                  fontSize: briefSize,
+                                  color: '#5a6a7a',
+                                  fontFamily: '"PingFang SC", "Helvetica Neue", sans-serif',
+                                  lineHeight: 1.35,
+                                  marginTop: isTV ? 1 : 2,
+                                  flex: 1,
+                                  minWidth: 0,
+                                  overflow: 'hidden',
+                                  textOverflow: 'ellipsis',
+                                  whiteSpace: 'nowrap',
+                                }}
+                              >
+                                来源：{row.source}
+                              </div>
+                              {typeof row.flowDelta === 'number' && !Number.isNaN(row.flowDelta) && row.flowDelta !== 0 && (
+                                <span
+                                  style={{
+                                    fontSize: isTV ? 11 : 14,
+                                    fontWeight: 700,
+                                    color: row.flowDelta >= 0 ? '#51cf66' : '#ff6b6b',
+                                    fontFamily: '"Helvetica Neue", "PingFang SC", sans-serif',
+                                    fontVariantNumeric: 'tabular-nums',
+                                    flexShrink: 0,
+                                  }}
+                                >
+                                  {row.flowDelta >= 0 ? '+' : ''}
+                                  {row.flowDelta.toFixed(2)}亿
+                                </span>
+                              )}
                             </div>
-                          )}
+                          </div>
                         </div>
-                      </div>
-                    );
-                  })}
+                      );
+                    });
+                  })()}
                 </div>
               </div>
             );

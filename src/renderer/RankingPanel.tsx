@@ -19,6 +19,62 @@ const PODIUM_COLORS: Record<number, { bg: string; text: string; badge: string }>
   3: { bg: 'rgba(205, 127, 50, 0.08)', text: '#CD7F32', badge: '🥉' },
 };
 
+type TradeTagTone = 'leader' | 'follow' | 'mixed' | 'fade';
+
+function getTradeTag(
+  sector: SectorData,
+  index: number,
+  isPositive: boolean,
+  isHighlighted: boolean,
+  highlightMode: 'focus' | 'mainline',
+): { text: string; tone: TradeTagTone } | null {
+  const changePct = sector.changePct ?? 0;
+  const rate = sector.rate ?? 0;
+
+  if (isPositive) {
+    if (isHighlighted && highlightMode === 'mainline') {
+      return { text: '主升', tone: 'leader' };
+    }
+    if (index === 0 && sector.net > 0) {
+      return { text: '主升', tone: 'leader' };
+    }
+    if (changePct < 0 || rate < 0) {
+      return { text: '分歧', tone: 'mixed' };
+    }
+    if (index <= 2 && sector.net > 0) {
+      return { text: '接力', tone: 'follow' };
+    }
+    if (sector.net > 0 && rate > 0) {
+      return { text: '承接', tone: 'follow' };
+    }
+    return null;
+  }
+
+  if (index === 0 || (isHighlighted && highlightMode !== 'mainline')) {
+    return { text: '退潮', tone: 'fade' };
+  }
+  if (changePct > 0 || rate > 0) {
+    return { text: '分歧', tone: 'mixed' };
+  }
+  if (Math.abs(sector.net) >= 30) {
+    return { text: '退潮', tone: 'fade' };
+  }
+  return null;
+}
+
+function getTradeTagStyle(tone: TradeTagTone): { text: string; border: string; bg: string } {
+  switch (tone) {
+    case 'leader':
+      return { text: '#fcd34d', border: 'rgba(251,191,36,0.35)', bg: 'rgba(251,191,36,0.12)' };
+    case 'follow':
+      return { text: '#93c5fd', border: 'rgba(96,165,250,0.32)', bg: 'rgba(59,130,246,0.12)' };
+    case 'mixed':
+      return { text: '#c4b5fd', border: 'rgba(167,139,250,0.32)', bg: 'rgba(139,92,246,0.12)' };
+    case 'fade':
+      return { text: '#fda4af', border: 'rgba(244,114,182,0.30)', bg: 'rgba(244,114,182,0.12)' };
+  }
+}
+
 const RankingGroup: React.FC<{
   title: string;
   sectors: SectorData[];
@@ -56,6 +112,8 @@ const RankingGroup: React.FC<{
         const isHighlighted = sector.name === highlightId;
         const isMainlineHighlight = isHighlighted && highlightMode === 'mainline';
         const pulseOpacity = isHighlighted ? Math.min(0.4, (frame % 30) / 30) : 0;
+        const tradeTag = getTradeTag(sector, i, isPositive, isHighlighted, highlightMode);
+        const tradeTagStyle = tradeTag ? getTradeTagStyle(tradeTag.tone) : null;
 
         return (
           <div
@@ -148,21 +206,21 @@ const RankingGroup: React.FC<{
               >
                 {sector.name || '—'}
               </span>
-              {isMainlineHighlight && (
+              {tradeTag && tradeTagStyle && (
                 <span
                   style={{
                     fontSize: 9 * scale,
                     fontWeight: 800,
-                    color: '#fcd34d',
+                    color: tradeTagStyle.text,
                     padding: `${1 * scale}px ${4 * scale}px`,
                     borderRadius: 999,
-                    background: 'rgba(251,191,36,0.12)',
-                    border: '1px solid rgba(251,191,36,0.35)',
+                    background: tradeTagStyle.bg,
+                    border: `1px solid ${tradeTagStyle.border}`,
                     letterSpacing: 0.8,
                     flexShrink: 0,
                   }}
                 >
-                  主线
+                  {tradeTag.text}
                 </span>
               )}
             </span>

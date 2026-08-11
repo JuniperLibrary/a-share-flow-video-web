@@ -30,8 +30,22 @@ function VideoCard({
   isActive: boolean;
   onPlay: () => void;
 }) {
-  const displayName = name.replace(/_tv$/, '');
-  const label = sessionLabels[displayName] || displayName;
+  const lower = name.toLowerCase();
+  const isTV = lower.includes('_tv') || (lower.includes('_tick') && !lower.includes('_mobile'));
+  const isTickVideo = lower.includes('_tick');
+  const ratioLabel = isTV ? '横屏 16:9' : '竖屏 9:16';
+  let displayName = name;
+  if (isTickVideo) {
+    const cleaned = name
+      .replace(/_tick_mobile$/, '')
+      .replace(/_tick_tv$/, '')
+      .replace(/_tick$/, '');
+    displayName = (sessionLabels[cleaned] || cleaned) + ' Tick';
+  } else {
+    const cleaned = name.replace(/_tv$/, '');
+    displayName = sessionLabels[cleaned] || cleaned;
+  }
+  const kind = isTickVideo ? '曲线' : '流向';
 
   return (
     <button
@@ -49,8 +63,8 @@ function VideoCard({
             <IconPlayArrow className="text-primary" style={{ fontSize: 18 }} />
           </div>
           <div className="min-w-0">
-            <p className="text-sm font-semibold text-ink">{label}</p>
-            <p className="text-[11px] text-ink-3 mt-0.5">横屏 16:9</p>
+            <p className="text-sm font-semibold text-ink">{displayName}</p>
+            <p className="text-[11px] text-ink-3 mt-0.5">{ratioLabel} · {kind}</p>
           </div>
           {isActive && (
             <div className="ml-auto w-2 h-2 rounded-full bg-primary animate-pulse shadow-glow-primary shrink-0" />
@@ -183,7 +197,16 @@ export function PreviewPage({ previewDate: propPreviewDate }: { previewDate?: st
                       controls
                       autoPlay
                       key={activeVideo}
-                      className="w-full max-h-[560px]"
+                      className={cn(
+                        'w-full max-h-[560px] mx-auto',
+                        (() => {
+                          const lower = activeVideo.toLowerCase();
+                          const isTV = lower.includes('_tv') || (lower.includes('_tick') && !lower.includes('_mobile'));
+                          const isBarChart = !lower.includes('_tick') && !lower.includes('tick');
+                          if (isTV || isBarChart) return 'aspect-video';
+                          return 'aspect-[9/16] max-w-[320px]';
+                        })(),
+                      )}
                       src={apiUrl(`/output/${selectedDate}/${videos[activeVideo]}`)}
                     >
                       您的浏览器不支持视频播放

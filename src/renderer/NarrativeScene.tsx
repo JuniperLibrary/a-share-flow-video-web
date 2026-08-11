@@ -17,27 +17,27 @@ const SCENE_CONFIG = {
   hook1: {
     color: '#ff6b6b',
     subtitle: '今天有个反常现象',
-    fontSize: { mobile: 64, tv: 50 },
+    fontSize: { mobile: 58, tv: 46 },
   },
   suspense: {
     color: '#feca57',
     subtitle: '为什么会出现这种情况？',
-    fontSize: { mobile: 48, tv: 38 },
+    fontSize: { mobile: 44, tv: 36 },
   },
   twist: {
     color: '#48dbfb',
     subtitle: '更离谱的是',
-    fontSize: { mobile: 50, tv: 40 },
+    fontSize: { mobile: 46, tv: 38 },
   },
   answer: {
     color: '#1dd1a1',
     subtitle: '真相是',
-    fontSize: { mobile: 46, tv: 36 },
+    fontSize: { mobile: 44, tv: 34 },
   },
   hook2: {
     color: '#ff9ff3',
     subtitle: '明天会怎样？',
-    fontSize: { mobile: 52, tv: 42 },
+    fontSize: { mobile: 48, tv: 40 },
   },
 };
 
@@ -107,23 +107,28 @@ export const NarrativeScene: React.FC<NarrativeSceneProps> = ({
   const charCount = React.useMemo(() => Array.from(normalizeSceneText(sceneText)).length, [sceneText]);
 
   const isFirstHook = sceneType === 'hook1';
-  const fadeIn = isFirstHook ? 1 : Math.min(1, frame / 15);
-  const fadeOut = Math.min(1, (totalFrames - frame) / 3);
+  const fadeIn = isFirstHook ? Math.min(1, (frame + 2) / 6) : Math.min(1, frame / 10);
+  const fadeOut = Math.min(1, Math.max(0, (totalFrames - frame) / 6));
   const opacity = fadeIn * fadeOut;
-  const textSlide = isFirstHook ? 1 : Math.min(1, Math.max(0, (frame - 10) / 20));
-  const subtitleOpacity = isFirstHook ? 1 : Math.min(1, Math.max(0, (frame - 20) / 15));
-  const dateFadeIn = Math.min(1, Math.max(0, (frame - (isFirstHook ? 12 : 28)) / 10));
+  const pageant = isFirstHook
+    ? Math.min(1, Math.max(0, (frame - 1) / 11))
+    : Math.min(1, Math.max(0, (frame - 6) / 14));
+  const textSlide = pageant;
+  const subtitleOpacity = isFirstHook
+    ? Math.min(1, frame / 8)
+    : Math.min(1, Math.max(0, (frame - 10) / 10));
+  const dateFadeIn = Math.min(1, Math.max(0, (frame - (isFirstHook ? 6 : 20)) / 8));
   const dateOpacity = dateFadeIn * fadeOut;
-  const audioVolume = interpolate(frame, [0, 8, Math.max(0, totalFrames - 10), totalFrames], [0, 1, 1, 0], {
+  const audioVolume = interpolate(frame, [0, 6, Math.max(0, totalFrames - 8), totalFrames], [0, 1, 1, 0], {
     extrapolateLeft: 'clamp',
     extrapolateRight: 'clamp',
   });
 
   const baseFontSize = isTV ? config.fontSize.tv : config.fontSize.mobile;
   const lineCount = lines.length || 1;
-  const lengthScale = 1 - Math.max(0, charCount - (isTV ? 22 : 18)) * 0.015;
-  const linesScale = 1 - Math.max(0, lineCount - 2) * 0.08;
-  const fontScale = clamp(Math.min(lengthScale, linesScale), 0.68, 1);
+  const lengthScale = 1 - Math.max(0, charCount - (isTV ? 22 : 18)) * 0.022;
+  const linesScale = 1 - Math.max(0, lineCount - 2) * 0.10;
+  const fontScale = clamp(Math.min(lengthScale, linesScale), 0.62, 1);
   const fontSize = Math.floor(baseFontSize * fontScale);
 
   return (
@@ -175,13 +180,15 @@ export const NarrativeScene: React.FC<NarrativeSceneProps> = ({
         </div>
         <div
           style={{
-            fontSize: isTV ? 24 : 30,
+            fontSize: isTV ? 22 : 28,
             color: config.color,
             fontFamily: '"PingFang SC", "Helvetica Neue", sans-serif',
-            letterSpacing: isTV ? 2.2 : 2.6,
-            marginBottom: isTV ? 24 : 32,
+            letterSpacing: isTV ? 2.0 : 2.4,
+            marginBottom: isTV ? 20 : 28,
             opacity: subtitleOpacity * fadeOut,
-            fontWeight: 600,
+            fontWeight: 700,
+            transform: `translateY(${(1 - Math.min(1, pageant * 1.1)) * 10}px)`,
+            textShadow: `0 0 20px ${config.color}22, 0 3px 12px rgba(0,0,0,0.45)`,
           }}
         >
           {config.subtitle}
@@ -193,11 +200,11 @@ export const NarrativeScene: React.FC<NarrativeSceneProps> = ({
             color: '#ffffff',
             fontFamily: '"PingFang SC", "Helvetica Neue", sans-serif',
             textAlign: 'center',
-            lineHeight: 1.4,
-            textShadow: '0 4px 24px rgba(0,0,0,0.6)',
+            lineHeight: 1.32,
+            textShadow: `0 4px 22px rgba(0,0,0,0.62), 0 0 40px ${config.color}18`,
             opacity: opacity,
-            transform: `translateY(${(1 - textSlide) * 30}px)`,
-            maxWidth: isTV ? '78%' : '88%',
+            transform: `translateY(${(1 - textSlide) * 22}px) scale(${0.97 + 0.03 * textSlide})`,
+            maxWidth: isTV ? '80%' : '90%',
           }}
         >
           {lines.length > 0 ? lines.map((l, idx) => <div key={idx}>{l}</div>) : sceneText}

@@ -9,6 +9,7 @@ import { TickChart } from './TickChart.tsx';
 import { NarrativeScene } from './NarrativeScene.tsx';
 import { NewsScene } from './NewsScene.tsx';
 import { MainStructureScene } from './MainStructureScene.tsx';
+import { FarewellScene } from './FarewellScene.tsx';
 import { SubtitleOverlay } from './SubtitleOverlay.tsx';
 import type { BloombergVideoProps, SectorTick } from './types.ts';
 
@@ -16,6 +17,31 @@ import type { BloombergVideoProps, SectorTick } from './types.ts';
 const FadeInLayer: React.FC<{fadeFrames: number; children: React.ReactNode}> = ({fadeFrames, children}) => {
   const frame = useCurrentFrame();
   return <AbsoluteFill style={{opacity: Math.min(1, frame / Math.max(1, fadeFrames))}}>{children}</AbsoluteFill>;
+};
+
+function sumSectorNet(sector: SectorTick): number {
+  return sector.data.reduce((sum, value) => sum + value, 0);
+}
+
+function formatYi(value: number): string {
+  const abs = Math.abs(value);
+  return `${abs >= 100 ? abs.toFixed(0) : abs.toFixed(1)}亿`;
+}
+
+function formatSignedYi(value: number): string {
+  const sign = value > 0 ? '+' : value < 0 ? '-' : '';
+  return `${sign}${formatYi(value)}`;
+}
+
+function formatSignedPct(value?: number): string | undefined {
+  if (typeof value !== 'number' || Number.isNaN(value)) return undefined;
+  return `${value > 0 ? '+' : ''}${value.toFixed(1)}%`;
+}
+
+type HeaderInsightItem = {
+  label: string;
+  value: string;
+  tone?: 'positive' | 'negative' | 'neutral' | 'focus';
 };
 
 const TransitionSweep: React.FC<{
@@ -226,7 +252,6 @@ const TickAnimationScene: React.FC<{
   const frame = useCurrentFrame();
   const totalFrames = baseTotalFrames;
   const progress = frame / totalFrames;
-  const isTV = format === 'tv';
 
   const activeEventSector = React.useMemo(() => {
     if (!events || events.length === 0) return null;
@@ -294,10 +319,118 @@ const TickAnimationScene: React.FC<{
     return top?.name;
   }, [sectorsForRanking, sentiment]);
 
+  const marketSnapshot = React.useMemo(() => {
+    if (sectorTicks.length === 0) return null;
+
+    const ranked = sectorTicks
+      .map((sector) => ({ sector, net: sumSectorNet(sector) }))
+      .sort((a, b) => Math.abs(b.net) - Math.abs(a.net));
+
+    const inflows = ranked.filter((item) => item.net > 0.5).sort((a, b) => b.net - a.net);
+    const outflows = ranked.filter((item) => item.net < -0.5).sort((a, b) => a.net - b.net);
+    const totalNet = ranked.reduce((sum, item) => sum + item.net, 0);
+    const primary =
+      sentiment === 'bearish'
+        ? outflows[0]?.sector ?? ranked[0]?.sector
+        : inflows[0]?.sector ?? ranked[0]?.sector;
+    const secondary =
+      sentiment === 'bearish'
+        ? outflows[1]?.sector ?? inflows[0]?.sector
+        : inflows[1]?.sector ?? outflows[0]?.sector;
+
+    return {
+      totalNet,
+      inflowCount: inflows.length,
+      outflowCount: outflows.length,
+      primary,
+      secondary,
+      topOutflow: outflows[0]?.sector,
+    };
+  }, [sectorTicks, sentiment]);
+
+  const headerInsightItems = React.useMemo<HeaderInsightItem[]>(() => {
+    if (!marketSnapshot?.primary) return [];
+
+    const leaderPct = formatSignedPct(marketSnapshot.primary.leadStockChangePct);
+
+    return [
+      {
+        label: sentiment === 'bearish' ? '抛压' : '主线',
+        value: marketSnapshot.primary.name,
+        tone: sentiment === 'bearish' ? 'negative' : 'focus',
+      },
+      {
+        label: '全市场',
+        value: formatSignedYi(marketSnapshot.totalNet),
+        tone:
+          marketSnapshot.totalNet > 0
+            ? 'positive'
+            : marketSnapshot.totalNet < 0
+              ? 'negative'
+              : 'neutral',
+      },
+      marketSnapshot.primary.leadStockName && leaderPct
+        ? {
+            label: '龙头',
+            value: `${marketSnapshot.primary.leadStockName} ${leaderPct}`,
+            tone: marketSnapshot.primary.leadStockChangePct && marketSnapshot.primary.leadStockChangePct > 0 ? 'positive' : 'neutral',
+          }
+        : {
+            label: '强弱比',
+            value: `${marketSnapshot.inflowCount}:${marketSnapshot.outflowCount}`,
+            tone: 'neutral',
+          },
+    ];
+  }, [marketSnapshot, sentiment]);
+
+  const marketTagline = React.useMemo(() => {
+    if (!marketSnapshot?.primary) return undefined;
+
+    const leaderPct = formatSignedPct(marketSnapshot.primary.leadStockChangePct);
+    const leaderText =
+      marketSnapshot.primary.leadStockName && leaderPct
+        ? `${marketSnapshot.primary.leadStockName}${leaderPct}`
+        : undefined;
+
+    if (sentiment === 'mainline') {
+      return leaderText
+        ? `${marketSnapshot.primary.name}成为资金共识，${leaderText}带动情绪`
+        : `${marketSnapshot.primary.name}成为资金共识，主线集中度明显抬升`;
+    }
+
+    if (sentiment === 'bullish') {
+      return marketSnapshot.secondary
+        ? `${marketSnapshot.primary.name}领跑，${marketSnapshot.secondary.name}跟随承接`
+        : `${marketSnapshot.primary.name}领跑，资金偏多格局延续`;
+    }
+
+    if (sentiment === 'bearish') {
+      const defensiveName = marketSnapshot.topOutflow?.name || marketSnapshot.primary.name;
+      return `${defensiveName}承压最明显，先看尾盘是否有修复承接`;
+    }
+
+    return marketSnapshot.secondary
+      ? `${marketSnapshot.primary.name}与${marketSnapshot.secondary.name}在争夺主线`
+      : `${marketSnapshot.primary.name}暂居资金前排，轮动还在继续`;
+  }, [marketSnapshot, sentiment]);
+
   return (
     <>
       <Background frame={frame} totalFrames={totalFrames} sentiment={sentiment} width={width} height={height} format={format} />
-      <Header displayDate={displayDate} frame={frame} totalFrames={totalFrames} sentiment={sentiment} width={width} height={height} format={format} session={session} hookText={hookText} timeString={currentTickTime} />
+      <Header
+        displayDate={displayDate}
+        frame={frame}
+        totalFrames={totalFrames}
+        sentiment={sentiment}
+        width={width}
+        height={height}
+        format={format}
+        session={session}
+        hookText={hookText}
+        timeString={currentTickTime}
+        marketTagline={marketTagline}
+        insightItems={headerInsightItems}
+      />
       <Particles frame={frame} width={width} height={height} />
 
       <TickChart
@@ -368,7 +501,12 @@ export const BloombergVideoTick: React.FC = () => {
   const catalysisResult = inputProps.catalysisResult;
   const mainStructureResult = inputProps.mainStructureResult;
   const mainStructureAudio = inputProps.mainStructureAudio;
-  const mainStructureFrames = inputProps.mainStructureFrames || 90;
+  const mainStructureText = inputProps.mainStructureText || '';
+  const mainStructureFrames = inputProps.mainStructureFrames || 180;
+  const farewellAudio = inputProps.farewellAudio;
+  const farewellFrames = inputProps.farewellFrames || 0;
+  const farewellBlessing = inputProps.farewellBlessing || '';
+  const farewellSignoff = inputProps.farewellSignoff || '';
   const hasVoiceover =
     scene1Frames > 0 ||
     chartNarrationAudios.length > 0 ||
@@ -379,9 +517,9 @@ export const BloombergVideoTick: React.FC = () => {
     if (sectorTicks.length === 0) return 'neutral' as const;
     const lastValues = sectorTicks.map(s => s.data[s.data.length - 1] || 0);
     const negativeRatio = lastValues.filter(v => v < 0).length / lastValues.length;
-    const topTick = [...sectorTicks].sort((a, b) => Math.abs(b.data.reduce((x, y) => x + y, 0)) - Math.abs(a.data.reduce((x, y) => x + y, 0)))[0];
-    const topNet = topTick.data.reduce((x, y) => x + y, 0);
-    const totalInflow = sectorTicks.filter(s => s.data.reduce((x, y) => x + y, 0) > 0).reduce((sum, s) => sum + s.data.reduce((x, y) => x + y, 0), 0);
+    const topTick = [...sectorTicks].sort((a, b) => Math.abs(sumSectorNet(b)) - Math.abs(sumSectorNet(a)))[0];
+    const topNet = sumSectorNet(topTick);
+    const totalInflow = sectorTicks.filter(s => sumSectorNet(s) > 0).reduce((sum, s) => sum + sumSectorNet(s), 0);
     const mainlineRatio = totalInflow > 0 ? (topNet / totalInflow) : 0;
     if (topNet > 0 && mainlineRatio > 0.4) return 'mainline' as const;
     if (negativeRatio > 0.65) return 'bearish' as const;
@@ -391,14 +529,34 @@ export const BloombergVideoTick: React.FC = () => {
 
   const hookText = React.useMemo(() => {
     if (sectorTicks.length === 0) return undefined;
-    const sorted = [...sectorTicks].sort((a, b) => Math.abs(b.data.reduce((x, y) => x + y, 0)) - Math.abs(a.data.reduce((x, y) => x + y, 0)));
-    const top = sorted[0];
-    const totalNet = sectorTicks.reduce((sum, s) => sum + s.data.reduce((x, y) => x + y, 0), 0);
+    const sorted = [...sectorTicks].sort((a, b) => Math.abs(sumSectorNet(b)) - Math.abs(sumSectorNet(a)));
+    const inflows = sorted.filter((sector) => sumSectorNet(sector) > 0.5).sort((a, b) => sumSectorNet(b) - sumSectorNet(a));
+    const outflows = sorted.filter((sector) => sumSectorNet(sector) < -0.5).sort((a, b) => sumSectorNet(a) - sumSectorNet(b));
+    const top = sentiment === 'bearish' ? (outflows[0] || sorted[0]) : (inflows[0] || sorted[0]);
+    const second = sentiment === 'bearish' ? (outflows[1] || inflows[0]) : (inflows[1] || outflows[0]);
+    const totalNet = sectorTicks.reduce((sum, s) => sum + sumSectorNet(s), 0);
+    const leadPct = formatSignedPct(top?.leadStockChangePct);
+    const leaderText = top?.leadStockName && leadPct
+      ? `${top.leadStockName}${leadPct}`
+      : undefined;
     if (sentiment === 'mainline') {
-      const topNet = top.data.reduce((x, y) => x + y, 0);
-      return `${top.name}吸金${Math.abs(topNet).toFixed(0)}亿`;
+      const topNet = sumSectorNet(top);
+      return leaderText
+        ? `${top.name}成主线，${leaderText}带队，主力净流入${formatYi(topNet)}`
+        : `${top.name}成主线，主力净流入${formatYi(topNet)}`;
     }
-    return `${totalNet > 0 ? '净流入' : '净流出'}${Math.abs(totalNet).toFixed(0)}亿`;
+    if (sentiment === 'bullish' && top) {
+      return second
+        ? `${top.name}领跑，${second.name}接力，资金净流入${formatYi(totalNet)}`
+        : `${top.name}领跑，资金净流入${formatYi(totalNet)}`;
+    }
+    if (sentiment === 'bearish' && top) {
+      return `${top.name}抛压最重，资金净流出${formatYi(totalNet)}`;
+    }
+    if (top && second) {
+      return `${top.name}与${second.name}争夺主线，资金还在切换`;
+    }
+    return `${totalNet > 0 ? '主力净流入' : '主力净流出'}${formatYi(totalNet)}`;
   }, [sectorTicks, sentiment]);
 
   // Crossfade: chart starts CHART_OVERLAP frames before scene5 ends,
@@ -451,11 +609,17 @@ export const BloombergVideoTick: React.FC = () => {
     const chartEnd = animEnd;
     const newsEnd = contentStart;
     const outroEnd = contentStart + (sectorTicks.length > 0 ? mainStructureFrames : 0);
+    const farewellStart = outroEnd > newsEnd ? outroEnd : newsEnd;
+    const farewellEnd = Math.max(farewellStart, farewellStart + farewellFrames);
 
     let title = '开场';
     let start = 0;
     let end = chartStart;
-    if (f >= chartStart && f < chartEnd) {
+    if (farewellFrames > 0 && f >= farewellStart && f < Math.max(farewellStart + 1, farewellEnd)) {
+      title = '告别祝福';
+      start = farewellStart;
+      end = Math.max(farewellStart + 1, farewellEnd);
+    } else if (f >= chartStart && f < chartEnd) {
       title = '行情图谱';
       start = chartStart;
       end = chartEnd;
@@ -466,12 +630,16 @@ export const BloombergVideoTick: React.FC = () => {
     } else if (f >= newsEnd && sectorTicks.length > 0) {
       title = '主线收尾';
       start = newsEnd;
-      end = outroEnd > newsEnd ? outroEnd : safeTotal;
+      end = outroEnd > newsEnd ? outroEnd : farewellStart;
+    } else if (farewellFrames > 0 && f >= Math.max(farewellStart, newsEnd)) {
+      title = '告别祝福';
+      start = Math.max(farewellStart, newsEnd);
+      end = safeTotal;
     }
     const denom = Math.max(1, end - start);
     const progress = (f - start) / denom;
     return { title, progress, sectionFrame: f - start };
-  }, [frame, totalFrames, durationInFrames, chartStart, animEnd, contentStart, sectorTicks.length, mainStructureFrames]);
+  }, [frame, totalFrames, durationInFrames, chartStart, animEnd, contentStart, sectorTicks.length, mainStructureFrames, farewellFrames]);
 
   if (!hasVoiceover) {
     return (
@@ -659,6 +827,26 @@ export const BloombergVideoTick: React.FC = () => {
             mainStructureResult={mainStructureResult}
           />
           {mainStructureAudio ? <Audio src={staticFile(mainStructureAudio)} /> : null}
+          <SubtitleOverlay text={mainStructureText || ''} format={format} width={width} height={height} />
+        </Sequence>
+      )}
+
+      {farewellFrames > 0 && (
+        <Sequence
+          from={contentStart + (sectorTicks.length > 0 ? mainStructureFrames : 0)}
+          durationInFrames={farewellFrames}
+        >
+          <FarewellScene
+            displayDate={displayDate}
+            width={width}
+            height={height}
+            format={format}
+            totalFrames={farewellFrames}
+            sentiment={sentiment}
+            blessingText={farewellBlessing}
+            signoffText={farewellSignoff}
+          />
+          {farewellAudio ? <Audio src={staticFile(farewellAudio)} /> : null}
         </Sequence>
       )}
     </AbsoluteFill>

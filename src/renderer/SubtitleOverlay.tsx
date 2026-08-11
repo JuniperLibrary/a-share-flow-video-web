@@ -1,6 +1,8 @@
 import React from 'react';
 import { AbsoluteFill, useCurrentFrame, useVideoConfig } from 'remotion';
 
+const ENABLE_SUBTITLES = false;
+
 interface SubtitleOverlayProps {
   text?: string;
   format: 'mobile' | 'tv';
@@ -107,6 +109,7 @@ export const SubtitleOverlay: React.FC<SubtitleOverlayProps> = ({
   width,
   height,
 }) => {
+  if (!ENABLE_SUBTITLES) return null;
   const frame = useCurrentFrame();
   const { durationInFrames } = useVideoConfig();
   const isTV = format === 'tv';
@@ -133,12 +136,16 @@ export const SubtitleOverlay: React.FC<SubtitleOverlayProps> = ({
 
   if (pageLines.length === 0) return null;
 
-  const fadeIn = Math.min(1, frame / 8);
-  const fadeOut = Math.min(1, Math.max(0, (durationInFrames - frame) / 10));
-  const pageFadeIn = paging ? Math.min(1, Math.max(0, (frame - pageStart) / 6)) : 1;
-  const pageFadeOut = paging ? Math.min(1, Math.max(0, (pageEnd - frame) / 6)) : 1;
-  const opacity = fadeIn * fadeOut * pageFadeIn * pageFadeOut;
-  const bottom = isTV ? height * 0.045 : height * 0.085;
+  const fadeIn = Math.min(1, frame / 5);
+  const fadeOut = Math.min(1, Math.max(0, (durationInFrames - frame) / 7));
+  const pageEnter = paging
+    ? Math.min(1, Math.max(0, (frame - pageStart) / 4))
+    : fadeIn;
+  const pageFadeOut = paging ? Math.min(1, Math.max(0, (pageEnd - frame) / 4)) : 1;
+  const opacity = fadeIn * fadeOut * pageEnter * pageFadeOut;
+  const anchorY = (1 - pageEnter) * 8;
+  const anchorScale = 0.985 + 0.015 * pageEnter;
+  const bottom = isTV ? height * 0.042 : height * 0.078;
   const baseFontSize = isTV ? 34 : 54;
   const lineCount = pageLines.length;
   const longestLine = React.useMemo(() => {
@@ -186,6 +193,7 @@ export const SubtitleOverlay: React.FC<SubtitleOverlayProps> = ({
           textShadow: '0 2px 10px rgba(0,0,0,0.65)',
           letterSpacing: isTV ? 0.6 : 0.4,
           position: 'relative',
+          transform: `translateY(${anchorY}px) scale(${anchorScale})`,
         }}
       >
         {paging && (

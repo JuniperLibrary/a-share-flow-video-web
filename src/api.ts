@@ -1,4 +1,4 @@
-import type { DateItem, Sector, ConfigData, NewsListResponse, NewsSearchResponse, NewsStatusResponse, NewsDateResponse, DebateScript, DebateAudioTurn, DebateProbeReport, DebateHistoryEntry, DailyReport, TTSResult, SectorCatalogItem, SectorWatchItem, SectorCategory } from './types';
+import type { DateItem, Sector, ConfigData, NewsListResponse, NewsSearchResponse, NewsStatusResponse, NewsDateResponse, DebateScript, DebateAudioTurn, DebateProbeReport, DebateHistoryEntry, DailyReport, TTSResult, SectorCatalogItem, SectorWatchItem, SectorCategory, TickGenerateTaskStatus } from './types';
 import { apiUrl } from './utils';
 import * as staticData from './lib/staticData';
 
@@ -229,10 +229,18 @@ export const api = {
     request<{ date: string; sectors: Sector[] }>(`/api/export-hot-sectors/${date}`),
 
   generateTick: (date: string, session: string, copy_mode: string, format: string) =>
-    fetch(apiUrl('/api/generate-tick'), {
+    request<TickGenerateTaskStatus>('/api/generate-tick', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ date, session, copy_mode, format }),
+    }),
+
+  generateTickStatus: (taskId: string) =>
+    request<TickGenerateTaskStatus>(`/api/generate-tick/status/${taskId}`),
+
+  generateTickCancel: (taskId: string) =>
+    request<{ status: string; task_id: string }>(`/api/generate-tick/cancel/${taskId}`, {
+      method: 'POST',
     }),
 
   getTickInterval: () =>

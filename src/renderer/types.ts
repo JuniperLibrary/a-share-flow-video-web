@@ -58,14 +58,33 @@ export interface SectorTick {
   circulatingMarketCap?: number;
 }
 
+export interface CatalysisInsight {
+  text: string;
+  source?: string;
+  label?: string;
+  timeMatch?: number;
+  flowDelta?: number;
+  score?: number;
+}
+
 export interface CatalysisSectorAnalysis {
   sector: string;
   analysis: string;
   insights: string[];
+  newInsights?: CatalysisInsight[];
+  confidence?: 'high' | 'medium' | 'low' | string;
+  overallScore?: number;
+  flow?: number;
+  oralBlock?: string;
 }
 
 export interface CatalysisResult {
   sectors: CatalysisSectorAnalysis[];
+}
+
+export interface MainStructureAction {
+  priority: 'high' | 'medium' | 'low' | string;
+  text: string;
 }
 
 export interface MainStructureResult {
@@ -76,6 +95,12 @@ export interface MainStructureResult {
   outlook: string;
   signal?: string;
   action?: string;
+  actions?: MainStructureAction[];
+  recap?: string;
+  highlight?: string;
+  risks?: string;
+  plan_intro?: string;
+  plan_actions?: string;
 }
 
 export interface BloombergVideoProps {
@@ -118,8 +143,14 @@ export interface BloombergVideoProps {
   newsNarrationTexts?: string[];
   mainStructureAudio?: string;
   mainStructureFrames?: number;
+  mainStructureText?: string;
   catalysisResult?: CatalysisResult;
   mainStructureResult?: MainStructureResult;
+  farewellAudio?: string;
+  farewellFrames?: number;
+  farewellText?: string;
+  farewellBlessing?: string;
+  farewellSignoff?: string;
 }
 
 export interface NewsItem {

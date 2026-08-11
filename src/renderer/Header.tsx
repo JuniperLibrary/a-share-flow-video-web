@@ -11,6 +11,14 @@ interface HeaderProps {
   session?: 'morning' | 'full';
   hookText?: string;
   timeString?: string;
+  marketTagline?: string;
+  insightItems?: HeaderInsightItem[];
+}
+
+interface HeaderInsightItem {
+  label: string;
+  value: string;
+  tone?: 'positive' | 'negative' | 'neutral' | 'focus';
 }
 
 const TOTAL_MINS: Record<string, number> = { morning: 120, full: 330 };
@@ -31,11 +39,12 @@ export const Header: React.FC<HeaderProps> = ({
   totalFrames = 900,
   sentiment = 'neutral',
   width = 1080,
-  height = 1920,
   format = 'mobile',
   session = 'full',
   hookText,
   timeString,
+  marketTagline,
+  insightItems = [],
 }) => {
   const isTV = format === 'tv';
   const scale = isTV ? 1.2 : 1.55;
@@ -65,10 +74,23 @@ export const Header: React.FC<HeaderProps> = ({
   const phase = getMarketPhase();
   const sentimentColor = sentiment === 'bullish' ? '#4ade80' : sentiment === 'bearish' ? '#f87171' : sentiment === 'mainline' ? '#FFD700' : '#8899aa';
   const livePulse = Math.sin(frame * 0.15) * 0.4 + 0.6;
-  const blinkOpacity = Math.sin(frame * 0.3) > 0.3 ? 1 : 0.3;
 
   const titleColors = ['#f87171', '#fb923c', '#fbbf24', '#4ade80', '#2dd4bf'];
   const titleChars = ['板', '块', '情', '绪', '流'];
+  const visibleInsights = insightItems.filter((item) => item.value && item.value.trim()).slice(0, 3);
+
+  const getInsightColor = (tone: HeaderInsightItem['tone']) => {
+    switch (tone) {
+      case 'positive':
+        return '#86efac';
+      case 'negative':
+        return '#fda4af';
+      case 'focus':
+        return '#fde68a';
+      default:
+        return '#cbd5e1';
+    }
+  };
 
   return (
     <div style={{ position: 'absolute', top: 0, left: 0, width, zIndex: 10 }}>
@@ -148,7 +170,7 @@ export const Header: React.FC<HeaderProps> = ({
               }}
             />
             <span style={{ color: sentimentColor, fontSize: 11 * scale, fontWeight: 600, letterSpacing: 2 }}>
-              实时
+              {phase.text}
             </span>
           </div>
         </div>
@@ -200,50 +222,157 @@ export const Header: React.FC<HeaderProps> = ({
       {/* Separator line */}
       <div style={{ height: 1, background: 'linear-gradient(90deg, transparent, #2a3550, transparent)', margin: `0 ${40 * scale}px` }} />
 
-      {/* 封面钩子文字 — 前5秒大标题显示 */}
-      {hookText && frame < 150 && (
+      {visibleInsights.length > 0 && (
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: 10 * scale,
+            flexWrap: 'wrap',
+            padding: `${10 * scale}px ${24 * scale}px 0`,
+          }}
+        >
+          {visibleInsights.map((item, index) => {
+            const valueColor = getInsightColor(item.tone);
+            return (
+              <div
+                key={`${item.label}-${index}`}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 8 * scale,
+                  padding: `${6 * scale}px ${12 * scale}px`,
+                  borderRadius: 999,
+                  background: 'rgba(10, 20, 34, 0.58)',
+                  border: `1px solid ${valueColor}26`,
+                  boxShadow: '0 8px 22px rgba(0,0,0,0.16)',
+                  backdropFilter: 'blur(6px)',
+                  WebkitBackdropFilter: 'blur(6px)',
+                }}
+              >
+                <span
+                  style={{
+                    fontSize: 11 * scale,
+                    color: '#7f8ea3',
+                    letterSpacing: 1.4,
+                    fontWeight: 700,
+                    fontFamily: '"PingFang SC", "Helvetica Neue", sans-serif',
+                  }}
+                >
+                  {item.label}
+                </span>
+                <span
+                  style={{
+                    fontSize: 13 * scale,
+                    color: valueColor,
+                    letterSpacing: 0.6,
+                    fontWeight: 700,
+                    fontFamily: '"PingFang SC", "Helvetica Neue", sans-serif',
+                    textShadow: `0 0 18px ${valueColor}22`,
+                  }}
+                >
+                  {item.value}
+                </span>
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      {hookText && frame < 110 && (
         <div
           style={{
             position: 'absolute',
-            top: '40%',
+            top: isTV ? '36%' : '42%',
             left: 0,
             right: 0,
             textAlign: 'center',
             transform: 'translateY(-50%)',
-            opacity: (frame < 30 ? frame / 30 : frame > 120 ? Math.max(0, (150 - frame) / 30) : 1) * 0.82,
             zIndex: 20,
-            padding: '0 40px',
+            padding: `0 ${isTV ? 80 : 40}px`,
           }}
         >
-          <div
-            style={{
-              fontSize: isTV ? 34 * scale : 44 * scale,
-              fontWeight: 650,
-              color: 'rgba(255,255,255,0.92)',
-              fontFamily: '"PingFang SC", "Helvetica Neue", sans-serif',
-              letterSpacing: isTV ? 1.6 : 2,
-              lineHeight: 1.4,
-              textShadow: `0 2px 14px rgba(0,0,0,0.55), 0 0 40px ${sentimentColor}18`,
-              maxWidth: isTV ? '74%' : '86%',
-              margin: '0 auto',
-            }}
-          >
-            {hookText}
-          </div>
-          {/* Slogan */}
-          <div
-            style={{
-              marginTop: 20 * scale,
-              fontSize: isTV ? 16 * scale : 20 * scale,
-              color: sentimentColor,
-              fontWeight: 400,
-              fontFamily: '"PingFang SC", "Helvetica Neue", sans-serif',
-              letterSpacing: isTV ? 2 : 2.4,
-              opacity: 0.55,
-            }}
-          >
-            今天谁在疯狂吸金？
-          </div>
+          {(() => {
+            const enter = frame < 14 ? frame / 14 : 1;
+            const exit = frame > 80 ? Math.max(0, (110 - frame) / 30) : 1;
+            const pageant = Math.min(1, Math.max(0, (frame - 4) / 10));
+            const baseOpacity = Math.min(1, enter * exit) * 0.94;
+            const tagScale = 0.94 + 0.06 * pageant;
+            return (
+              <>
+                <div
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: 8 * scale,
+                    padding: `${4 * scale}px ${12 * scale}px`,
+                    borderRadius: 999,
+                    background: `${sentimentColor}14`,
+                    border: `1px solid ${sentimentColor}33`,
+                    marginBottom: 16 * scale,
+                    opacity: Math.min(1, enter * 1.1) * exit,
+                    transform: `translateY(${(1 - pageant) * 8}px) scale(${0.96 + 0.04 * pageant})`,
+                  }}
+                >
+                  <span
+                    style={{
+                      width: 6 * scale,
+                      height: 6 * scale,
+                      borderRadius: '50%',
+                      background: sentimentColor,
+                      boxShadow: `0 0 ${10 + livePulse * 10}px ${sentimentColor}`,
+                      opacity: 0.6 + livePulse * 0.4,
+                    }}
+                  />
+                  <span
+                    style={{
+                      fontSize: isTV ? 13 * scale : 15 * scale,
+                      color: sentimentColor,
+                      fontWeight: 700,
+                      letterSpacing: 1.2,
+                      fontFamily: '"PingFang SC", "Helvetica Neue", sans-serif',
+                    }}
+                  >
+                    {phase.text} · 今日资金焦点
+                  </span>
+                </div>
+                <div
+                  style={{
+                    fontSize: isTV ? 32 * scale : 46 * scale,
+                    fontWeight: 800,
+                    color: 'rgba(255,255,255,0.96)',
+                    fontFamily: '"PingFang SC", "Helvetica Neue", sans-serif',
+                    letterSpacing: isTV ? 1.4 : 1.8,
+                    lineHeight: 1.28,
+                    textShadow: `0 4px 18px rgba(0,0,0,0.65), 0 0 44px ${sentimentColor}22`,
+                    maxWidth: isTV ? '72%' : '88%',
+                    margin: '0 auto',
+                    opacity: baseOpacity,
+                    transform: `translateY(${(1 - pageant) * 18}px) scale(${tagScale})`,
+                  }}
+                >
+                  {hookText}
+                </div>
+                <div
+                  style={{
+                    marginTop: isTV ? 20 * scale : 22 * scale,
+                    fontSize: isTV ? 15 * scale : 18 * scale,
+                    color: '#cbd5e1',
+                    fontWeight: 500,
+                    fontFamily: '"PingFang SC", "Helvetica Neue", sans-serif',
+                    letterSpacing: isTV ? 1.6 : 2,
+                    opacity: baseOpacity * 0.82,
+                    maxWidth: isTV ? '66%' : '82%',
+                    marginInline: 'auto',
+                  }}
+                >
+                  <span style={{ color: sentimentColor, fontWeight: 700, marginRight: 8 }}>结论先给你</span>
+                  <span style={{ opacity: 0.88 }}>{marketTagline || '看懂今天资金到底在抢什么'}</span>
+                </div>
+              </>
+            );
+          })()}
         </div>
       )}
 

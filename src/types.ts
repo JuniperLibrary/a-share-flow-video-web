@@ -51,6 +51,24 @@ export interface SSEMessage {
   text: string;
 }
 
+export interface TickGenerateTaskStatus {
+  task_id: string;
+  date: string;
+  session: string;
+  copy_mode: string;
+  format: string;
+  status: 'pending' | 'running' | 'done' | 'error' | 'cancelled';
+  progress: string;
+  logs: string[];
+  error?: string;
+  existing?: boolean;
+  cancellable?: boolean;
+  mobile_path?: string;
+  mobile_url?: string;
+  tv_path?: string;
+  tv_url?: string;
+}
+
 export interface CLSNewsRecord {
   id: number;
   title: string;

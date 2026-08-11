@@ -1,21 +1,30 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import {
   Button,
   Alert,
+  Space,
 } from '@arco-design/web-react';
-import { IconPlayArrow } from '@arco-design/web-react/icon';
+import { IconPlayArrow, IconStop } from '@arco-design/web-react/icon';
 import { api } from '../api';
 import { useSSE } from '../hooks/useSSE';
-import type { SSEMessage } from '../types';
+import type { SSEMessage, TickGenerateTaskStatus } from '../types';
 import { DatePicker } from '../components/ui/date-picker';
 import { Select } from '../components/ui/select';
 import { PageHeader } from '../components/ui/page-header';
-import { tokens } from '../lib/tokens';
-import { cn } from '../lib/utils';
 
 interface GeneratePageProps {
   dates: string[];
   onDone: (date: string) => void;
+}
+
+const TICK_PENDING_TASK_KEY = 'generate-page:tick-task';
+
+interface PersistedTickTask {
+  taskId: string;
+  date: string;
+  session: string;
+  copyMode: string;
+  format: string;
 }
 
 function GeneratorCard({
@@ -32,6 +41,8 @@ function GeneratorCard({
   statusType,
   statusText,
   onPreview,
+  cancellable,
+  onCancel,
 }: {
   title: string;
   desc: string;
@@ -46,6 +57,8 @@ function GeneratorCard({
   statusType: 'success' | 'error' | 'info' | '';
   statusText: string;
   onPreview?: () => void;
+  cancellable?: boolean;
+  onCancel?: () => void;
 }) {
   return (
     <div className={`rounded-2xl border ${accentBorder} bg-glass border-glass p-5 shadow-2xl flex flex-col h-full`}>
@@ -66,15 +79,27 @@ function GeneratorCard({
 
       {/* Generate button */}
       <div className="mb-4">
-        <Button
-          type="primary"
-          loading={isRunning}
-          onClick={onGenerate}
-          icon={<IconPlayArrow />}
-          className="!bg-primary !border-primary !text-primary-ink !h-9 !font-semibold !px-5 shadow-glow-primary hover:!brightness-110"
-        >
-          生成
-        </Button>
+        <Space>
+          <Button
+            type="primary"
+            loading={isRunning}
+            onClick={onGenerate}
+            icon={<IconPlayArrow />}
+            className="!bg-primary !border-primary !text-primary-ink !h-9 !font-semibold !px-5 shadow-glow-primary hover:!brightness-110"
+          >
+            生成
+          </Button>
+          {cancellable && onCancel && (
+            <Button
+              status="danger"
+              onClick={onCancel}
+              icon={<IconStop />}
+              className="!h-9 !font-semibold !px-4"
+            >
+              取消生成
+            </Button>
+          )}
+        </Space>
       </div>
 
       {/* Status */}
@@ -138,8 +163,14 @@ export function GeneratePage({ dates, onDone }: GeneratePageProps) {
   const [tickSession, setTickSession] = useState('full');
   const [tickCopyMode, setTickCopyMode] = useState('ai');
   const [tickFormat, setTickFormat] = useState('mobile');
-  const tickSSE = useSSE();
+  const [tickLogs, setTickLogs] = useState<string[]>([]);
+  const [tickProgress, setTickProgress] = useState('');
+  const [tickRunning, setTickRunning] = useState(false);
+  const [tickCancellable, setTickCancellable] = useState(false);
+  const [tickCancelling, setTickCancelling] = useState(false);
+  const [tickTaskId, setTickTaskId] = useState('');
   const [tickStatus, setTickStatus] = useState<{ type: 'success' | 'error' | 'info' | ''; text: string }>({ type: '', text: '' });
+  const tickPollRef = useRef<number | null>(null);
 
   // ---- Multiday state ----
   const [mdDate, setMdDate] = useState('');
@@ -158,23 +189,148 @@ export function GeneratePage({ dates, onDone }: GeneratePageProps) {
     if (dates.length > 0) setMdDate(dates[0]);
   }, [dates]);
 
+  const clearTickPolling = useCallback(() => {
+    if (tickPollRef.current !== null) {
+      window.clearInterval(tickPollRef.current);
+      tickPollRef.current = null;
+    }
+  }, []);
+
+  const persistTickTask = useCallback((task: PersistedTickTask) => {
+    localStorage.setItem(TICK_PENDING_TASK_KEY, JSON.stringify(task));
+  }, []);
+
+  const clearTickTask = useCallback(() => {
+    localStorage.removeItem(TICK_PENDING_TASK_KEY);
+    setTickTaskId('');
+  }, []);
+
+  const applyTickTaskStatus = useCallback((status: TickGenerateTaskStatus) => {
+    setTickTaskId(status.task_id);
+    setTickLogs(status.logs || []);
+    setTickProgress(status.progress || '');
+    setTickCancellable(Boolean(status.cancellable));
+
+    if (status.status === 'done') {
+      clearTickPolling();
+      setTickRunning(false);
+      setTickCancellable(false);
+      setTickCancelling(false);
+      clearTickTask();
+      setTickStatus({ type: 'success', text: status.progress || '生成完毕' });
+      onDone(status.date || tickDate);
+      return;
+    }
+
+    if (status.status === 'error') {
+      clearTickPolling();
+      setTickRunning(false);
+      setTickCancellable(false);
+      setTickCancelling(false);
+      clearTickTask();
+      setTickStatus({ type: 'error', text: status.error || status.progress || '生成失败' });
+      return;
+    }
+
+    if (status.status === 'cancelled') {
+      clearTickPolling();
+      setTickRunning(false);
+      setTickCancellable(false);
+      setTickCancelling(false);
+      clearTickTask();
+      setTickStatus({ type: 'info', text: status.progress || '已取消生成' });
+      return;
+    }
+
+    setTickRunning(true);
+    setTickStatus({
+      type: 'info',
+      text: status.existing ? '已恢复正在执行的 Tick 生成任务' : (status.progress || '正在生成 Tick 视频...'),
+    });
+  }, [clearTickPolling, clearTickTask, onDone, tickDate]);
+
+  const startTickPolling = useCallback((taskId: string) => {
+    clearTickPolling();
+    tickPollRef.current = window.setInterval(async () => {
+      try {
+        const status = await api.generateTickStatus(taskId);
+        applyTickTaskStatus(status);
+      } catch (e) {
+        clearTickPolling();
+        setTickRunning(false);
+        setTickStatus({ type: 'error', text: e instanceof Error ? e.message : '查询任务状态失败' });
+      }
+    }, 2000);
+  }, [applyTickTaskStatus, clearTickPolling]);
+
+  useEffect(() => {
+    const raw = localStorage.getItem(TICK_PENDING_TASK_KEY);
+    if (!raw) return;
+    try {
+      const pending = JSON.parse(raw) as PersistedTickTask;
+      if (!pending.taskId) return;
+      setTickDate(pending.date);
+      setTickSession(pending.session);
+      setTickCopyMode(pending.copyMode);
+      setTickFormat(pending.format);
+      setTickTaskId(pending.taskId);
+      setTickStatus({ type: 'info', text: '正在恢复 Tick 生成任务...' });
+      void api.generateTickStatus(pending.taskId)
+        .then((status) => {
+          applyTickTaskStatus(status);
+          if (status.status === 'pending' || status.status === 'running') {
+            startTickPolling(pending.taskId);
+          }
+        })
+        .catch(() => {
+          clearTickTask();
+        });
+    } catch {
+      clearTickTask();
+    }
+    return () => clearTickPolling();
+  }, [applyTickTaskStatus, clearTickPolling, clearTickTask, startTickPolling]);
+
   async function handleGenerateTick() {
     if (!tickDate) return;
-    setTickStatus({ type: 'info', text: '正在生成 Tick 视频...' });
     try {
-      await tickSSE.startStream(
-        () => api.generateTick(tickDate, tickSession, tickCopyMode, tickFormat),
-        (msg: SSEMessage) => {
-          if (msg.type === 'done') {
-            setTickStatus({ type: 'success', text: msg.text });
-            onDone(tickDate);
-          } else if (msg.type === 'error') {
-            throw new Error(msg.text);
-          }
-        },
-      );
+      setTickLogs([]);
+      setTickProgress('等待启动...');
+      setTickRunning(true);
+      setTickCancelling(false);
+      setTickStatus({ type: 'info', text: '正在生成 Tick 视频...' });
+      const status = await api.generateTick(tickDate, tickSession, tickCopyMode, tickFormat);
+      persistTickTask({
+        taskId: status.task_id,
+        date: tickDate,
+        session: tickSession,
+        copyMode: tickCopyMode,
+        format: tickFormat,
+      });
+      applyTickTaskStatus(status);
+      if (status.status === 'pending' || status.status === 'running') {
+        startTickPolling(status.task_id);
+      }
     } catch (e: unknown) {
+      clearTickPolling();
+      setTickRunning(false);
+      setTickCancellable(false);
       setTickStatus({ type: 'error', text: e instanceof Error ? e.message : String(e) });
+    }
+  }
+
+  async function handleCancelTick() {
+    if (!tickTaskId) return;
+    try {
+      setTickCancelling(true);
+      await api.generateTickCancel(tickTaskId);
+      setTickCancelling(false);
+      void api.generateTickStatus(tickTaskId)
+        .then(applyTickTaskStatus)
+        .catch(() => {});
+    } catch (e: unknown) {
+      setTickCancelling(false);
+      setTickStatus({ type: 'error', text: e instanceof Error ? e.message : '取消失败' });
     }
   }
 
@@ -321,12 +477,14 @@ export function GeneratePage({ dates, onDone }: GeneratePageProps) {
             icon="◈"
             form={tickForm}
             onGenerate={handleGenerateTick}
-            logs={tickSSE.logs}
-            progress={tickSSE.progress}
-            isRunning={tickSSE.isRunning}
+            logs={tickLogs}
+            progress={tickProgress}
+            isRunning={tickRunning && !tickCancelling}
             statusType={tickStatus.type}
-            statusText={tickStatus.text}
+            statusText={tickTaskId ? `${tickStatus.text}${tickRunning ? `（任务 ${tickTaskId.slice(-8)}）` : ''}` : tickStatus.text}
             onPreview={tickStatus.type === 'success' ? () => onDone(tickDate) : undefined}
+            cancellable={tickCancellable && !tickCancelling}
+            onCancel={handleCancelTick}
           />
 
           {/* Multiday Card */}

@@ -39,6 +39,18 @@ const shortText = (text: string, max: number) => {
   return `${text.slice(0, max - 1)}…`;
 };
 
+const clampText = (text: string, hardLimit: number) => {
+  if (!text) return '';
+  if (text.length <= hardLimit) return text;
+  return `${text.slice(0, hardLimit - 1)}…`;
+};
+
+const priorityColor = (p?: string) => {
+  if (p === 'high') return { bg: '#ef4444', glow: '#ef444488', text: '#fff1f2', label: '优先' };
+  if (p === 'medium') return { bg: '#f59e0b', glow: '#f59e0b88', text: '#fffbeb', label: '次位' };
+  return { bg: '#3b82f6', glow: '#3b82f688', text: '#eff6ff', label: '观察' };
+};
+
 export const MainStructureScene: React.FC<MainStructureSceneProps> = ({
   sectorTicks,
   displayDate,
@@ -159,19 +171,29 @@ export const MainStructureScene: React.FC<MainStructureSceneProps> = ({
       ? `明日盯${leader.name}延续，观察${pressure?.name ?? '流出侧'}是否收敛`
       : '明日等待流出收敛与新主线回流';
 
-  const actionText = mainStructureResult?.action
-    ? mainStructureResult.action
-    : leader
-      ? `盯${leader.name}延续`
-      : '看收敛';
+  const actions = mainStructureResult?.actions && (mainStructureResult?.actions?.length ?? 0) > 0
+    ? mainStructureResult!.actions!
+    : mainStructureResult?.action
+      ? [{ priority: 'high' as const, text: mainStructureResult.action }]
+      : leader
+        ? [{ priority: 'high' as const, text: `盯${leader.name}延续` }, { priority: 'medium' as const, text: pressure ? `看${pressure.name}流出收敛` : '看流出侧收敛' }]
+        : [];
+
+  const recapLine = (mainStructureResult?.recap && mainStructureResult?.highlight)
+    ? `${mainStructureResult.recap}，${mainStructureResult.highlight}`
+    : '';
+  const planIntro = mainStructureResult?.plan_intro ?? '';
+  const planActions = mainStructureResult?.plan_actions ?? '';
 
   const sidePadding = isTV ? 72 : 54;
-  const verticalPadding = isTV ? 54 : 96;
+  const verticalPadding = isTV ? 54 : 82;
   const contentWidth = width - sidePadding * 2;
   const gap = isTV ? 22 : 18;
   const titleSize = isTV ? 26 : 34;
-  const conclusionSize = isTV ? 42 : 48;
+  const conclusionSize = isTV ? 42 : 50;
   const cardTextSize = isTV ? 22 : 28;
+  const metaMaxTV = isTV ? 42 : 40;
+  const titleMaxTV = isTV ? 30 : 34;
 
   const metricItems = [
     { label: '流入', value: formatAbsYi(stats.totalInflow), color: '#f87171' },
@@ -183,8 +205,15 @@ export const MainStructureScene: React.FC<MainStructureSceneProps> = ({
     { label: '集中度', title: concentration, meta: `Top1 ${leaderShareText} / Top2 ${leader2ShareText}`, color: '#facc15' },
     { label: '结构', title: structureText, meta: `超大单 ${formatSignedYi(superWRaw)} / 大单 ${formatSignedYi(bigWRaw)}`, color: '#fb923c' },
     { label: '风险', title: riskText, meta: pressure ? `流出侧占比 ${riskShareText}` : '流出侧压力有限', color: '#60a5fa' },
-    { label: '动作', title: actionText, meta: outlook, color: '#34d399' },
   ];
+
+  const signalCardMeta = (() => {
+    const a = actions[0];
+    const b = actions[1];
+    if (a && b) return `①${a.text}　②${b.text}`;
+    if (a) return `①${a.text}`;
+    return outlook;
+  })();
 
   const cardStyle: React.CSSProperties = {
     background: 'linear-gradient(180deg, rgba(10, 20, 40, 0.74), rgba(8, 15, 30, 0.68))',
@@ -258,7 +287,7 @@ export const MainStructureScene: React.FC<MainStructureSceneProps> = ({
             width: contentWidth,
           }}
         >
-          <section style={{ ...cardStyle, padding: isTV ? '26px 28px' : '34px 30px' }}>
+          <section style={{ ...cardStyle, padding: isTV ? '26px 28px' : '28px 26px' }}>
             <div style={{ color: '#93c5fd', fontSize: isTV ? 18 : 24, fontWeight: 800, letterSpacing: 2 }}>最终判断</div>
             <div
               style={{
@@ -269,8 +298,22 @@ export const MainStructureScene: React.FC<MainStructureSceneProps> = ({
                 textShadow: '0 8px 28px rgba(0,0,0,0.48)',
               }}
             >
-              {shortText(conclusion, isTV ? 34 : 30)}
+              {clampText(conclusion, isTV ? 38 : 34)}
             </div>
+            {recapLine ? (
+              <div
+                style={{
+                  marginTop: isTV ? 14 : 18,
+                  color: '#cfe2ff',
+                  fontSize: isTV ? 20 : 26,
+                  fontWeight: 800,
+                  lineHeight: 1.3,
+                  letterSpacing: 1,
+                }}
+              >
+                {clampText(recapLine, isTV ? 46 : 40)}
+              </div>
+            ) : null}
             <div style={{ marginTop: isTV ? 22 : 28, display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: isTV ? 10 : 12 }}>
               {metricItems.map((item) => (
                 <div key={item.label} style={{ borderTop: '1px solid rgba(105, 135, 175, 0.22)', paddingTop: 12 }}>
@@ -283,8 +326,8 @@ export const MainStructureScene: React.FC<MainStructureSceneProps> = ({
             </div>
             <div
               style={{
-                marginTop: isTV ? 22 : 28,
-                padding: isTV ? '16px 18px' : '18px 20px',
+                marginTop: isTV ? 20 : 24,
+                padding: isTV ? '14px 18px' : '16px 20px',
                 background: 'rgba(74, 128, 208, 0.10)',
                 border: '1px solid rgba(74, 128, 208, 0.24)',
                 borderRadius: 8,
@@ -293,14 +336,37 @@ export const MainStructureScene: React.FC<MainStructureSceneProps> = ({
                 lineHeight: 1.28,
               }}
             >
-              {shortText(signalText, isTV ? 24 : 20)}
+              {clampText(signalText, isTV ? 30 : 28)}
             </div>
+            {planIntro || planActions ? (
+              <div
+                style={{
+                  marginTop: isTV ? 14 : 18,
+                  padding: isTV ? '12px 18px' : '14px 20px',
+                  background: 'rgba(52, 211, 153, 0.10)',
+                  border: '1px solid rgba(52, 211, 153, 0.26)',
+                  borderRadius: 8,
+                }}
+              >
+                {planIntro ? (
+                  <div style={{ color: '#34d399', fontSize: isTV ? 16 : 20, fontWeight: 900, letterSpacing: 2 }}>
+                    {clampText(planIntro, isTV ? 20 : 18)}
+                  </div>
+                ) : null}
+                {planActions ? (
+                  <div style={{ marginTop: planIntro ? 6 : 0, color: '#d1fae5', fontSize: isTV ? 22 : 28, fontWeight: 820, lineHeight: 1.25 }}>
+                    {clampText(planActions, isTV ? 38 : 34)}
+                  </div>
+                ) : null}
+              </div>
+            ) : null}
           </section>
 
           <section
             style={{
               display: 'grid',
               gridTemplateColumns: isTV ? '1fr 1fr' : '1fr',
+              gridAutoRows: 'minmax(0, 1fr)',
               gap,
             }}
           >
@@ -311,7 +377,7 @@ export const MainStructureScene: React.FC<MainStructureSceneProps> = ({
                   ...cardStyle,
                   opacity: Math.min(1, Math.max(0, (frame - 24 - index * 7) / 12)),
                   padding: isTV ? '20px 20px' : '22px 24px',
-                  minHeight: isTV ? 156 : 150,
+                  minHeight: isTV ? 156 : 148,
                   display: 'grid',
                   gridTemplateColumns: 'auto 1fr',
                   columnGap: isTV ? 16 : 18,
@@ -339,14 +405,59 @@ export const MainStructureScene: React.FC<MainStructureSceneProps> = ({
                 <div>
                   <div style={{ color: item.color, fontSize: isTV ? 16 : 20, fontWeight: 900, letterSpacing: 2 }}>{item.label}</div>
                   <div style={{ marginTop: 8, color: '#f7fbff', fontSize: cardTextSize, fontWeight: 820, lineHeight: 1.18 }}>
-                    {shortText(item.title, isTV ? 24 : 22)}
+                    {clampText(item.title, titleMaxTV)}
                   </div>
                   <div style={{ marginTop: 10, color: '#91a5bd', fontSize: isTV ? 16 : 20, lineHeight: 1.25 }}>
-                    {shortText(item.meta, isTV ? 34 : 30)}
+                    {clampText(item.meta, metaMaxTV)}
                   </div>
                 </div>
               </div>
             ))}
+
+            {actions.map((item, index) => {
+              const pc = priorityColor(item.priority);
+              return (
+                <div
+                  key={`action-${index}`}
+                  style={{
+                    ...cardStyle,
+                    opacity: Math.min(1, Math.max(0, (frame - 40 - index * 6) / 10)),
+                    padding: isTV ? '18px 20px' : '20px 24px',
+                    minHeight: isTV ? 136 : 130,
+                    display: 'flex',
+                    flexDirection: 'column',
+                    justifyContent: 'space-between',
+                    gap: 8,
+                    background: `linear-gradient(145deg, rgba(10,20,40,0.74), rgba(${pc.bg === '#ef4444' ? '239,68,68' : pc.bg === '#f59e0b' ? '245,158,11' : '59,130,246'},0.09) rgba(8,15,30,0.68))`,
+                    border: `1px solid ${pc.bg}55`,
+                    boxShadow: `0 12px 28px ${pc.glow}, inset 0 0 0 1px rgba(255,255,255,0.02)`,
+                  }}
+                >
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                    <div
+                      style={{
+                        padding: '4px 12px',
+                        background: pc.bg,
+                        color: pc.text,
+                        fontSize: isTV ? 13 : 16,
+                        fontWeight: 900,
+                        letterSpacing: 3,
+                        borderRadius: 999,
+                        boxShadow: `0 4px 14px ${pc.glow}`,
+                      }}
+                    >
+                      {pc.label}
+                    </div>
+                    <div style={{ color: pc.text, fontSize: isTV ? 14 : 18, fontWeight: 900, letterSpacing: 2 }}>
+                      ACTION 0{index + 1}
+                    </div>
+                  </div>
+                  <div style={{ color: '#ffffff', fontSize: isTV ? 26 : 32, fontWeight: 900, lineHeight: 1.18, textShadow: '0 6px 20px rgba(0,0,0,0.45)' }}>
+                    {clampText(item.text, isTV ? 24 : 22)}
+                  </div>
+                </div>
+              );
+            })}
           </section>
         </div>
 
@@ -356,17 +467,17 @@ export const MainStructureScene: React.FC<MainStructureSceneProps> = ({
             position: 'absolute',
             left: sidePadding,
             right: sidePadding,
-            bottom: isTV ? 42 : 58,
-            padding: isTV ? '16px 22px' : '20px 24px',
+            bottom: isTV ? 42 : 48,
+            padding: isTV ? '16px 22px' : '18px 24px',
             display: 'flex',
-            alignItems: 'center',
+            alignItems: 'flex-start',
             justifyContent: 'space-between',
             gap: 18,
           }}
         >
-          <div style={{ color: '#34d399', fontSize: isTV ? 18 : 22, fontWeight: 900, letterSpacing: 2 }}>明日观察</div>
-          <div style={{ flex: 1, color: '#dce8f7', fontSize: isTV ? 24 : 28, fontWeight: 800, lineHeight: 1.2 }}>
-            {shortText(outlook, isTV ? 42 : 32)}
+          <div style={{ color: '#34d399', fontSize: isTV ? 18 : 22, fontWeight: 900, letterSpacing: 2, whiteSpace: 'nowrap', marginTop: 2 }}>明日观察</div>
+          <div style={{ flex: 1, color: '#dce8f7', fontSize: isTV ? 24 : 28, fontWeight: 800, lineHeight: 1.22 }}>
+            {clampText(outlook, isTV ? 52 : 44)}
           </div>
         </div>
       </div>
