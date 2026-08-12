@@ -98,7 +98,7 @@ export const Chart: React.FC<ChartProps> = ({
 }) => {
   const isTV = format === 'tv';
 
-  const xMax = propXLim ? propXLim[1] : 330;
+  const xMax = propXLim && propXLim.length === 2 ? propXLim[1] : 330;
   const isMorning = session === 'morning';
 
   // TV layout: chart ~60%, events ~12%, ranking ~20%

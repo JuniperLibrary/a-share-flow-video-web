@@ -30,7 +30,7 @@ export const Timeline: React.FC<TimelineProps> = ({
 }) => {
   const isTV = format === 'tv';
   const scale = isTV ? 1.0 : 1.45;
-  const xMax = propXLim ? propXLim[1] : 330;
+  const xMax = propXLim && propXLim.length === 2 ? propXLim[1] : 330;
 
   const timelineLeft = isTV ? width * 0.64 : width * 0.50;
   const timelineTop = isTV ? 110 : 170;

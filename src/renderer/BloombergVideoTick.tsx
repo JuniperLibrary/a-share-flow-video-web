@@ -482,7 +482,11 @@ export const BloombergVideoTick: React.FC = () => {
   const events = inputProps.events;
   const format = inputProps.format || 'mobile';
   const session = inputProps.session || 'full';
-  const xLim = inputProps.xLim || [0, 330];
+  const rawXLim = inputProps.xLim as unknown as unknown[] | undefined;
+  const xLim: [number, number] =
+    rawXLim && rawXLim.length === 2 && typeof rawXLim[0] === 'number' && typeof rawXLim[1] === 'number'
+      ? [rawXLim[0] as number, rawXLim[1] as number]
+      : [0, 330];
 
   const scene1Frames = inputProps.scene1Frames || 0;
   const scene2Frames = inputProps.scene2Frames || 0;

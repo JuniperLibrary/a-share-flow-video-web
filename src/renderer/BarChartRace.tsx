@@ -50,17 +50,15 @@ const SECTOR_COLOR_MAP: Record<string, string> = {
 };
 
 // HSL fallback for sectors not in the color map
-let _hueOffset = 0;
 function getSectorColor(name: string): string {
   const mapped = SECTOR_COLOR_MAP[name];
   if (mapped) return mapped;
-  // Deterministic hue from name hash
+  // Deterministic hue from name hash (pure function — stable per sector name)
   let hash = 0;
   for (let i = 0; i < name.length; i++) {
     hash = name.charCodeAt(i) + ((hash << 5) - hash);
   }
-  const hue = ((Math.abs(hash) % 360) + _hueOffset) % 360;
-  _hueOffset = (_hueOffset + 47) % 360; // 47° spread for adjacent sectors
+  const hue = Math.abs(hash) % 360;
   return `hsl(${hue}, 55%, 50%)`;
 }
 

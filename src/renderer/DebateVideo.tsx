@@ -148,7 +148,7 @@ export const DebateVideo: React.FC = () => {
       ))}
 
       {turns.map((turn, i) => {
-        const color = COLORS[turn.speaker];
+        const color = COLORS[turn.speaker] ?? COLORS.moderator;
         const isModerator = turn.speaker === 'moderator';
         const turnFrames = audioTurns[i]?.frames ?? 90;
         return (
@@ -707,7 +707,7 @@ const BottomStrip: React.FC<{
           const color = isCurrent
             ? currentColor.primary
             : isPast
-              ? COLORS[sp].primary
+              ? (COLORS[sp]?.primary ?? COLORS.moderator.primary)
               : '#1e293b';
           return (
             <div

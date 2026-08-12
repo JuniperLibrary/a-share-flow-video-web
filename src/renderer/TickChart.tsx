@@ -131,8 +131,8 @@ export const TickChart: React.FC<TickChartProps> = ({
   xLim: propXLim,
 }) => {
   const isTV = format === 'tv';
-  const configuredXMin = propXLim ? propXLim[0] : 0;
-  const configuredXMax = propXLim ? propXLim[1] : (session === 'morning' ? 120 : 240);
+  const configuredXMin = propXLim && propXLim.length === 2 ? propXLim[0] : 0;
+  const configuredXMax = propXLim && propXLim.length === 2 ? propXLim[1] : (session === 'morning' ? 120 : 240);
   const isMorning = session === 'morning';
 
   const layout = getVideoLayout(width, height, format);
