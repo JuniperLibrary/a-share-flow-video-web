@@ -22,4 +22,5 @@ dist/
 # Remotion cache
 .remotion-cache/
 /public/voiceover/
+/public/voiceover_cache/
 /public/debate/
