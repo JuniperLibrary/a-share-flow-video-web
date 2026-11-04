@@ -339,7 +339,7 @@ export function GeneratePage({ dates, onDone }: GeneratePageProps) {
     setMdStatus({ type: 'info', text: '正在生成多日视频...' });
     try {
       await mdSSE.startStream(
-        () => api.generateMultiDay(mdDate, mdDays, mdCopyMode),
+        signal => api.generateMultiDay(mdDate, mdDays, mdCopyMode, signal),
         (msg: SSEMessage) => {
           if (msg.type === 'done') {
             setMdStatus({ type: 'success', text: msg.text });

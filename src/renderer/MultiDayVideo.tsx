@@ -1,7 +1,7 @@
 import React from 'react';
-import { AbsoluteFill, useCurrentFrame, useVideoConfig, getInputProps, interpolate, spring } from 'remotion';
+import { AbsoluteFill, useCurrentFrame, useVideoConfig, getInputProps, interpolate } from 'remotion';
 import { BarRaceChart } from './BarChartRace.tsx';
-import { FinancialBackground } from './FinancialBackground.tsx';
+import { Background } from './Background.tsx';
 import type { MultiDayVideoProps } from './types.ts';
 
 export const MultiDayVideo: React.FC = () => {
@@ -28,7 +28,9 @@ export const MultiDayVideo: React.FC = () => {
   const dateRange = dates.length > 0 ? `${dates[0]} → ${dates[dates.length - 1]}` : '';
 
   return (
-    <AbsoluteFill style={{ backgroundColor: '#0a0e17' }}>
+    <AbsoluteFill>
+      <Background frame={frame} totalFrames={totalFrames} sentiment="neutral" width={width} height={height} format={format} />
+
       {/* Cover */}
       {showCover && (
         <AbsoluteFill style={{
@@ -38,14 +40,7 @@ export const MultiDayVideo: React.FC = () => {
           flexDirection: 'column',
           alignItems: 'center',
           justifyContent: 'center',
-          background: 'linear-gradient(180deg, #0a0e17 0%, #0d1220 50%, #0a0e17 100%)',
         }}>
-          {/* HUD corner markers */}
-          <div style={{ position: 'absolute', top: 20, left: 20, width: 40, height: 40, borderTop: '2px solid rgba(0, 240, 255, 0.3)', borderLeft: '2px solid rgba(0, 240, 255, 0.3)' }} />
-          <div style={{ position: 'absolute', top: 20, right: 20, width: 40, height: 40, borderTop: '2px solid rgba(0, 240, 255, 0.3)', borderRight: '2px solid rgba(0, 240, 255, 0.3)' }} />
-          <div style={{ position: 'absolute', bottom: 20, left: 20, width: 40, height: 40, borderBottom: '2px solid rgba(0, 240, 255, 0.3)', borderLeft: '2px solid rgba(0, 240, 255, 0.3)' }} />
-          <div style={{ position: 'absolute', bottom: 20, right: 20, width: 40, height: 40, borderBottom: '2px solid rgba(0, 240, 255, 0.3)', borderRight: '2px solid rgba(0, 240, 255, 0.3)' }} />
-
           <div style={{
             fontSize: 14,
             fontWeight: 600,
@@ -130,15 +125,8 @@ export const MultiDayVideo: React.FC = () => {
           flexDirection: 'column',
           alignItems: 'center',
           justifyContent: 'center',
-          background: 'linear-gradient(180deg, #0a0e17 0%, #0d1220 50%, #0a0e17 100%)',
           padding: '40px 60px',
         }}>
-          {/* HUD corners */}
-          <div style={{ position: 'absolute', top: 20, left: 20, width: 30, height: 30, borderTop: '1px solid rgba(0, 240, 255, 0.2)', borderLeft: '1px solid rgba(0, 240, 255, 0.2)' }} />
-          <div style={{ position: 'absolute', top: 20, right: 20, width: 30, height: 30, borderTop: '1px solid rgba(0, 240, 255, 0.2)', borderRight: '1px solid rgba(0, 240, 255, 0.2)' }} />
-          <div style={{ position: 'absolute', bottom: 20, left: 20, width: 30, height: 30, borderBottom: '1px solid rgba(0, 240, 255, 0.2)', borderLeft: '1px solid rgba(0, 240, 255, 0.2)' }} />
-          <div style={{ position: 'absolute', bottom: 20, right: 20, width: 30, height: 30, borderBottom: '1px solid rgba(0, 240, 255, 0.2)', borderRight: '1px solid rgba(0, 240, 255, 0.2)' }} />
-
           <div style={{
             fontSize: 12,
             fontWeight: 600,

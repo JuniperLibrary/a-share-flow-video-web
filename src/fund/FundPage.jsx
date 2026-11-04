@@ -11,7 +11,7 @@ import dayjs from 'dayjs';
 import utc from 'dayjs/plugin/utc';
 import timezone from 'dayjs/plugin/timezone';
 import isSameOrAfter from 'dayjs/plugin/isSameOrAfter';
-import { isNumber, isString, isPlainObject, isNil, isArray } from 'lodash';
+import { isNumber, isPlainObject, isNil, isArray } from 'lodash';
 import { v4 as uuidv4 } from 'uuid';
 import { toast as sonnerToast } from 'sonner';
 
@@ -87,11 +87,24 @@ import {
   cloneHoldingDeep,
   normalizeHoldingEntryForSeed,
   seedGroupHoldingsFromGlobal,
-  migrateDcaPlansToScoped
+  migrateDcaPlansToScoped,
+  createHoldingProfitCalculator
 } from './lib/fundHelpers';
 
 import GlobalToast from './components/GlobalToast';
 import { dedupeByCode, normalizeCode, cleanCodeArray, normalizeNumber } from './lib/normalize';
+import {
+  mergeFundsForImport,
+  mergeGroupsForImport,
+  mergeUniqueCodeList,
+  mergeTransactionsForImport,
+  mergePendingTradesForImport,
+  mergeGroupHoldingsForImport,
+  mergeDcaPlansForImport,
+  mergeTagRecordsForImport,
+} from './lib/dataImportMerge';
+import { buildDisplayFunds, buildPcFundTableData, buildScopedDailyEarnings, buildLatestDailyByCode } from './lib/fundListView';
+import { buildSummaryCardItems } from './lib/fundSummaryCards';
 
 export default function HomePage() {
   const {
@@ -271,112 +284,11 @@ export default function HomePage() {
       : null;
 
   // 计算持仓收益；可选第三参为分组作用域（汇总卡片/合并列表按分组计算当日收益）
-  const getHoldingProfit = useCallback((fund, holding, scopeGroupIdOverride) => {
-    if (!holding || !isNumber(holding.share)) return null;
-
-    const txScope = scopeGroupIdOverride !== undefined ? scopeGroupIdOverride : activeGroupId;
-
-    const hasTodayData = fund.jzrq === todayStr;
-    const hasTodayValuation = isString(fund.gztime) && fund.gztime.startsWith(todayStr);
-    const canCalcTodayProfit = hasTodayData || hasTodayValuation;
-
-    // 如果是交易日且9点以后，且今日净值未出，则强制使用估值（隐藏涨跌幅列模式）
-    const useValuation = isTradingDay && !hasTodayData;
-
-    let currentNav;
-    let profitToday;
-    let shareForTodayProfit = holding.share;
-
-    if (canCalcTodayProfit) {
-      // 当日收益口径：按“昨日收盘时持有份额”计算，避免把当日买入份额算进当日收益。
-      // 份额基数 = 当前份额 - 当日买入份额 + 当日卖出份额（卖出份额在开盘前仍持有，应计入当日涨跌）
-      let buyToday = 0;
-      let sellToday = 0;
-      const list = transactions && fund?.code ? (transactions[fund.code] || []) : [];
-      for (const tx of list) {
-        if (!tx || tx.date !== todayStr) continue;
-        const gid = tx.groupId || null;
-        if (txScope) {
-          if (gid !== txScope) continue;
-        } else {
-          if (gid) continue;
-        }
-        if (tx.isHistoryOnly) continue;
-        const s = Number(tx.share);
-        if (!Number.isFinite(s) || s <= 0) continue;
-        if (tx.type === 'buy') buyToday += s;
-        else if (tx.type === 'sell') sellToday += s;
-      }
-      shareForTodayProfit = Math.max(0, holding.share - buyToday + sellToday);
-    }
-
-    if (!useValuation) {
-      // 使用确权净值 (dwjz)
-      currentNav = Number(fund.dwjz);
-      if (!currentNav) return null;
-
-      if (canCalcTodayProfit) {
-        const amount = shareForTodayProfit * currentNav;
-        // 优先使用昨日净值直接计算（更精确，避免涨跌幅四舍五入误差）
-        const lastNav = fund.lastNav != null && fund.lastNav !== '' ? Number(fund.lastNav) : null;
-        if (lastNav && Number.isFinite(lastNav) && lastNav > 0) {
-          profitToday = (currentNav - lastNav) * shareForTodayProfit;
-        } else {
-          const gz = isString(fund.gztime) ? toTz(fund.gztime) : null;
-          const jz = isString(fund.jzrq) ? toTz(fund.jzrq) : null;
-          const preferGszzl =
-            !!gz &&
-            !!jz &&
-            gz.isValid() &&
-            jz.isValid() &&
-            gz.startOf('day').isAfter(jz.startOf('day'));
-
-          let rate;
-          if (preferGszzl) {
-            rate = Number(fund.gszzl);
-          } else {
-            const zzl = fund.zzl !== undefined ? Number(fund.zzl) : Number.NaN;
-            rate = Number.isFinite(zzl) ? zzl : Number(fund.gszzl);
-          }
-          if (!Number.isFinite(rate)) rate = 0;
-          profitToday = amount - (amount / (1 + rate / 100));
-        }
-      } else {
-        profitToday = null;
-      }
-    } else {
-      // 否则使用估值
-      currentNav = isNumber(fund.gsz) ? fund.gsz : Number(fund.dwjz);
-
-      if (!currentNav) return null;
-
-      if (canCalcTodayProfit) {
-        const amount = shareForTodayProfit * currentNav;
-        // 估算涨幅
-        const gzChange = Number(fund.gszzl) || 0;
-        profitToday = amount - (amount / (1 + gzChange / 100));
-      } else {
-        profitToday = null;
-      }
-    }
-
-    // 持仓金额强制使用确权净值
-    const exactNav = Number(fund.dwjz) || currentNav;
-    const amount = holding.share * exactNav;
-
-    // 总收益 = (确权净值 - 成本价) * 份额
-    const profitTotal = isNumber(holding.cost)
-      ? (exactNav - holding.cost) * holding.share
-      : null;
-
-    return {
-      amount,
-      nav: exactNav,
-      profitToday,
-      profitTotal,
-      principalToday: isNumber(holding.cost) ? holding.cost * shareForTodayProfit : 0
-    };
-  }, [isTradingDay, todayStr, transactions, activeGroupId]);
+  // 具体计算逻辑见 lib/fundHelpers.js 的 createHoldingProfitCalculator
+  const getHoldingProfit = useMemo(
+    () => createHoldingProfitCalculator({ todayStr, isTradingDay, transactions, activeGroupId }),
+    [isTradingDay, todayStr, transactions, activeGroupId],
+  );
 
   const groupsWithHoldings = useMemo(() => {
     const fundByCode = new Map((isArray(funds) ? funds : []).map((f) => [f.code, f]));
@@ -517,152 +429,29 @@ export default function HomePage() {
     }
   }, [currentTab, summaryTabPortfolioTotals.hasHolding]);
 
-  const summaryCardItems = useMemo(() => {
-    if (currentTab !== SUMMARY_TAB_ID) return [];
-    const fundByCode = new Map((isArray(funds) ? funds : []).map((f) => [f.code, f]));
-    const items = [];
-
-    if (hasGlobalPortfolioForSummary) {
-      let totalAsset = 0;
-      let totalHoldingReturn = 0;
-      let totalCost = 0;
-      let totalProfitToday = 0;
-      let totalPrincipalToday = 0;
-      let hasAnyTodayData = false;
-      let upCount = 0;
-      let downCount = 0;
-
-      for (const fund of funds || []) {
-        const holding = holdings[fund.code];
-        if (!holding) continue;
-        const profit = getHoldingProfit(fund, holding, null);
-        if (!profit) continue;
-        totalAsset += Math.round(profit.amount * 100) / 100;
-        if (profit.profitToday != null) {
-          totalProfitToday += profit.profitToday;
-          totalPrincipalToday += (profit.principalToday || 0);
-          hasAnyTodayData = true;
-        }
-        if (profit.profitTotal !== null) {
-          totalHoldingReturn += profit.profitTotal;
-          if (typeof holding.cost === 'number' && typeof holding.share === 'number') {
-            totalCost += holding.cost * holding.share;
-          }
-        }
-        const ev = fund.noValuation
-          ? null
-          : (isNumber(fund.gszzl) ? Number(fund.gszzl) : null);
-        if (ev != null && Number.isFinite(ev)) {
-          if (ev > 0) upCount += 1;
-          else if (ev < 0) downCount += 1;
-        }
-      }
-
-      const roundedToday = Math.round(totalProfitToday * 100) / 100;
-      const returnRate = totalCost > 0 ? (totalHoldingReturn / totalCost) * 100 : 0;
-      const todayReturnRate = totalPrincipalToday > 0 ? (roundedToday / totalPrincipalToday) * 100 : 0;
-      const scopeDaily = isPlainObject(fundDailyEarnings?.[DAILY_EARNINGS_SCOPE_ALL])
-        ? fundDailyEarnings[DAILY_EARNINGS_SCOPE_ALL]
-        : {};
-      const dailySeries = aggregatePortfolioDailyEarnings(scopeDaily);
-      let cum = 0;
-      const sparkSeries = dailySeries.map((pt) => {
-        cum += pt.earnings;
-        return { date: pt.date, earnings: cum };
-      });
-
-      items.push({
-        groupId: SUMMARY_SOURCE_GLOBAL,
-        groupName: '全部',
-        totalAsset,
-        holdingReturn: totalHoldingReturn,
-        holdingReturnPercent: returnRate,
-        accountReturn: roundedToday,
-        accountReturnPercent: todayReturnRate,
-        hasAnyTodayData,
-        upCount,
-        downCount,
-        sparkSeries,
-      });
-    }
-
-    items.push(
-      ...groupsWithHoldings.map((g) => {
-      const bucket = groupHoldings[g.id] || {};
-      const groupFunds = (isArray(funds) ? funds : []).filter((f) => g.codes.includes(f.code));
-      let totalAsset = 0;
-      let totalHoldingReturn = 0;
-      let totalCost = 0;
-      let totalProfitToday = 0;
-      let totalPrincipalToday = 0;
-      let hasAnyTodayData = false;
-      let upCount = 0;
-      let downCount = 0;
-
-      for (const fund of groupFunds) {
-        const holding = bucket[fund.code];
-        const profit = getHoldingProfit(fund, holding, g.id);
-        if (profit) {
-          totalAsset += Math.round(profit.amount * 100) / 100;
-          if (profit.profitToday != null) {
-            totalProfitToday += profit.profitToday;
-            totalPrincipalToday += (profit.principalToday || 0);
-            hasAnyTodayData = true;
-          }
-          if (profit.profitTotal !== null) {
-            totalHoldingReturn += profit.profitTotal;
-            if (holding && typeof holding.cost === 'number' && typeof holding.share === 'number') {
-              totalCost += holding.cost * holding.share;
-            }
-          }
-        }
-        const ev = fund.noValuation
-          ? null
-          : (isNumber(fund.gszzl) ? Number(fund.gszzl) : null);
-        if (ev != null && Number.isFinite(ev)) {
-          if (ev > 0) upCount += 1;
-          else if (ev < 0) downCount += 1;
-        }
-      }
-
-      const roundedToday = Math.round(totalProfitToday * 100) / 100;
-      const returnRate = totalCost > 0 ? (totalHoldingReturn / totalCost) * 100 : 0;
-      const todayReturnRate = totalPrincipalToday > 0 ? (roundedToday / totalPrincipalToday) * 100 : 0;
-
-      const scopeDaily = isPlainObject(fundDailyEarnings?.[g.id]) ? fundDailyEarnings[g.id] : {};
-      const dailySeries = aggregatePortfolioDailyEarnings(scopeDaily);
-      let cum = 0;
-      const sparkSeries = dailySeries.map((pt) => {
-        cum += pt.earnings;
-        return { date: pt.date, earnings: cum };
-      });
-
-      return {
-        groupId: g.id,
-        groupName: g.name || '分组',
-        totalAsset,
-        holdingReturn: totalHoldingReturn,
-        holdingReturnPercent: returnRate,
-        accountReturn: roundedToday,
-        accountReturnPercent: todayReturnRate,
-        hasAnyTodayData,
-        upCount,
-        downCount,
-        sparkSeries,
-      };
-      })
-    );
-    return items;
-  }, [
-    currentTab,
-    groupsWithHoldings,
-    funds,
-    groupHoldings,
-    holdings,
-    getHoldingProfit,
-    fundDailyEarnings,
-    hasGlobalPortfolioForSummary,
-  ]);
+  // 汇总分组的账户汇总卡片；口径见 lib/fundSummaryCards.js 的 buildSummaryCardItems
+  const summaryCardItems = useMemo(
+    () => buildSummaryCardItems({
+      currentTab,
+      funds,
+      holdings,
+      groupsWithHoldings,
+      groupHoldings,
+      getHoldingProfit,
+      fundDailyEarnings,
+      hasGlobalPortfolioForSummary,
+    }),
+    [
+      currentTab,
+      groupsWithHoldings,
+      funds,
+      groupHoldings,
+      holdings,
+      getHoldingProfit,
+      fundDailyEarnings,
+      hasGlobalPortfolioForSummary,
+    ],
+  );
 
   const getHoldingProfitForTab = useCallback(
     (fund, holding) => {
@@ -752,115 +541,25 @@ export default function HomePage() {
     });
   }, [linkedHoldingsForAllFav, setFundDailyEarnings]);
 
-  const currentFundDailyEarnings = useMemo(() => {
-    if (!isPlainObject(fundDailyEarnings)) return {};
-
-    const getScopeBucket = (scopeKey) => {
-      const scoped = fundDailyEarnings[scopeKey];
-      return isPlainObject(scoped) ? scoped : {};
-    };
-
-    if (activeGroupId) {
-      return getScopeBucket(activeGroupId);
-    }
-
-    if (currentTab === SUMMARY_TAB_ID) {
-      const out = {};
-      Object.entries(summaryHoldingSourceGroupByCode || {}).forEach(([code, source]) => {
-        const scopeKey = source === SUMMARY_SOURCE_GLOBAL ? DAILY_EARNINGS_SCOPE_ALL : source;
-        const bucket = getScopeBucket(scopeKey);
-        const list = bucket[code];
-        if (Array.isArray(list) && list.length > 0) out[code] = list;
-      });
-      return out;
-    }
-
-    const globalBucket = getScopeBucket(DAILY_EARNINGS_SCOPE_ALL);
-
-    if (currentTab !== 'all' && currentTab !== 'fav') {
-      return globalBucket;
-    }
-
-    const linkedCodes = linkedHoldingsForAllFav?.linked;
-    if (!(linkedCodes instanceof Set) || linkedCodes.size === 0) {
-      return globalBucket;
-    }
-
-    const out = { ...globalBucket };
-    const groupIdsByCode = linkedHoldingsForAllFav?.groupIdsByCode || {};
-
-    for (const code of linkedCodes) {
-      const groupIds = Array.isArray(groupIdsByCode[code]) ? groupIdsByCode[code] : [];
-      if (groupIds.length === 0) continue;
-
-      let fallbackPrincipalCurrent = 0;
-      for (const gid of groupIds) {
-        const h = groupHoldings?.[gid]?.[code];
-        if (!h) continue;
-        const share = Number(h.share);
-        const cost = Number(h.cost);
-        if (!Number.isFinite(share) || share <= 0) continue;
-        if (!Number.isFinite(cost) || cost <= 0) continue;
-        fallbackPrincipalCurrent += cost * share;
-      }
-
-      const byDate = new Map();
-      for (const gid of groupIds) {
-        const bucket = getScopeBucket(gid);
-        const list = bucket[code];
-        if (!Array.isArray(list) || list.length === 0) continue;
-
-        for (const item of list) {
-          const date = item?.date ? String(item.date) : '';
-          const earnings = Number(item?.earnings);
-          const rate = Number(item?.rate);
-          const baseCostAmount = Number(item?.baseCostAmount);
-          if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) continue;
-          if (!Number.isFinite(earnings)) continue;
-          const prev = byDate.get(date) || { earnings: 0, rowCount: 0, singleRate: null, rateCount: 0, baseCostAmount: 0 };
-          prev.earnings += earnings;
-          prev.rowCount += 1;
-          if (Number.isFinite(rate)) {
-            prev.rateCount += 1;
-            if (prev.singleRate == null) prev.singleRate = rate;
-          }
-          if (Number.isFinite(baseCostAmount) && baseCostAmount > 0) {
-            prev.baseCostAmount += baseCostAmount;
-          }
-          byDate.set(date, prev);
-        }
-      }
-
-      if (byDate.size > 0) {
-        out[code] = [...byDate.entries()]
-          .sort((a, b) => a[0].localeCompare(b[0]))
-          .map(([date, row]) => {
-            const earnings = row.earnings;
-            const baseCostAmount = Number.isFinite(row.baseCostAmount) && row.baseCostAmount > 0
-              ? row.baseCostAmount
-              : null;
-            let rate = null;
-            if (baseCostAmount != null) {
-              rate = (earnings / baseCostAmount) * 100;
-            } else if (row.rowCount === 1 && row.rateCount === 1 && Number.isFinite(row.singleRate)) {
-              rate = row.singleRate;
-            } else if (Number.isFinite(fallbackPrincipalCurrent) && fallbackPrincipalCurrent > 0) {
-              // 兼容旧数据：历史记录缺少快照且无 rate 时，用当前关联持仓成本兜底展示
-              rate = (earnings / fallbackPrincipalCurrent) * 100;
-            }
-            return { date, earnings, rate, baseCostAmount };
-          });
-      }
-    }
-
-    return out;
-  }, [
-    fundDailyEarnings,
-    activeGroupId,
-    currentTab,
-    summaryHoldingSourceGroupByCode,
-    linkedHoldingsForAllFav,
-  ]);
+  // 当前分组作用域下的每日收益；作用域解析规则见 lib/fundListView.js 的 buildScopedDailyEarnings
+  const currentFundDailyEarnings = useMemo(
+    () => buildScopedDailyEarnings({
+      fundDailyEarnings,
+      activeGroupId,
+      currentTab,
+      summaryHoldingSourceGroupByCode,
+      linkedHoldingsForAllFav,
+      groupHoldings,
+    }),
+    [
+      fundDailyEarnings,
+      activeGroupId,
+      currentTab,
+      summaryHoldingSourceGroupByCode,
+      linkedHoldingsForAllFav,
+      groupHoldings,
+    ],
+  );
   const portfolioDailySeries = useMemo(
     () => {
       if (!isPlainObject(fundDailyEarnings)) return [];
@@ -1036,539 +735,49 @@ export default function HomePage() {
 
   // 过滤和排序后的基金列表（包含“列表搜索”过滤）
   const displayFundsRaw = useMemo(
-    () => {
-      let filtered = [...scopedFunds];
-
-      const q = String(shouldShowGroupFundSearch ? (deferredGroupFundSearchTerm ?? '') : '').trim();
-      if (q) {
-        const qLower = q.toLowerCase();
-        filtered = filtered.filter((f) => {
-          const name = String(f?.name ?? '').toLowerCase();
-          const code = String(f?.code ?? '').toLowerCase();
-          return name.includes(qLower) || code.includes(qLower);
-        });
-      }
-
-      if (currentTab !== 'all' && currentTab !== 'fav' && currentTab !== SUMMARY_TAB_ID && sortBy === 'default') {
-        const group = groups.find(g => g.id === currentTab);
-        if (group && group.codes) {
-          const codeMap = new Map(group.codes.map((code, index) => [code, index]));
-          filtered.sort((a, b) => {
-            const indexA = codeMap.get(a.code) ?? Number.MAX_SAFE_INTEGER;
-            const indexB = codeMap.get(b.code) ?? Number.MAX_SAFE_INTEGER;
-            return indexA - indexB;
-          });
-        }
-      }
-
-      const profitByCode =
-        sortBy === 'holdingAmount' || sortBy === 'holdingRatio' || sortBy === 'todayProfit' || sortBy === 'holding'
-          ? new Map(filtered.map((f) => [f.code, getHoldingProfitForTab(f, holdingsForTabWithLinked[f.code])]))
-          : null;
-
-      return filtered.sort((a, b) => {
-        if (sortBy === 'yield') {
-          const getYieldValue = (fund) => {
-            // 与 estimateChangePercent 展示逻辑对齐：
-            // - noValuation 为 true 一律视为无“估算涨幅”
-            // - 仅在 gszzl 为数字时使用 gszzl
-            if (fund.noValuation) {
-              return { value: 0, hasValue: false };
-            }
-            if (isNumber(fund.gszzl)) {
-              return { value: Number(fund.gszzl), hasValue: true };
-            }
-            return { value: 0, hasValue: false };
-          };
-
-          const { value: valA, hasValue: hasA } = getYieldValue(a);
-          const { value: valB, hasValue: hasB } = getYieldValue(b);
-
-          // 无“估算涨幅”展示值（界面为 `—`）的基金统一排在最后
-          if (!hasA && !hasB) return 0;
-          if (!hasA) return 1;
-          if (!hasB) return -1;
-
-          return sortOrder === 'asc' ? valA - valB : valB - valA;
-        }
-        if (sortBy === 'holdingAmount') {
-          const pa = profitByCode?.get(a.code);
-          const pb = profitByCode?.get(b.code);
-          const amountA = pa?.amount ?? Number.NEGATIVE_INFINITY;
-          const amountB = pb?.amount ?? Number.NEGATIVE_INFINITY;
-          return sortOrder === 'asc' ? amountA - amountB : amountB - amountA;
-        }
-        if (sortBy === 'holdingRatio') {
-          const pa = profitByCode?.get(a.code);
-          const pb = profitByCode?.get(b.code);
-          const amountA = pa?.amount;
-          const amountB = pb?.amount;
-          const hasA = amountA != null && Number.isFinite(amountA) && amountA > 0;
-          const hasB = amountB != null && Number.isFinite(amountB) && amountB > 0;
-          if (!hasA && !hasB) return 0;
-          if (!hasA) return 1;
-          if (!hasB) return -1;
-          // holdingRatio sort is equivalent to holdingAmount sort (same denominator within group)
-          return sortOrder === 'asc' ? amountA - amountB : amountB - amountA;
-        }
-        if (sortBy === 'yesterdayIncrease') {
-          const valA = Number(a.zzl);
-          const valB = Number(b.zzl);
-          const hasA = Number.isFinite(valA);
-          const hasB = Number.isFinite(valB);
-
-          // 无最新涨幅数据（界面展示为 `—`）的基金统一排在最后
-          if (!hasA && !hasB) return 0;
-          if (!hasA) return 1;
-          if (!hasB) return -1;
-
-          return sortOrder === 'asc' ? valA - valB : valB - valA;
-        }
-        if (sortBy === 'todayProfit') {
-          const pa = profitByCode?.get(a.code);
-          const pb = profitByCode?.get(b.code);
-          const valA = pa?.profitToday;
-          const valB = pb?.profitToday;
-          const hasA = valA != null && Number.isFinite(valA);
-          const hasB = valB != null && Number.isFinite(valB);
-
-          // 无当日收益数据的基金统一排在最后
-          if (!hasA && !hasB) return 0;
-          if (!hasA) return 1;
-          if (!hasB) return -1;
-
-          return sortOrder === 'asc' ? valA - valB : valB - valA;
-        }
-        if (sortBy === 'holding') {
-          const pa = profitByCode?.get(a.code);
-          const pb = profitByCode?.get(b.code);
-          const valA = pa?.profitTotal;
-          const valB = pb?.profitTotal;
-          const hasA = valA != null && Number.isFinite(valA);
-          const hasB = valB != null && Number.isFinite(valB);
-          if (!hasA && !hasB) return 0;
-          if (!hasA) return 1;
-          if (!hasB) return -1;
-          return sortOrder === 'asc' ? valA - valB : valB - valA;
-        }
-        if (sortBy === 'estimateProfit') {
-          const getEstimateProfitValue = (f) => {
-            const hasTodayData = f.jzrq === todayStr;
-            const holding = holdingsForTabWithLinked[f.code];
-            const profit = getHoldingProfitForTab(f, holding);
-            const total = profit ? profit.profitTotal : null;
-            if (hasTodayData) return total;
-
-            const principal = holding && isNumber(holding.cost) && isNumber(holding.share) ? holding.cost * holding.share : 0;
-            const hasTodayEstimate = !f.noValuation && isString(f.gztime) && f.gztime.startsWith(todayStr);
-            const estimateChangeValue = f.noValuation ? null : (isNumber(f.gszzl) ? Number(f.gszzl) : null);
-            const holdingProfitPercentValue = total != null && principal > 0 ? (total / principal) * 100 : null;
-            const hasEstimatePercent = hasTodayEstimate && estimateChangeValue != null;
-            const hasHoldingPercent = holdingProfitPercentValue != null;
-            const fallbackEstimateProfitPercentValue = hasEstimatePercent || hasHoldingPercent ? (hasEstimatePercent ? estimateChangeValue : 0) + (hasHoldingPercent ? holdingProfitPercentValue : 0) : null;
-
-            return fallbackEstimateProfitPercentValue != null && principal > 0 ? principal * (fallbackEstimateProfitPercentValue / 100) : null;
-          };
-          const valA = getEstimateProfitValue(a);
-          const valB = getEstimateProfitValue(b);
-          const hasA = valA != null && Number.isFinite(valA);
-          const hasB = valB != null && Number.isFinite(valB);
-          if (!hasA && !hasB) return 0;
-          if (!hasA) return 1;
-          if (!hasB) return -1;
-          return sortOrder === 'asc' ? valA - valB : valB - valA;
-        }
-        if (sortBy === 'yesterdayProfit') {
-          const getYesterdayProfit = (code, jzrq) => {
-            const list = currentFundDailyEarnings?.[code];
-            if (!Array.isArray(list) || list.length === 0) return null;
-            let matchedDaily = null;
-            if (typeof jzrq === 'string') {
-              for (const item of list) {
-                if (item?.date === jzrq) {
-                  matchedDaily = item;
-                  break;
-                }
-              }
-            }
-            if (!matchedDaily) matchedDaily = list[list.length - 1];
-            return matchedDaily && Number.isFinite(Number(matchedDaily.earnings)) ? Number(matchedDaily.earnings) : null;
-          };
-          const valA = getYesterdayProfit(a.code, a.jzrq);
-          const valB = getYesterdayProfit(b.code, b.jzrq);
-          const hasA = valA != null && Number.isFinite(valA);
-          const hasB = valB != null && Number.isFinite(valB);
-          if (!hasA && !hasB) return 0;
-          if (!hasA) return 1;
-          if (!hasB) return -1;
-          return sortOrder === 'asc' ? valA - valB : valB - valA;
-        }
-        if (sortBy === 'holdingDays') {
-          const ha = holdingsForTabWithLinked[a.code];
-          const hb = holdingsForTabWithLinked[b.code];
-          const valA = ha?.firstPurchaseDate ? dayjs(todayStr).diff(dayjs(ha.firstPurchaseDate), 'day') : null;
-          const valB = hb?.firstPurchaseDate ? dayjs(todayStr).diff(dayjs(hb.firstPurchaseDate), 'day') : null;
-          const hasA = valA != null && Number.isFinite(valA);
-          const hasB = valB != null && Number.isFinite(valB);
-          if (!hasA && !hasB) return 0;
-          if (!hasA) return 1;
-          if (!hasB) return -1;
-          return sortOrder === 'asc' ? valA - valB : valB - valA;
-        }
-        if (sortBy === 'holdingCost') {
-          const getCost = (h) => h?.cost != null && h?.share != null && Number.isFinite(Number(h.cost)) && Number.isFinite(Number(h.share)) ? Number(h.cost) * Number(h.share) : null;
-          const valA = getCost(holdingsForTabWithLinked[a.code]);
-          const valB = getCost(holdingsForTabWithLinked[b.code]);
-          const hasA = valA != null && Number.isFinite(valA);
-          const hasB = valB != null && Number.isFinite(valB);
-          if (!hasA && !hasB) return 0;
-          if (!hasA) return 1;
-          if (!hasB) return -1;
-          return sortOrder === 'asc' ? valA - valB : valB - valA;
-        }
-        if (sortBy === 'sinceAddedChangePercent') {
-          const getSinceAddedChangeValue = (f) => {
-            const addBaseNavRaw = f.addBaseNav != null && f.addBaseNav !== '' ? Number(f.addBaseNav) : null;
-            const addBaseNav = addBaseNavRaw != null && Number.isFinite(addBaseNavRaw) && addBaseNavRaw > 0 ? addBaseNavRaw : null;
-            const sinceAddedCurrentNav = (() => {
-              if (f.noValuation) {
-                const v = Number(f.dwjz);
-                return Number.isFinite(v) && v > 0 ? v : null;
-              }
-              const v = Number(f.gsz);
-              return Number.isFinite(v) && v > 0 ? v : null;
-            })();
-            return addBaseNav != null && sinceAddedCurrentNav != null
-              ? ((sinceAddedCurrentNav / addBaseNav) - 1) * 100
-              : null;
-          };
-          const valA = getSinceAddedChangeValue(a);
-          const valB = getSinceAddedChangeValue(b);
-          const hasA = valA != null && Number.isFinite(valA);
-          const hasB = valB != null && Number.isFinite(valB);
-          if (!hasA && !hasB) return 0;
-          if (!hasA) return 1;
-          if (!hasB) return -1;
-          return sortOrder === 'asc' ? valA - valB : valB - valA;
-        }
-        if (['last1Week', 'last1Month', 'last3Months', 'last6Months', 'last1Year'].includes(sortBy)) {
-          const keyMap = { last1Week: 'week', last1Month: 'month', last3Months: 'month3', last6Months: 'month6', last1Year: 'year1' };
-          const key = keyMap[sortBy];
-          const valA = fundExtraDataByCode[a.code]?.[key];
-          const valB = fundExtraDataByCode[b.code]?.[key];
-          const hasA = valA != null && Number.isFinite(valA);
-          const hasB = valB != null && Number.isFinite(valB);
-          if (!hasA && !hasB) return 0;
-          if (!hasA) return 1;
-          if (!hasB) return -1;
-          return sortOrder === 'asc' ? valA - valB : valB - valA;
-        }
-        if (sortBy === 'tags') {
-          const getTagKey = (fund) => {
-            const code = String(fund?.code ?? '').trim();
-            const list = code ? fundTagListsByCode?.[code] : null;
-            if (!Array.isArray(list) || list.length === 0) return '';
-            return list
-              .map((t) => (t?.name != null ? String(t.name).trim() : ''))
-              .filter(Boolean)
-              .join('、');
-          };
-          const keyA = getTagKey(a);
-          const keyB = getTagKey(b);
-          const hasA = !!keyA;
-          const hasB = !!keyB;
-          if (!hasA && !hasB) return 0;
-          if (!hasA) return 1;
-          if (!hasB) return -1;
-          return sortOrder === 'asc'
-            ? keyA.localeCompare(keyB, 'zh-CN')
-            : keyB.localeCompare(keyA, 'zh-CN');
-        }
-        if (sortBy === 'name') {
-          const nameA = a.name ?? '';
-          const nameB = b.name ?? '';
-          return sortOrder === 'asc' ? nameA.localeCompare(nameB, 'zh-CN') : nameB.localeCompare(nameA, 'zh-CN');
-        }
-        return 0;
-      });
-    },
+    () => buildDisplayFunds({
+      scopedFunds,
+      currentTab,
+      groups,
+      sortBy,
+      sortOrder,
+      holdingsForTabWithLinked,
+      getHoldingProfitForTab,
+      deferredGroupFundSearchTerm,
+      shouldShowGroupFundSearch,
+      currentFundDailyEarnings,
+      fundExtraDataByCode,
+      todayStr,
+      fundTagListsByCode,
+    }),
     [scopedFunds, currentTab, groups, sortBy, sortOrder, holdingsForTabWithLinked, getHoldingProfitForTab, deferredGroupFundSearchTerm, shouldShowGroupFundSearch, currentFundDailyEarnings, fundExtraDataByCode, todayStr, fundTagListsByCode],
   );
 
   const displayFunds = useDeferredValue(displayFundsRaw);
 
-  const latestDailyByCode = useMemo(() => {
-    const out = {};
-    if (!isPlainObject(currentFundDailyEarnings)) return out;
-    for (const f of displayFunds) {
-      const code = f?.code;
-      if (!code) continue;
-      const list = currentFundDailyEarnings[code];
-      if (!Array.isArray(list) || list.length === 0) continue;
-      const byDate = new Map();
-      for (const item of list) {
-        const date = item?.date ? String(item.date) : '';
-        if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) continue;
-        byDate.set(date, item);
-      }
-      out[code] = { byDate, last: list[list.length - 1] };
-    }
-    return out;
-  }, [currentFundDailyEarnings, displayFunds]);
+  const latestDailyByCode = useMemo(
+    () => buildLatestDailyByCode(currentFundDailyEarnings, displayFunds),
+    [currentFundDailyEarnings, displayFunds],
+  );
 
   // PC 端表格数据（用于 PcFundTable）
   const pcFundTableData = useMemo(
-    () => {
-      // 计算分组内所有基金持仓金额之和，用于持仓占比
-      let groupTotalHoldingAmount = 0;
-      for (const ff of displayFunds) {
-        const h = holdingsForTabWithLinked[ff.code];
-        const p = getHoldingProfitForTab(ff, h);
-        if (p && p.amount != null && Number.isFinite(p.amount) && p.amount > 0) groupTotalHoldingAmount += p.amount;
-      }
-      return displayFunds.map((f) => {
-        const hasTodayData = f.jzrq === todayStr;
-        const latestNav = f.dwjz != null && f.dwjz !== '' ? (typeof f.dwjz === 'number' ? Number(f.dwjz).toFixed(4) : String(f.dwjz)) : '—';
-        const estimateNav = f.noValuation
-          ? '—'
-          : (f.gsz != null ? (typeof f.gsz === 'number' ? Number(f.gsz).toFixed(4) : String(f.gsz)) : '—');
-
-        const yesterdayChangePercent =
-          f.zzl != null && f.zzl !== ''
-            ? `${f.zzl > 0 ? '+' : ''}${Number(f.zzl).toFixed(2)}%`
-            : '—';
-        const yesterdayChangeValue =
-          f.zzl != null && f.zzl !== '' ? Number(f.zzl) : null;
-        const yesterdayDate = f.jzrq || '-';
-
-        const estimateChangePercent = f.noValuation
-          ? '—'
-          : (isNumber(f.gszzl)
-            ? `${f.gszzl > 0 ? '+' : ''}${Number(f.gszzl).toFixed(2)}%`
-            : (f.gszzl ?? '—'));
-        const estimateChangeValue = f.noValuation
-          ? null
-          : (isNumber(f.gszzl) ? Number(f.gszzl) : null);
-        const estimateTime = f.noValuation ? (f.jzrq || '-') : (f.gztime || f.time || '-');
-        const hasTodayEstimate = !f.noValuation && isString(f.gztime) && f.gztime.startsWith(todayStr);
-
-        const holding = holdingsForTabWithLinked[f.code];
-        const isHoldingLinked =
-          (currentTab === 'all' || currentTab === 'fav') &&
-          linkedHoldingsForAllFav.linked?.has?.(f.code);
-        const profit = getHoldingProfitForTab(f, holding);
-        const amount = profit ? profit.amount : null;
-        const holdingAmount =
-          amount == null ? '未设置' : `¥${Number(amount).toLocaleString('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-        const holdingAmountValue = amount;
-        const holdingRatioValue =
-          amount != null && Number.isFinite(amount) && amount > 0 && groupTotalHoldingAmount > 0
-            ? amount / groupTotalHoldingAmount
-            : null;
-        const holdingDaysValue = holding?.firstPurchaseDate
-          ? dayjs.tz(todayStr, TZ).diff(dayjs.tz(holding.firstPurchaseDate, TZ), 'day')
-          : null;
-
-        const profitToday = profit ? profit.profitToday : null;
-        const todayProfit =
-          profitToday == null
-            ? ''
-            : `${profitToday > 0 ? '+' : profitToday < 0 ? '-' : ''}${Math.abs(profitToday).toFixed(2)}`;
-        const todayProfitValue = profitToday;
-
-        const total = profit ? profit.profitTotal : null;
-        const principal =
-          holding && isNumber(holding.cost) && isNumber(holding.share)
-            ? holding.cost * holding.share
-            : 0;
-        const holdingCostValue =
-          holding && isNumber(holding.cost) && isNumber(holding.share)
-            ? holding.cost * holding.share
-            : null;
-        const holdingCost =
-          holdingCostValue == null
-            ? '-'
-            : Number(holdingCostValue).toLocaleString('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-        const costNavValue =
-          holding && isNumber(holding.cost) ? holding.cost : null;
-        const costNav =
-          costNavValue == null ? '—' : Number(costNavValue).toFixed(4);
-        const todayProfitPercent =
-          profitToday != null && profit?.principalToday > 0
-            ? `${profitToday > 0 ? '+' : profitToday < 0 ? '-' : ''}${Math.abs((profitToday / profit.principalToday) * 100).toFixed(2)}%`
-            : '';
-
-        const latestNavDateStr = isString(f.jzrq) ? f.jzrq : '';
-        const dailyMeta = latestDailyByCode?.[f.code];
-        const matchedDaily =
-          (latestNavDateStr ? (dailyMeta?.byDate?.get(latestNavDateStr) || null) : null)
-          || dailyMeta?.last
-          || null;
-        const yesterdayProfitVal =
-          matchedDaily && Number.isFinite(Number(matchedDaily.earnings))
-            ? Number(matchedDaily.earnings)
-            : null;
-        const yesterdayProfit =
-          yesterdayProfitVal == null
-            ? ''
-            : `${yesterdayProfitVal > 0 ? '+' : yesterdayProfitVal < 0 ? '-' : ''}${Math.abs(yesterdayProfitVal).toFixed(2)}`;
-        const dailyBaseCostAmount =
-          matchedDaily && matchedDaily.baseCostAmount != null && matchedDaily.baseCostAmount !== '' && Number.isFinite(Number(matchedDaily.baseCostAmount))
-            ? Number(matchedDaily.baseCostAmount)
-            : null;
-        const derivedRateFromSnapshot =
-          yesterdayProfitVal != null && dailyBaseCostAmount != null && dailyBaseCostAmount > 0
-            ? (yesterdayProfitVal / dailyBaseCostAmount) * 100
-            : null;
-        const dailyRate =
-          matchedDaily && matchedDaily.rate != null && matchedDaily.rate !== '' && Number.isFinite(Number(matchedDaily.rate))
-            ? Number(matchedDaily.rate)
-            : derivedRateFromSnapshot;
-        const yesterdayProfitPercentLine =
-          dailyRate != null
-            ? `${dailyRate > 0 ? '+' : dailyRate < 0 ? '-' : ''}${Math.abs(dailyRate).toFixed(2)}%`
-            : (yesterdayProfitVal != null && principal > 0
-              ? `${yesterdayProfitVal > 0 ? '+' : yesterdayProfitVal < 0 ? '-' : ''}${Math.abs((yesterdayProfitVal / principal) * 100).toFixed(2)}%`
-              : '');
-        const yesterdaySecondLinePctValue =
-          dailyRate != null
-            ? dailyRate
-            : (yesterdayProfitVal != null && principal > 0
-              ? (yesterdayProfitVal / principal) * 100
-              : null);
-
-        const holdingProfit =
-          total == null
-            ? ''
-            : `${total > 0 ? '+' : total < 0 ? '-' : ''}${Math.abs(total).toFixed(2)}`;
-        const holdingProfitPercent =
-          total != null && principal > 0
-            ? `${total > 0 ? '+' : total < 0 ? '-' : ''}${Math.abs((total / principal) * 100).toFixed(2)}%`
-            : '';
-        const holdingProfitValue = total;
-
-        const holdingProfitPercentValue =
-          total != null && principal > 0 ? (total / principal) * 100 : null;
-        const hasEstimatePercent = hasTodayEstimate && estimateChangeValue != null;
-        const hasHoldingPercent = holdingProfitPercentValue != null;
-        const fallbackEstimateProfitPercentValue = hasEstimatePercent || hasHoldingPercent
-          ? (hasEstimatePercent ? estimateChangeValue : 0) + (hasHoldingPercent ? holdingProfitPercentValue : 0)
-          : null;
-        const estimateProfitPercentValue = hasTodayData
-          ? holdingProfitPercentValue
-          : fallbackEstimateProfitPercentValue;
-        const estimateProfitValue = hasTodayData
-          ? total
-          : (estimateProfitPercentValue != null && principal > 0
-            ? principal * (estimateProfitPercentValue / 100)
-            : null);
-        const estimateProfit =
-          estimateProfitValue == null
-            ? ''
-            : `${estimateProfitValue > 0 ? '+' : estimateProfitValue < 0 ? '-' : ''}${Math.abs(estimateProfitValue).toFixed(2)}`;
-        const estimateProfitPercent =
-          estimateProfitPercentValue == null
-            ? ''
-            : `${estimateProfitPercentValue > 0 ? '+' : ''}${estimateProfitPercentValue.toFixed(2)}%`;
-
-        const addBaseNavRaw = f.addBaseNav != null && f.addBaseNav !== '' ? Number(f.addBaseNav) : null;
-        const addBaseNav = addBaseNavRaw != null && Number.isFinite(addBaseNavRaw) && addBaseNavRaw > 0 ? addBaseNavRaw : null;
-        const sinceAddedCurrentNav = (() => {
-          if (f.noValuation) {
-            const v = Number(f.dwjz);
-            return Number.isFinite(v) && v > 0 ? v : null;
-          }
-          const v = Number(f.gsz);
-          return Number.isFinite(v) && v > 0 ? v : null;
-        })();
-        const sinceAddedChangeValue =
-          addBaseNav != null && sinceAddedCurrentNav != null
-            ? ((sinceAddedCurrentNav / addBaseNav) - 1) * 100
-            : null;
-        const sinceAddedChangePercent =
-          sinceAddedChangeValue == null
-            ? '—'
-            : `${sinceAddedChangeValue > 0 ? '+' : ''}${sinceAddedChangeValue.toFixed(2)}%`;
-        const sinceAddedDateRaw = (() => {
-          const raw = f.addBaseDate;
-          const rawStr = raw != null ? String(raw) : '';
-          if (/^\d{4}-\d{2}-\d{2}/.test(rawStr)) return rawStr.slice(0, 10);
-          const ts = Number(f.addedAt);
-          if (Number.isFinite(ts) && ts > 0) return dayjs.tz(ts, TZ).format('YYYY-MM-DD');
-          return '';
-        })();
-        const sinceAddedDate = (() => {
-          const raw = sinceAddedDateRaw || '';
-          if (!raw) return '';
-          const currentYear = typeof todayStr === 'string' && todayStr.length >= 4 ? todayStr.slice(0, 4) : '';
-          if (currentYear && raw.startsWith(`${currentYear}-`) && raw.length >= 10) return raw.slice(5);
-          return raw;
-        })();
-
-        const fc = String(f.code ?? '').trim();
-        const listFromDerived = fundTagListsByCode[fc];
-        const fundTags = Array.isArray(listFromDerived)
-          ? listFromDerived.map(({ name, theme }) => ({
-              name: String(name ?? '').trim(),
-              theme: normalizeFundTagTheme(theme),
-            }))
-          : [];
-
-        return {
-          rawFund: f,
-          code: f.code,
-          fundName: f.name,
-          fundTags,
-          isHoldingLinked: !!isHoldingLinked,
-          isUpdated: f.jzrq === todayStr,
-          hasDca: dcaPlansForTab[f.code]?.enabled === true,
-          latestNav,
-          latestNavDate: yesterdayDate,
-          estimateNav,
-          estimateNavDate: estimateTime,
-          yesterdayChangePercent,
-          yesterdayChangeValue,
-          yesterdayDate,
-          estimateChangePercent,
-          estimateChangeValue,
-          estimateChangeMuted: f.noValuation,
-          estimateTime,
-          hasTodayEstimate,
-          totalChangePercent: estimateProfitPercent,
-          estimateProfit,
-          estimateProfitValue,
-          estimateProfitPercent,
-          sinceAddedChangePercent,
-          sinceAddedChangeValue,
-          sinceAddedDate,
-          sinceAddedDateRaw: sinceAddedDateRaw || undefined,
-          holdingAmount,
-          holdingAmountValue,
-          holdingRatioValue,
-          holdingCost,
-          holdingCostValue,
-          costNav,
-          costNavValue,
-          holdingDaysValue,
-          todayProfit,
-          todayProfitPercent,
-          todayProfitValue,
-          yesterdayProfit,
-          yesterdayProfitValue: yesterdayProfitVal,
-          yesterdayProfitPercent: yesterdayProfitPercentLine,
-          yesterdaySecondLinePctValue,
-          holdingProfit,
-          holdingProfitPercent,
-          holdingProfitValue,
-          holdingTargetGroupId:
-            currentTab === SUMMARY_TAB_ID ? summaryHoldingSourceGroupByCode[f.code] : undefined,
-        };
-      });
-    },
+    () => buildPcFundTableData({
+      displayFunds,
+      holdingsForTabWithLinked,
+      getHoldingProfitForTab,
+      currentTab,
+      linkedHoldingsForAllFav,
+      latestDailyByCode,
+      todayStr,
+      TZ,
+      fundTagListsByCode,
+      dcaPlansForTab,
+      summaryHoldingSourceGroupByCode,
+    }),
     [
       displayFunds,
       holdingsForTabWithLinked,
-      isTradingDay,
       todayStr,
       getHoldingProfitForTab,
       dcaPlansForTab,
@@ -1576,7 +785,7 @@ export default function HomePage() {
       currentTab,
       summaryHoldingSourceGroupByCode,
       linkedHoldingsForAllFav,
-      // fundTagRecords 已移除：fundTagListsByCode 是其派生值，两者同时存在会导致标签变化时双重触发
+      // fundTagListsByCode 是标签记录的派生值，直接依赖它可避免标签变化时双重触发
       fundTagListsByCode,
     ],
   );
@@ -4151,46 +3360,20 @@ export default function HomePage() {
         let appendedCodes = [];
 
         if (Array.isArray(data.funds)) {
-          const incomingFunds = dedupeByCode(data.funds.map(stripLegacyTagsFromFundObject));
-          const existingCodes = new Set(currentFunds.map(f => f.code));
-          const newItems = incomingFunds.filter(f => f && f.code && !existingCodes.has(f.code));
-          appendedCodes = newItems.map(f => f.code);
-          mergedFunds = [...currentFunds, ...newItems];
+          const merged = mergeFundsForImport(currentFunds, data.funds);
+          mergedFunds = merged.mergedFunds;
+          appendedCodes = merged.appendedCodes;
           setFunds(mergedFunds);
         }
 
         if (Array.isArray(data.favorites)) {
           const fundCodeSet = new Set(mergedFunds.map((f) => f?.code).filter(Boolean));
-          const mergedFav = cleanCodeArray([...currentFavorites, ...data.favorites], fundCodeSet);
-          setFavorites(new Set(mergedFav));
+          setFavorites(new Set(cleanCodeArray([...currentFavorites, ...data.favorites], fundCodeSet)));
         }
 
         if (Array.isArray(data.tags)) {
-          const currentTags = storageStore.getItem('tags', []);
           const fundCodeSet = new Set(mergedFunds.map((f) => f?.code).filter(Boolean));
-          const byId = new Map((Array.isArray(currentTags) ? currentTags : []).map((r) => [String(r.id), r]));
-          for (const r of data.tags) {
-            if (!r || typeof r !== 'object') continue;
-            const codes = getFundCodesFromTagRecord(r).filter((c) => fundCodeSet.has(c));
-            const name = String(r.name ?? '').trim();
-            if (!name) continue;
-            const id = String(r.id ?? '').trim() || uuidv4();
-            const existing = byId.get(id);
-            const mergedCodes = existing
-              ? [...new Set([...getFundCodesFromTagRecord(existing), ...codes])].sort()
-              : codes.sort();
-            const row = sanitizeTagRowForStorage({
-              id,
-              name,
-              theme: String(r.theme ?? '').trim() || DEFAULT_FUND_TAG_THEME,
-              fundCodes: mergedCodes,
-            });
-            if (row) byId.set(id, row);
-          }
-          const mergedTags = Array.from(byId.values())
-            .map(sanitizeTagRowForStorage)
-            .filter(Boolean)
-            .sort((a, b) => String(a.id).localeCompare(String(b.id)));
+          const mergedTags = mergeTagRecordsForImport(storageStore.getItem('tags', []), data.tags, fundCodeSet);
           setFundTagRecords(mergedTags);
           storageHelper.setItem('tags', JSON.stringify(mergedTags));
         }
@@ -4198,35 +3381,19 @@ export default function HomePage() {
         // fundTagLists 已废弃：导入时无需处理该字段
 
         if (Array.isArray(data.groups)) {
-          // 合并分组：如果 ID 相同则合并 codes，否则添加新分组
-          const mergedGroups = [...currentGroups];
-          data.groups.forEach(incomingGroup => {
-            const existingIdx = mergedGroups.findIndex(g => g.id === incomingGroup.id);
-            if (existingIdx > -1) {
-              mergedGroups[existingIdx] = {
-                ...mergedGroups[existingIdx],
-                codes: Array.from(new Set([...mergedGroups[existingIdx].codes, ...(incomingGroup.codes || [])]))
-              };
-            } else {
-              mergedGroups.push(incomingGroup);
-            }
-          });
-          setGroups(mergedGroups);
+          setGroups(mergeGroupsForImport(currentGroups, data.groups));
         }
 
         if (Array.isArray(data.collapsedCodes)) {
-          const mergedCollapsed = Array.from(new Set([...currentCollapsed, ...data.collapsedCodes]));
-          setCollapsedCodes(new Set(mergedCollapsed));
+          setCollapsedCodes(new Set(mergeUniqueCodeList(currentCollapsed, data.collapsedCodes)));
         }
 
         if (Array.isArray(data.collapsedTrends)) {
-          const mergedTrends = Array.from(new Set([...currentTrends, ...data.collapsedTrends]));
-          setCollapsedTrends(new Set(mergedTrends));
+          setCollapsedTrends(new Set(mergeUniqueCodeList(currentTrends, data.collapsedTrends)));
         }
 
         if (Array.isArray(data.collapsedEarnings)) {
-          const mergedEarnings = Array.from(new Set([...currentEarnings, ...data.collapsedEarnings]));
-          setCollapsedEarnings(new Set(mergedEarnings));
+          setCollapsedEarnings(new Set(mergeUniqueCodeList(currentEarnings, data.collapsedEarnings)));
         }
 
         if (isNumber(data.refreshMs) && data.refreshMs >= 5000) {
@@ -4238,64 +3405,25 @@ export default function HomePage() {
         }
 
         if (isPlainObject(data.holdings)) {
-          const mergedHoldings = { ...storageStore.getItem('holdings', {}), ...data.holdings };
-          setHoldings(mergedHoldings);
+          setHoldings({ ...storageStore.getItem('holdings', {}), ...data.holdings });
         }
 
         if (isPlainObject(data.groupHoldings)) {
-          const mergedGH = { ...(isPlainObject(currentGroupHoldings) ? currentGroupHoldings : {}) };
-          Object.entries(data.groupHoldings).forEach(([gid, bucket]) => {
-            if (!isPlainObject(bucket)) return;
-            mergedGH[gid] = { ...(mergedGH[gid] || {}), ...bucket };
-          });
-          setGroupHoldings(mergedGH);
+          setGroupHoldings(mergeGroupHoldingsForImport(currentGroupHoldings, data.groupHoldings));
         }
 
         if (isPlainObject(data.transactions)) {
-             const currentTransactions = storageStore.getItem('transactions', {});
-             const mergedTransactions = { ...currentTransactions };
-             Object.entries(data.transactions).forEach(([code, txs]) => {
-                 if (!Array.isArray(txs)) return;
-                 const existing = mergedTransactions[code] || [];
-                 const existingIds = new Set(existing.map(t => t.id));
-                 const newTxs = txs.filter(t => !existingIds.has(t.id));
-                 mergedTransactions[code] = [...existing, ...newTxs].sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
-             });
-             setTransactions(mergedTransactions);
+          setTransactions(mergeTransactionsForImport(storageStore.getItem('transactions', {}), data.transactions));
         }
 
         if (Array.isArray(data.pendingTrades)) {
-          const existingPending = Array.isArray(currentPendingTrades) ? currentPendingTrades : [];
-          const incomingPending = data.pendingTrades.filter((trade) => trade && trade.fundCode);
           const fundCodeSet = new Set(mergedFunds.map((f) => f.code));
-          const keyOf = (trade) => {
-            if (trade?.id) return `id:${trade.id}`;
-            return `k:${trade?.groupId || ''}:${trade?.fundCode || ''}:${trade?.type || ''}:${trade?.date || ''}:${trade?.share || ''}:${trade?.amount || ''}:${trade?.isAfter3pm ? 1 : 0}`;
-          };
-          const mergedPendingMap = new Map();
-          existingPending.forEach((trade) => {
-            if (!trade || !fundCodeSet.has(trade.fundCode)) return;
-            mergedPendingMap.set(keyOf(trade), trade);
-          });
-          incomingPending.forEach((trade) => {
-            if (!fundCodeSet.has(trade.fundCode)) return;
-            mergedPendingMap.set(keyOf(trade), trade);
-          });
-          const mergedPending = Array.from(mergedPendingMap.values());
-          setPendingTrades(mergedPending);
+          setPendingTrades(mergePendingTradesForImport(currentPendingTrades, data.pendingTrades, fundCodeSet));
         }
 
         if (isPlainObject(data.dcaPlans)) {
-          const mergedDca = { ...migrateDcaPlansToScoped(currentDcaPlans) };
-          const incomingScoped = migrateDcaPlansToScoped(data.dcaPlans);
-          Object.keys(incomingScoped).forEach((scope) => {
-            mergedDca[scope] = {
-              ...(isPlainObject(mergedDca[scope]) ? mergedDca[scope] : {}),
-              ...(isPlainObject(incomingScoped[scope]) ? incomingScoped[scope] : {}),
-            };
-          });
-          setDcaPlans(mergedDca);
-          }
+          setDcaPlans(mergeDcaPlansForImport(currentDcaPlans, data.dcaPlans));
+        }
         if (isPlainObject(data.customSettings)) {
           try {
             const currentCustomSettings = customSettings || {};

@@ -1,4 +1,4 @@
-import { useState, useEffect, Suspense } from 'react';
+import { useState, useEffect, Suspense, lazy } from 'react';
 import {
   IconDashboard,
   IconPlayArrow,
@@ -12,21 +12,24 @@ import {
   IconMessage,
   IconCompass,
 } from '@arco-design/web-react/icon';
-import DashboardPage from './pages/DashboardPage';
-import { TickPage } from './pages/TickPage';
-import { GeneratePage } from './pages/GeneratePage';
-import { PreviewPage } from './pages/PreviewPage';
-import { ConfigPage } from './pages/ConfigPage';
-import { NewsPage } from './pages/NewsPage';
-import { NotesPage } from './pages/NotesPage';
-import FundTab from './fund/FundTab';
-import { TTSPage } from './pages/TTSPage';
-import { DebatePage } from './pages/DebatePage';
-import { DailyReportPage } from './pages/DailyReportPage';
 import { ErrorBoundary } from './components/ui/ErrorBoundary';
 import { api } from './api';
 import { Sidebar } from './components/ui/sidebar';
 import { MobileHeader } from './components/ui/mobile-header';
+
+// 各页面按需加载：此前全部静态 import，导致所有页面的代码都打进入口 chunk（约 2.1MB）。
+// 这里改为 lazy，配合下方已存在的 Suspense，首屏只需下载当前页面的代码。
+const DashboardPage = lazy(() => import('./pages/DashboardPage'));
+const TickPage = lazy(() => import('./pages/TickPage').then((m) => ({ default: m.TickPage })));
+const GeneratePage = lazy(() => import('./pages/GeneratePage').then((m) => ({ default: m.GeneratePage })));
+const PreviewPage = lazy(() => import('./pages/PreviewPage').then((m) => ({ default: m.PreviewPage })));
+const ConfigPage = lazy(() => import('./pages/ConfigPage').then((m) => ({ default: m.ConfigPage })));
+const NewsPage = lazy(() => import('./pages/NewsPage').then((m) => ({ default: m.NewsPage })));
+const NotesPage = lazy(() => import('./pages/NotesPage').then((m) => ({ default: m.NotesPage })));
+const FundTab = lazy(() => import('./fund/FundTab'));
+const TTSPage = lazy(() => import('./pages/TTSPage').then((m) => ({ default: m.TTSPage })));
+const DebatePage = lazy(() => import('./pages/DebatePage').then((m) => ({ default: m.DebatePage })));
+const DailyReportPage = lazy(() => import('./pages/DailyReportPage').then((m) => ({ default: m.DailyReportPage })));
 
 type Page = 'dashboard' | 'tick' | 'generate' | 'preview' | 'config' | 'news' | 'fund' | 'notes' | 'tts' | 'debate' | 'dailyreport';
 

@@ -1,6 +1,8 @@
 import React from 'react';
 import type { SectorData } from './types.ts';
 import { getVideoLayout } from './layout.ts';
+import { CINE_COLORS } from './cinema.ts';
+import { useGsapState } from './gsap/useRemotionGsap.ts';
 
 interface RankingPanelProps {
   sectors: SectorData[];
@@ -13,10 +15,10 @@ interface RankingPanelProps {
   format?: 'mobile' | 'tv';
 }
 
-const PODIUM_COLORS: Record<number, { bg: string; text: string; badge: string }> = {
-  1: { bg: 'rgba(255, 215, 0, 0.08)', text: '#FFD700', badge: '🥇' },
-  2: { bg: 'rgba(192, 192, 192, 0.08)', text: '#C0C0C0', badge: '🥈' },
-  3: { bg: 'rgba(205, 127, 50, 0.08)', text: '#CD7F32', badge: '🥉' },
+const PODIUM_COLORS: Record<number, { color: string; label: string }> = {
+  1: { color: CINE_COLORS.gold, label: 'TOP' },
+  2: { color: '#c7cdd4', label: '2ND' },
+  3: { color: '#d78d53', label: '3RD' },
 };
 
 type TradeTagTone = 'leader' | 'follow' | 'mixed' | 'fade';
@@ -32,46 +34,30 @@ function getTradeTag(
   const rate = sector.rate ?? 0;
 
   if (isPositive) {
-    if (isHighlighted && highlightMode === 'mainline') {
-      return { text: '主升', tone: 'leader' };
-    }
-    if (index === 0 && sector.net > 0) {
-      return { text: '主升', tone: 'leader' };
-    }
-    if (changePct < 0 || rate < 0) {
-      return { text: '分歧', tone: 'mixed' };
-    }
-    if (index <= 2 && sector.net > 0) {
-      return { text: '接力', tone: 'follow' };
-    }
-    if (sector.net > 0 && rate > 0) {
-      return { text: '承接', tone: 'follow' };
-    }
+    if (isHighlighted && highlightMode === 'mainline') return { text: '主升', tone: 'leader' };
+    if (index === 0 && sector.net > 0) return { text: '主升', tone: 'leader' };
+    if (changePct < 0 || rate < 0) return { text: '分歧', tone: 'mixed' };
+    if (index <= 2 && sector.net > 0) return { text: '接力', tone: 'follow' };
+    if (sector.net > 0 && rate > 0) return { text: '承接', tone: 'follow' };
     return null;
   }
 
-  if (index === 0 || (isHighlighted && highlightMode !== 'mainline')) {
-    return { text: '退潮', tone: 'fade' };
-  }
-  if (changePct > 0 || rate > 0) {
-    return { text: '分歧', tone: 'mixed' };
-  }
-  if (Math.abs(sector.net) >= 30) {
-    return { text: '退潮', tone: 'fade' };
-  }
+  if (index === 0 || (isHighlighted && highlightMode !== 'mainline')) return { text: '退潮', tone: 'fade' };
+  if (changePct > 0 || rate > 0) return { text: '分歧', tone: 'mixed' };
+  if (Math.abs(sector.net) >= 30) return { text: '退潮', tone: 'fade' };
   return null;
 }
 
 function getTradeTagStyle(tone: TradeTagTone): { text: string; border: string; bg: string } {
   switch (tone) {
     case 'leader':
-      return { text: '#fcd34d', border: 'rgba(251,191,36,0.35)', bg: 'rgba(251,191,36,0.12)' };
+      return { text: '#f3d178', border: 'rgba(245,198,72,0.4)', bg: 'rgba(245,198,72,0.13)' };
     case 'follow':
-      return { text: '#93c5fd', border: 'rgba(96,165,250,0.32)', bg: 'rgba(59,130,246,0.12)' };
+      return { text: '#a8c7ff', border: 'rgba(110,160,255,0.38)', bg: 'rgba(80,130,250,0.13)' };
     case 'mixed':
-      return { text: '#c4b5fd', border: 'rgba(167,139,250,0.32)', bg: 'rgba(139,92,246,0.12)' };
+      return { text: '#cfc0ff', border: 'rgba(180,160,255,0.38)', bg: 'rgba(140,110,255,0.13)' };
     case 'fade':
-      return { text: '#fda4af', border: 'rgba(244,114,182,0.30)', bg: 'rgba(244,114,182,0.12)' };
+      return { text: '#ffb3c0', border: 'rgba(255,140,160,0.36)', bg: 'rgba(255,100,130,0.13)' };
   }
 }
 
@@ -86,29 +72,46 @@ const RankingGroup: React.FC<{
   scale: number;
   compact?: boolean;
 }> = ({ title, sectors, isPositive, visibleCount, highlightId, highlightMode = 'focus', frame, scale, compact = false }) => {
-  const color = isPositive ? '#f87171' : '#4ade80';
-  const arrow = isPositive ? '↑' : '↓';
+  const color = isPositive ? CINE_COLORS.inflowLight : CINE_COLORS.outflowLight;
   const displaySectors = sectors.slice(0, 18);
+
+  // GSAP stagger: each row slides up + fades with power3-out pacing.
+  const listAnim = useGsapState(
+    frame,
+    (p, t, fps) => {
+      t.fromTo(p, { list: 0 }, { list: 1, duration: 1.2 * fps / 30, ease: 'power3.out' }, 0.1 * fps / 30);
+    },
+    [],
+  );
+  const listProgress = listAnim.list ?? 0;
+  const rowsPer = 1 / Math.max(1, displaySectors.length);
 
   return (
     <div style={{ marginBottom: 20 * scale }}>
       <div
         style={{
           fontSize: 16 * scale,
-          color: '#8899aa',
-          fontWeight: 600,
-          letterSpacing: 1,
+          color: CINE_COLORS.inkDim,
+          fontWeight: 700,
+          letterSpacing: 1.4,
           paddingBottom: 6 * scale,
           marginBottom: 4 * scale,
-          borderBottom: `1px solid ${color}33`,
+          borderBottom: `1px solid ${color}40`,
+          display: 'flex',
+          alignItems: 'center',
+          gap: 8 * scale,
         }}
       >
+        <span style={{ width: 3, height: 12 * scale, borderRadius: 2, background: color, boxShadow: `0 0 8px ${color}88` }} />
         {title}
       </div>
 
       {displaySectors.map((sector, i) => {
         const isVisible = i < visibleCount;
-        const opacity = isVisible ? Math.min(1, Math.max(0.8, (frame - i * 5) / 10)) : 0;
+        const rowStart = i * rowsPer;
+        const local = Math.max(0, Math.min(1, (listProgress - rowStart) / rowsPer));
+        const opacity = isVisible ? Math.min(1, 0.25 + 0.75 * local) : 0;
+        const translateY = (1 - local) * 16;
         const isHighlighted = sector.name === highlightId;
         const isMainlineHighlight = isHighlighted && highlightMode === 'mainline';
         const pulseOpacity = isHighlighted ? Math.min(0.4, (frame % 30) / 30) : 0;
@@ -127,65 +130,49 @@ const RankingGroup: React.FC<{
               alignItems: 'center',
               padding: `${5 * scale}px 0`,
               opacity: Math.max(0, opacity),
+              transform: `translateY(${translateY}px)`,
               borderBottom: '1px solid rgba(42,53,80,0.15)',
               background: isHighlighted
-                ? `linear-gradient(90deg, ${isMainlineHighlight ? '#fbbf241f' : `${sector.color}18`}, transparent)`
+                ? `linear-gradient(90deg, ${isMainlineHighlight ? '#f5c6481f' : `${sector.color}18`}, transparent)`
                 : i < 3
-                  ? `linear-gradient(90deg, ${PODIUM_COLORS[i + 1].bg}, transparent)`
+                  ? `linear-gradient(90deg, ${PODIUM_COLORS[i + 1].color}14, transparent)`
                   : undefined,
               position: 'relative',
               borderRadius: i < 3 ? 4 : 0,
             }}
           >
             {isHighlighted && (
-              <div
-                style={{
-                  position: 'absolute',
-                  left: 0,
-                  top: 4 * scale,
-                  bottom: 4 * scale,
-                  width: 2,
-                  borderRadius: 999,
-                  background: isMainlineHighlight ? '#fbbf24' : sector.color,
-                  boxShadow: isMainlineHighlight ? '0 0 12px rgba(251,191,36,0.55)' : `0 0 10px ${sector.color}66`,
-                }}
-              />
+              <div style={{ position: 'absolute', left: 0, top: 4 * scale, bottom: 4 * scale, width: 2, borderRadius: 999, background: isMainlineHighlight ? CINE_COLORS.gold : sector.color, boxShadow: isMainlineHighlight ? `0 0 12px ${CINE_COLORS.gold}88` : `0 0 10px ${sector.color}66` }} />
             )}
             {isHighlighted && (
-              <div
-                style={{
-                  position: 'absolute',
-                  left: 0,
-                  top: 0,
-                  right: 0,
-                  bottom: 0,
-                  borderRadius: 4,
-                  background: `radial-gradient(circle at 30% 50%, ${sector.color}${Math.round(pulseOpacity * 50).toString(16).padStart(2, '0')}, transparent 70%)`,
-                  pointerEvents: 'none',
-                }}
-              />
+              <div style={{ position: 'absolute', left: 0, top: 0, right: 0, bottom: 0, borderRadius: 4, background: `radial-gradient(circle at 30% 50%, ${sector.color}${Math.round(pulseOpacity * 50).toString(16).padStart(2, '0')}, transparent 70%)`, pointerEvents: 'none' }} />
             )}
 
             <span
               style={{
-                fontSize: 14 * scale,
-                fontWeight: 700,
-                color: isHighlighted ? sector.color : (i < 3 ? PODIUM_COLORS[i + 1].text : '#556677'),
+                fontSize: compact ? 12 * scale : 14 * scale,
+                fontWeight: 800,
+                color: isHighlighted ? sector.color : (i < 3 ? PODIUM_COLORS[i + 1].color : CINE_COLORS.inkDim),
                 width: 26 * scale,
                 fontVariantNumeric: 'tabular-nums' as const,
                 position: 'relative',
                 zIndex: 1,
-                textShadow: i < 3 ? `0 0 6px ${PODIUM_COLORS[i + 1].text}44` : 'none',
               }}
             >
-              {i < 3 ? PODIUM_COLORS[i + 1].badge : i + 1}
+              {i < 3 ? (
+                <span style={{ padding: `${1 * scale}px ${4 * scale}px`, borderRadius: 3, background: `${PODIUM_COLORS[i + 1].color}1c`, border: `1px solid ${PODIUM_COLORS[i + 1].color}44`, fontSize: 9 * scale, letterSpacing: 1 }}>
+                  {PODIUM_COLORS[i + 1].label}
+                </span>
+              ) : (
+                i + 1
+              )}
             </span>
 
             <span
               style={{
                 fontSize: 15 * scale,
                 fontWeight: 600,
-                color: isHighlighted ? '#ddeeff' : '#ccddee',
+                color: isHighlighted ? '#e6f0ff' : CINE_COLORS.inkBody,
                 overflow: 'hidden',
                 position: 'relative',
                 zIndex: 1,
@@ -195,31 +182,11 @@ const RankingGroup: React.FC<{
                 gap: 4 * scale,
               }}
             >
-              <span
-                style={{
-                  overflow: 'hidden',
-                  textOverflow: 'ellipsis',
-                  whiteSpace: 'nowrap',
-                  minWidth: 0,
-                  flex: 1,
-                }}
-              >
+              <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', minWidth: 0, flex: 1 }}>
                 {sector.name || '—'}
               </span>
               {tradeTag && tradeTagStyle && (
-                <span
-                  style={{
-                    fontSize: 9 * scale,
-                    fontWeight: 800,
-                    color: tradeTagStyle.text,
-                    padding: `${1 * scale}px ${4 * scale}px`,
-                    borderRadius: 999,
-                    background: tradeTagStyle.bg,
-                    border: `1px solid ${tradeTagStyle.border}`,
-                    letterSpacing: 0.8,
-                    flexShrink: 0,
-                  }}
-                >
+                <span style={{ fontSize: 9 * scale, fontWeight: 800, color: tradeTagStyle.text, padding: `${1 * scale}px ${4 * scale}px`, borderRadius: 999, background: tradeTagStyle.bg, border: `1px solid ${tradeTagStyle.border}`, letterSpacing: 0.8, flexShrink: 0 }}>
                   {tradeTag.text}
                 </span>
               )}
@@ -241,7 +208,7 @@ const RankingGroup: React.FC<{
             >
               {isPositive ? '+' : ''}{sector.net.toFixed(1)}亿
               {!compact && sector.rate !== 0 && (
-                <span style={{ fontSize: 12 * scale, color: isPositive ? '#f87171' : '#4ade80', opacity: 0.7, marginLeft: 4 * scale }}>
+                <span style={{ fontSize: 12 * scale, color, opacity: 0.7, marginLeft: 4 * scale }}>
                   ({sector.rate > 0 ? '+' : ''}{sector.rate.toFixed(1)}%)
                 </span>
               )}
@@ -250,7 +217,7 @@ const RankingGroup: React.FC<{
                   style={{
                     fontSize: 11 * scale,
                     fontWeight: 600,
-                    color: sector.changePct > 0 ? '#f87171' : '#4ade80',
+                    color: sector.changePct > 0 ? CINE_COLORS.inflowLight : CINE_COLORS.outflowLight,
                     opacity: 0.85,
                     marginLeft: 4 * scale,
                     padding: `0 ${3 * scale}px`,
@@ -262,53 +229,7 @@ const RankingGroup: React.FC<{
                   {sector.changePct > 0 ? '+' : ''}{sector.changePct.toFixed(2)}%
                 </span>
               )}
-              {!compact && (sector.superNet !== 0 || sector.bigNet !== 0) && (
-                <span
-                  style={{
-                    display: 'inline-block',
-                    width: 48 * scale,
-                    height: 3,
-                    marginLeft: 6 * scale,
-                    borderRadius: 1.5,
-                    overflow: 'hidden',
-                    backgroundColor: 'rgba(74, 144, 217, 0.1)',
-                    verticalAlign: 'middle',
-                  }}
-                  title={`超大单 ${(sector.superNet ?? 0).toFixed(1)}亿 · 大单 ${(sector.bigNet ?? 0).toFixed(1)}亿`}
-                >
-                  {(() => {
-                    const superW = (sector.superNet ?? 0);
-                    const bigW = (sector.bigNet ?? 0);
-                    const total = Math.abs(superW) + Math.abs(bigW);
-                    if (total === 0) return null;
-                    const superPct = (Math.abs(superW) / total) * 100;
-                    const bigPct = (Math.abs(bigW) / total) * 100;
-                    return (
-                      <>
-                        <span
-                          style={{
-                            display: 'inline-block',
-                            width: `${superPct}%`,
-                            height: '100%',
-                            backgroundColor: '#f87171',
-                            verticalAlign: 'top',
-                          }}
-                        />
-                        <span
-                          style={{
-                            display: 'inline-block',
-                            width: `${bigPct}%`,
-                            height: '100%',
-                            backgroundColor: '#fb923c',
-                            verticalAlign: 'top',
-                          }}
-                        />
-                      </>
-                    );
-                  })()}
-                </span>
-              )}
-              &nbsp;{arrow}
+              &nbsp;{isPositive ? '▲' : '▼'}
             </span>
           </div>
         );
@@ -338,7 +259,7 @@ export const RankingPanel: React.FC<RankingPanelProps> = ({
   const inflowSectors = sectors.filter((s) => s.net >= 0).sort((a, b) => b.net - a.net);
   const outflowSectors = sectors.filter((s) => s.net < 0).sort((a, b) => a.net - b.net);
 
-  const progress = frame / totalFrames;
+  const progress = frame / Math.max(1, totalFrames);
   const showTop3Preview = frame < 60;
   const inflowVisible = Math.min(
     inflowSectors.length,
@@ -349,6 +270,17 @@ export const RankingPanel: React.FC<RankingPanelProps> = ({
     showTop3Preview ? Math.min(3, outflowSectors.length) : Math.floor(progress * outflowSectors.length * 1.6),
   );
 
+  // Panel entrance — glass panel slides in from the right edge.
+  const panelAnim = useGsapState(
+    frame,
+    (p, t, fps) => {
+      t.fromTo(p, { x: 60, opacity: 0 }, { x: 0, opacity: 1, duration: 0.9 * fps / 30, ease: 'power4.out' }, 0.05 * fps / 30);
+    },
+    [],
+  );
+  const panelX = panelAnim.x ?? 0;
+  const panelOpacity = panelAnim.opacity ?? 0;
+
   return (
     <div
       style={{
@@ -358,23 +290,33 @@ export const RankingPanel: React.FC<RankingPanelProps> = ({
         width: panelWidth,
         zIndex: 10,
         fontFamily: '"PingFang SC", "Helvetica Neue", sans-serif',
-        background: 'linear-gradient(90deg, rgba(8,14,26,0.92) 0%, rgba(8,14,26,0.78) 100%)',
-        borderRadius: 8,
-        padding: `${8 * scale}px ${10 * scale}px`,
+        background: 'linear-gradient(90deg, rgba(6,12,24,0.92) 0%, rgba(6,12,24,0.8) 100%)',
+        border: `1px solid ${CINE_COLORS.hairline}`,
+        backdropFilter: 'blur(14px)',
+        WebkitBackdropFilter: 'blur(14px)',
+        borderRadius: 12,
+        padding: `${10 * scale}px ${12 * scale}px`,
         boxSizing: 'border-box',
+        boxShadow: '0 24px 60px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.03)',
+        opacity: panelOpacity,
+        transform: `translateX(${panelX}px)`,
       }}
     >
       <div
         style={{
           fontSize: 18 * scale,
-          color: '#8899aa',
-          fontWeight: 600,
+          color: CINE_COLORS.inkBody,
+          fontWeight: 700,
           letterSpacing: 2,
           marginBottom: 12 * scale,
           paddingBottom: 6 * scale,
-          borderBottom: '1px solid #2a3550',
+          borderBottom: `1px solid ${CINE_COLORS.hairline}`,
+          display: 'flex',
+          alignItems: 'center',
+          gap: 8 * scale,
         }}
       >
+        <span style={{ width: 3, height: 13 * scale, borderRadius: 2, background: CINE_COLORS.cyan, boxShadow: `0 0 10px ${CINE_COLORS.cyan}88` }} />
         资金排行榜
       </div>
 

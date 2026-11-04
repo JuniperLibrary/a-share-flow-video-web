@@ -169,11 +169,12 @@ export const api = {
 
   // ---- Below: endpoints that require a live backend, will fail in static mode ----
 
-  generateMultiDay: (date: string, days: number, copy_mode: string) =>
+  generateMultiDay: (date: string, days: number, copy_mode: string, signal?: AbortSignal) =>
     fetch(apiUrl('/api/generate-multiday'), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ date, days, copy_mode }),
+      signal,
     }),
 
   getConfig: async () => {

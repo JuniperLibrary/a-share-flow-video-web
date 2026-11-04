@@ -486,7 +486,7 @@ export const BloombergVideoTick: React.FC = () => {
   const xLim: [number, number] =
     rawXLim && rawXLim.length === 2 && typeof rawXLim[0] === 'number' && typeof rawXLim[1] === 'number'
       ? [rawXLim[0] as number, rawXLim[1] as number]
-      : [0, 330];
+      : [0, session === 'morning' ? 120 : 240];
 
   const scene1Frames = inputProps.scene1Frames || 0;
   const scene2Frames = inputProps.scene2Frames || 0;
@@ -694,62 +694,96 @@ export const BloombergVideoTick: React.FC = () => {
       )}
 
       {scene2Frames > 0 && (
-        <Sequence from={scene1End} durationInFrames={scene2Frames}>
-          <NarrativeScene
-            sceneText={inputProps.scene2Text || ''}
-            audioFile={inputProps.scene2Audio || ''}
-            displayDate={displayDate}
-            width={width}
-            height={height}
-            format={format}
-            totalFrames={scene2Frames}
-            sceneType="suspense"
-          />
-        </Sequence>
+        <>
+          {scene1Frames > 0 && (
+            <Sequence from={Math.max(0, scene1End - Math.floor(CUT_SWEEP_FRAMES / 2))} durationInFrames={CUT_SWEEP_FRAMES} layout="none">
+              <TransitionSweep durationInFrames={CUT_SWEEP_FRAMES} width={width} height={height} intensity={0.55} />
+            </Sequence>
+          )}
+          <Sequence from={scene1End} durationInFrames={scene2Frames}>
+            <NarrativeScene
+              sceneText={inputProps.scene2Text || ''}
+              audioFile={inputProps.scene2Audio || ''}
+              displayDate={displayDate}
+              width={width}
+              height={height}
+              format={format}
+              totalFrames={scene2Frames}
+              sceneType="suspense"
+            />
+          </Sequence>
+        </>
       )}
 
       {scene3Frames > 0 && (
-        <Sequence from={scene2End} durationInFrames={scene3Frames}>
-          <NarrativeScene
-            sceneText={inputProps.scene3Text || ''}
-            audioFile={inputProps.scene3Audio || ''}
-            displayDate={displayDate}
-            width={width}
-            height={height}
-            format={format}
-            totalFrames={scene3Frames}
-            sceneType="twist"
-          />
-        </Sequence>
+        <>
+          {scene2Frames > 0 && (
+            <Sequence from={Math.max(0, scene2End - Math.floor(CUT_SWEEP_FRAMES / 2))} durationInFrames={CUT_SWEEP_FRAMES} layout="none">
+              <TransitionSweep durationInFrames={CUT_SWEEP_FRAMES} width={width} height={height} intensity={0.55} />
+            </Sequence>
+          )}
+          <Sequence from={scene2End} durationInFrames={scene3Frames}>
+            <NarrativeScene
+              sceneText={inputProps.scene3Text || ''}
+              audioFile={inputProps.scene3Audio || ''}
+              displayDate={displayDate}
+              width={width}
+              height={height}
+              format={format}
+              totalFrames={scene3Frames}
+              sceneType="twist"
+            />
+          </Sequence>
+        </>
       )}
 
       {scene4Frames > 0 && (
-        <Sequence from={scene3End} durationInFrames={scene4Frames}>
-          <NarrativeScene
-            sceneText={inputProps.scene4Text || ''}
-            audioFile={inputProps.scene4Audio || ''}
-            displayDate={displayDate}
-            width={width}
-            height={height}
-            format={format}
-            totalFrames={scene4Frames}
-            sceneType="answer"
-          />
-        </Sequence>
+        <>
+          {scene3Frames > 0 && (
+            <Sequence from={Math.max(0, scene3End - Math.floor(CUT_SWEEP_FRAMES / 2))} durationInFrames={CUT_SWEEP_FRAMES} layout="none">
+              <TransitionSweep durationInFrames={CUT_SWEEP_FRAMES} width={width} height={height} intensity={0.55} />
+            </Sequence>
+          )}
+          <Sequence from={scene3End} durationInFrames={scene4Frames}>
+            <NarrativeScene
+              sceneText={inputProps.scene4Text || ''}
+              audioFile={inputProps.scene4Audio || ''}
+              displayDate={displayDate}
+              width={width}
+              height={height}
+              format={format}
+              totalFrames={scene4Frames}
+              sceneType="answer"
+            />
+          </Sequence>
+        </>
       )}
 
       {scene5Frames > 0 && (
-        <Sequence from={scene4End} durationInFrames={scene5Frames}>
-          <NarrativeScene
-            sceneText={inputProps.scene5Text || ''}
-            audioFile={inputProps.scene5Audio || ''}
-            displayDate={displayDate}
-            width={width}
-            height={height}
-            format={format}
-            totalFrames={scene5Frames}
-            sceneType="hook2"
-          />
+        <>
+          {scene4Frames > 0 && (
+            <Sequence from={Math.max(0, scene4End - Math.floor(CUT_SWEEP_FRAMES / 2))} durationInFrames={CUT_SWEEP_FRAMES} layout="none">
+              <TransitionSweep durationInFrames={CUT_SWEEP_FRAMES} width={width} height={height} intensity={0.55} />
+            </Sequence>
+          )}
+          <Sequence from={scene4End} durationInFrames={scene5Frames}>
+            <NarrativeScene
+              sceneText={inputProps.scene5Text || ''}
+              audioFile={inputProps.scene5Audio || ''}
+              displayDate={displayDate}
+              width={width}
+              height={height}
+              format={format}
+              totalFrames={scene5Frames}
+              sceneType="hook2"
+            />
+          </Sequence>
+        </>
+      )}
+
+      {scene5Frames > 0 && chartStart > scene5End && (
+        <Sequence from={Math.max(0, scene5End - Math.floor(CUT_SWEEP_FRAMES / 2))} durationInFrames={CUT_SWEEP_FRAMES} layout="none">
+          <TransitionSweep durationInFrames={CUT_SWEEP_FRAMES} width={width} height={height} intensity={0.9} />
         </Sequence>
       )}
 
@@ -832,6 +866,12 @@ export const BloombergVideoTick: React.FC = () => {
           />
           {mainStructureAudio ? <Audio src={staticFile(mainStructureAudio)} /> : null}
           <SubtitleOverlay text={mainStructureText || ''} format={format} width={width} height={height} />
+        </Sequence>
+      )}
+
+      {farewellFrames > 0 && sectorTicks.length > 0 && (
+        <Sequence from={Math.max(0, contentStart + mainStructureFrames - Math.floor(CUT_SWEEP_FRAMES / 2))} durationInFrames={CUT_SWEEP_FRAMES} layout="none">
+          <TransitionSweep durationInFrames={CUT_SWEEP_FRAMES} width={width} height={height} intensity={0.7} />
         </Sequence>
       )}
 

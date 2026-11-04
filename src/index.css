@@ -1,4 +1,47 @@
-@import '@arco-design/web-react/dist/css/arco.css';
+/* ========== Arco Design 按需引入 ==========
+   此前是全量引入 `dist/css/arco.css`（未压缩约 676 kB），但项目实际只用到
+   Button / Input / Modal / Message / Tag / Pagination / DatePicker 与图标。
+   这里改为逐组件引入 Arco 预编译好的 CSS（`es/<组件>/style/index.css`），
+   并按其官方 `style/css.js` 中的依赖关系补齐被间接依赖的样式。
+
+   注意事项：
+   1. 顺序有意义，基础样式（主题变量 / normalize / 图标 / 动画）必须排在最前；
+   2. 新增 Arco 组件时，需要同步在此处补上该组件的 style/index.css 及其依赖，
+      否则组件会「有结构无样式」。依赖关系可查
+      node_modules/@arco-design/web-react/es/<组件>/style/css.js。 */
+@import '@arco-design/web-react/es/style/index.css';
+/* Button */
+@import '@arco-design/web-react/es/Button/style/index.css';
+/* Input（含 Textarea / InputNumber 的公共样式） */
+@import '@arco-design/web-react/es/Input/style/index.css';
+/* Trigger：弹层定位容器，Select / TimePicker / DatePicker 依赖 */
+@import '@arco-design/web-react/es/Trigger/style/index.css';
+/* Empty：Select 空态 */
+@import '@arco-design/web-react/es/Empty/style/index.css';
+/* Checkbox：Select 多选依赖 */
+@import '@arco-design/web-react/es/Checkbox/style/index.css';
+/* Tag：InputTag 依赖 */
+@import '@arco-design/web-react/es/Tag/style/index.css';
+/* OverflowEllipsis：InputTag 依赖 */
+@import '@arco-design/web-react/es/_class/OverflowEllipsis/style/index.css';
+/* InputTag：Select 依赖 */
+@import '@arco-design/web-react/es/InputTag/style/index.css';
+/* Select：Pagination 页码选择器依赖 */
+@import '@arco-design/web-react/es/Select/style/index.css';
+/* Link：DatePicker 依赖 */
+@import '@arco-design/web-react/es/Link/style/index.css';
+/* picker 基础样式：TimePicker / DatePicker 共用 */
+@import '@arco-design/web-react/es/_class/picker/style/index.css';
+/* TimePicker：DatePicker 依赖 */
+@import '@arco-design/web-react/es/TimePicker/style/index.css';
+/* DatePicker */
+@import '@arco-design/web-react/es/DatePicker/style/index.css';
+/* Modal */
+@import '@arco-design/web-react/es/Modal/style/index.css';
+/* Message */
+@import '@arco-design/web-react/es/Message/style/index.css';
+/* Pagination */
+@import '@arco-design/web-react/es/Pagination/style/index.css';
 
 @tailwind base;
 @tailwind components;

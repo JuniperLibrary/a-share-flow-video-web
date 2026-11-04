@@ -14,22 +14,10 @@ import {
   DialogContent,
   DialogTitle,
 } from '@fund/components/ui/dialog';
+import { TZ, nowInTz } from '@fund/lib/fundHelpers';
 
 dayjs.extend(utc);
 dayjs.extend(timezone);
-
-const DEFAULT_TZ = 'Asia/Shanghai';
-const getBrowserTimeZone = () => {
-  if (typeof Intl !== 'undefined' && Intl.DateTimeFormat) {
-    const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
-    return tz || DEFAULT_TZ;
-  }
-  return DEFAULT_TZ;
-};
-const TZ = getBrowserTimeZone();
-dayjs.tz.setDefault(TZ);
-const nowInTz = () => dayjs().tz(TZ);
-const formatDate = (input) => dayjs.tz(input, TZ).format('YYYY-MM-DD');
 
 const CYCLES = [
   { value: 'daily', label: '每日' },
@@ -80,7 +68,7 @@ const computeFirstDate = (cycle, weeklyDay, monthlyDay) => {
     return candidate.format('YYYY-MM-DD');
   }
 
-  return formatDate(today);
+  return today.format('YYYY-MM-DD');
 };
 
 const resolveDailyFirstDate = (savedFirstDate) => {

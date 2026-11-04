@@ -26,21 +26,11 @@ import { getTagThemeBadgeProps } from './AddTagDialog';
 import { cn } from '@fund/lib/utils';
 import { useStorageStore } from "@fund/stores";
 import { fetchFundHoldings } from '@fund/api/fund';
+import { TZ, toTz } from '@fund/lib/fundHelpers';
 
 dayjs.extend(utc);
 dayjs.extend(timezone);
 dayjs.extend(isSameOrAfter);
-
-const DEFAULT_TZ = 'Asia/Shanghai';
-const getBrowserTimeZone = () => {
-  if (typeof Intl !== 'undefined' && Intl.DateTimeFormat) {
-    const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
-    return tz || DEFAULT_TZ;
-  }
-  return DEFAULT_TZ;
-};
-const TZ = getBrowserTimeZone();
-const toTz = (input) => (input ? dayjs.tz(input, TZ) : dayjs().tz(TZ));
 
 const formatDisplayDate = (value) => {
   if (!value) return '-';

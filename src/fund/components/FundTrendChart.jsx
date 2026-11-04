@@ -19,6 +19,7 @@ import {
 } from 'chart.js';
 import { Line } from 'react-chartjs-2';
 import FundHistoryNetValue from './FundHistoryNetValue';
+import { getChartThemeColors } from '@fund/lib/chartTheme';
 
 ChartJS.register(
   CategoryScale,
@@ -32,55 +33,6 @@ ChartJS.register(
 );
 
 const EMPTY_FUND_HISTORY = [];
-
-const CHART_COLORS = {
-  dark: {
-    danger: '#f87171',
-    success: '#34d399',
-    primary: '#22d3ee',
-    muted: '#9ca3af',
-    border: '#1f2937',
-    text: '#e5e7eb',
-    crosshairText: '#0f172a',
-    grandLine: [
-      'rgba(34,211,238,0.55)',
-      'rgba(156,163,175,0.55)',
-      'rgba(251,146,60,0.55)',
-      'rgba(229,231,235,0.45)',
-    ],
-    grandLegend: [
-      'rgba(34,211,238,0.55)',
-      'rgba(156,163,175,0.55)',
-      'rgba(251,146,60,0.55)',
-      'rgba(229,231,235,0.45)',
-    ],
-  },
-  light: {
-    danger: '#dc2626',
-    success: '#059669',
-    primary: '#0891b2',
-    muted: '#475569',
-    border: '#e2e8f0',
-    text: '#0f172a',
-    crosshairText: '#ffffff',
-    grandLine: [
-      'rgba(8,145,178,0.5)',
-      'rgba(71,85,105,0.45)',
-      'rgba(249,115,22,0.5)',
-      'rgba(15,23,42,0.35)',
-    ],
-    grandLegend: [
-      'rgba(8,145,178,0.5)',
-      'rgba(71,85,105,0.45)',
-      'rgba(249,115,22,0.5)',
-      'rgba(15,23,42,0.35)',
-    ],
-  }
-};
-
-function getChartThemeColors(theme) {
-  return CHART_COLORS[theme] || CHART_COLORS.dark;
-}
 
 export default function FundTrendChart({ code, isExpanded, onToggleExpand, transactions = [], theme = 'dark', hideHeader = false }) {
   const [range, setRange] = useState('3m');

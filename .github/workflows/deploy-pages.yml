@@ -10,8 +10,11 @@ on:
     branches: [dev]
     paths:
       - 'src/**'
+      - 'scripts/check-build*'
       - 'package.json'
+      - 'package-lock.json'
       - 'vite.config.ts'
+      - '.github/workflows/deploy-pages.yml'
 
 permissions:
   contents: read
@@ -43,6 +46,9 @@ jobs:
       - name: TypeScript check
         run: npm run typecheck
 
+      - name: Test build checks
+        run: npm run test:build
+
       - name: Setup Pages
         id: pages
         uses: actions/configure-pages@v5
@@ -53,6 +59,9 @@ jobs:
           VITE_BASE_URL: ${{ steps.pages.outputs.base_path }}
           VITE_API_BASE_URL: ${{ vars.VITE_API_BASE_URL || '' }}
           VITE_STATIC_MODE: true
+
+      - name: Check bundle budgets and lazy loading
+        run: npm run check:build
 
       # 从 Go 后端仓库拉取最新 JSON 数据
       - name: Fetch JSON data

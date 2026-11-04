@@ -237,38 +237,7 @@ export const BarRaceChart: React.FC<BarRaceChartProps> = ({
   const panelOpacity = 0.8;
 
   return (
-    <AbsoluteFill style={{ backgroundColor: '#0a0e17' }}>
-      {/* Background */}
-      <div style={{
-        position: 'absolute',
-        inset: 0,
-        background: 'linear-gradient(180deg, #0a0e17 0%, #0d1220 40%, #0a0e17 100%)',
-      }} />
-
-      {/* HUD Grid */}
-      <div style={{ position: 'absolute', inset: 0, opacity: 0.05 }}>
-        {Array.from({ length: Math.floor(topSectionHeight / 30) }).map((_, i) => (
-          <div key={i} style={{
-            position: 'absolute',
-            left: 0,
-            right: 0,
-            top: i * 30,
-            height: 1,
-            backgroundColor: '#4a90d9',
-          }} />
-        ))}
-      </div>
-
-      {/* Scan line */}
-      <div style={{
-        position: 'absolute',
-        left: 0,
-        right: 0,
-        top: interpolate(frame % 100, [0, 100], [0, topSectionHeight]),
-        height: 2,
-        background: 'linear-gradient(90deg, transparent, rgba(0, 240, 255, 0.1), transparent)',
-      }} />
-
+    <AbsoluteFill style={{ backgroundColor: 'transparent' }}>
       {/* Top Header Bar */}
       <div style={{
         position: 'absolute',

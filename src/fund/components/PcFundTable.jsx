@@ -45,6 +45,10 @@ import MoveGroupModal from './MoveGroupModal';
 import { Badge } from '@fund/components/ui/badge';
 import { getTagThemeBadgeProps } from '@fund/components/AddTagDialog';
 import { cn } from '@fund/lib/utils';
+import { useFundBatchSelection } from '@fund/hooks/useFundBatchSelection';
+import { useFundGroupOptions } from '@fund/hooks/useFundGroupOptions';
+import { getCustomSettingsWithMigration } from '@fund/lib/tableSettings';
+import { resolveReorderIndexes, sortableRowA11yProps, beginDragScrollLock, endDragScrollLock } from '@fund/lib/fundHelpers';
 
 const TAGS_COLUMN_ID = 'tags';
 
@@ -108,33 +112,6 @@ const SortableRowContext = createContext({
   listeners: null,
   activatorProps: null,
 });
-
-/** dnd-kit sortable 会给节点 tabIndex=0，拖拽聚焦时浏览器会把页面滚到该元素 */
-function sortableRowA11yProps(attributes) {
-  if (!attributes) return {};
-  const { tabIndex: _ignored, ...rest } = attributes;
-  return { ...rest, tabIndex: -1 };
-}
-
-function beginDragScrollLock(scrollYRef, rafRef) {
-  scrollYRef.current = window.scrollY;
-  const tick = () => {
-    if (window.scrollY !== scrollYRef.current) {
-      window.scrollTo(0, scrollYRef.current);
-    }
-    rafRef.current = requestAnimationFrame(tick);
-  };
-  if (rafRef.current) cancelAnimationFrame(rafRef.current);
-  rafRef.current = requestAnimationFrame(tick);
-}
-
-function endDragScrollLock(scrollYRef, rafRef) {
-  if (rafRef.current) cancelAnimationFrame(rafRef.current);
-  rafRef.current = null;
-  if (window.scrollY !== scrollYRef.current) {
-    window.scrollTo(0, scrollYRef.current);
-  }
-}
 
 function SortableRow({ row, children, disabled, enableAnimation = true }) {
   const {
@@ -287,12 +264,9 @@ export default function PcFundTable({
 
   const handleDragEnd = (event) => {
     const { active, over } = event;
-    if (active && over && active.id !== over.id) {
-      const oldIndex = data.findIndex(item => item.code === active.id);
-      const newIndex = data.findIndex(item => item.code === over.id);
-      if (oldIndex !== -1 && newIndex !== -1 && onReorder) {
-        onReorder(oldIndex, newIndex);
-      }
+    const indexes = resolveReorderIndexes(data, active?.id, over?.id);
+    if (indexes && onReorder) {
+      onReorder(indexes.oldIndex, indexes.newIndex);
     }
     isTableDraggingRef.current = false;
     endDragScrollLock(dragScrollYRef, dragScrollRafRef);
@@ -300,86 +274,23 @@ export default function PcFundTable({
   };
 
   useEffect(() => () => endDragScrollLock(dragScrollYRef, dragScrollRafRef), []);
-  const groupKey = currentTab ?? 'all';
-  const currentGroupName = useMemo(() => {
-    if (groupKey === 'all') return '全部';
-    if (groupKey === 'fav') return '自选';
-    return groups.find((g) => g?.id === groupKey)?.name || '当前';
-  }, [groupKey, groups]);
-  const settingSyncOptions = useMemo(() => {
-    const baseOptions = [
-      { id: 'all', name: '全部', description: '全部分组' },
-      { id: 'fav', name: '自选', description: '自选分组' },
-      ...(Array.isArray(groups) ? groups : []).map((group) => ({
-        id: group?.id,
-        name: group?.name || '未命名',
-        description: '自定义分组',
-      })),
-    ];
-    const seen = new Set();
-    return baseOptions.filter((item) => {
-      const id = String(item?.id ?? '').trim();
-      if (!id || id === groupKey || seen.has(id)) return false;
-      seen.add(id);
-      return true;
-    });
-  }, [groupKey, groups]);
+  // 分组名与设置同步选项由共享 hook 派生，保证 PC / Mobile 两端一致
+  const { groupKey, currentGroupName, settingSyncOptions } = useFundGroupOptions({ currentTab, groups });
 
   const isGroupTab = currentTab && currentTab !== 'all' && currentTab !== 'fav';
   // 批量删除：之前仅自定义分组支持，这里扩展到「全部 / 自选 / 自定义分组」
   const batchRemoveEnabled = sortBy === 'default' && (currentTab === 'all' || currentTab === 'fav' || isGroupTab);
-  const selectableCodes = useMemo(
-    () => (Array.isArray(data) ? data.map((d) => d?.code).filter(Boolean) : []),
-    [data],
-  );
-  /** 全部/自选下「关联汇总持仓」行不参与批量选择 */
-  const batchSelectableCodes = useMemo(
-    () => (Array.isArray(data) ? data.filter((d) => !d?.isHoldingLinked).map((d) => d?.code).filter(Boolean) : []),
-    [data],
-  );
-  const batchSelectableCount = batchSelectableCodes.length;
-  const [selectedCodes, setSelectedCodes] = useState(() => new Set());
+  // 批量选择状态与规则统一由共享 hook 提供，保证 PC / Mobile 两端行为一致
+  const {
+    batchSelectableCount,
+    selectedCodes,
+    setSelectedCodes,
+    selectedCount,
+    selectedCodesList,
+    toggleSelected,
+    setAllSelected,
+  } = useFundBatchSelection({ data, currentTab, enabled: batchRemoveEnabled });
   const [moveGroupOpen, setMoveGroupOpen] = useState(false);
-
-  useEffect(() => {
-    setSelectedCodes(new Set());
-  }, [currentTab]);
-
-  useEffect(() => {
-    if (!batchRemoveEnabled) setSelectedCodes(new Set());
-  }, [batchRemoveEnabled]);
-
-  useEffect(() => {
-    setSelectedCodes((prev) => {
-      if (!prev?.size) return prev;
-      const allowed = new Set(selectableCodes);
-      let changed = false;
-      const next = new Set();
-      for (const c of prev) {
-        if (allowed.has(c)) next.add(c);
-        else changed = true;
-      }
-      return changed ? next : prev;
-    });
-  }, [selectableCodes]);
-
-  useEffect(() => {
-    const linkedCodes = new Set(
-      (Array.isArray(data) ? data : [])
-        .filter((d) => d && d.isHoldingLinked && d.code)
-        .map((d) => d.code),
-    );
-    if (!linkedCodes.size) return;
-    setSelectedCodes((prev) => {
-      if (!prev?.size) return prev;
-      let changed = false;
-      const next = new Set(prev);
-      for (const c of linkedCodes) {
-        if (next.delete(c)) changed = true;
-      }
-      return changed ? next : prev;
-    });
-  }, [data]);
 
   useEffect(() => {
     if (!batchSelectionClearRef) return undefined;
@@ -387,57 +298,7 @@ export default function PcFundTable({
     return () => {
       batchSelectionClearRef.current = null;
     };
-  }, [batchSelectionClearRef]);
-
-  const toggleSelected = useCallback((code, checked) => {
-    if (!code) return;
-    const row = Array.isArray(data) ? data.find((d) => d?.code === code) : null;
-    if (row?.isHoldingLinked) return;
-    setSelectedCodes((prev) => {
-      const next = new Set(prev || []);
-      if (checked) next.add(code);
-      else next.delete(code);
-      return next;
-    });
-  }, [data]);
-
-  const setAllSelected = useCallback((checked) => {
-    setSelectedCodes(() => {
-      if (!checked) return new Set();
-      return new Set(batchSelectableCodes);
-    });
-  }, [batchSelectableCodes]);
-
-  const selectedCount = selectedCodes?.size || 0;
-  const selectedCodesList = useMemo(() => Array.from(selectedCodes || []), [selectedCodes]);
-
-  const getCustomSettingsWithMigration = () => {
-    if (typeof window === 'undefined') return {};
-    try {
-      const parsed = storageStore.getItem('customSettings') || {};
-      if (!parsed || typeof parsed !== 'object') return {};
-      if (parsed.pcTableColumnOrder != null || parsed.pcTableColumnVisibility != null || parsed.pcTableColumns != null || parsed.mobileTableColumnOrder != null || parsed.mobileTableColumnVisibility != null) {
-        const all = {
-          ...(parsed.all && typeof parsed.all === 'object' ? parsed.all : {}),
-          pcTableColumnOrder: parsed.pcTableColumnOrder,
-          pcTableColumnVisibility: parsed.pcTableColumnVisibility,
-          pcTableColumns: parsed.pcTableColumns,
-          mobileTableColumnOrder: parsed.mobileTableColumnOrder,
-          mobileTableColumnVisibility: parsed.mobileTableColumnVisibility,
-        };
-        delete parsed.pcTableColumnOrder;
-        delete parsed.pcTableColumnVisibility;
-        delete parsed.pcTableColumns;
-        delete parsed.mobileTableColumnOrder;
-        delete parsed.mobileTableColumnVisibility;
-        parsed.all = all;
-        storageStore.setItem('customSettings', JSON.stringify(parsed));
-      }
-      return parsed;
-    } catch {
-      return {};
-    }
-  };
+  }, [batchSelectionClearRef, setSelectedCodes]);
 
   const buildPcConfigFromGroup = (group) => {
     if (!group || typeof group !== 'object') return null;

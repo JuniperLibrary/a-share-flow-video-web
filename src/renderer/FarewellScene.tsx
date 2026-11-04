@@ -16,18 +16,18 @@ interface FarewellSceneProps {
 const fontFamily = '"PingFang SC", "Helvetica Neue", sans-serif';
 
 const DEFAULT_BLESSING_POOL = [
-  '愿你明天出手都踩在节奏上，持仓稳稳抬轿',
+  '愿你出手都踩在节奏上，持仓稳稳抬轿',
   '祝愿持仓长阳，账户净值步步抬升',
   '祝你交易顺利，看准的方向都能走出延续',
-  '愿你明天下单即逢低，卖飞不回头',
+  '愿下单即逢低，卖飞不回头',
   '愿你行情稳稳，账户新高，每天好心情',
 ];
 
 const DEFAULT_SIGNOFF_POOL = [
-  '明天开盘见！',
-  '明天我们盘中再见！',
-  '明天开盘，不见不散！',
-  '祝好，明天见！',
+  '下个交易日开盘见！',
+  '下个交易日盘中再见！',
+  '下个交易日，不见不散！',
+  '祝好，下个交易日见！',
 ];
 
 function pickByDate<T>(pool: T[], seed: string): T {
@@ -86,7 +86,7 @@ export const FarewellScene: React.FC<FarewellSceneProps> = ({
         ? '#22c55e'
         : '#60a5fa';
 
-  const titleText = isTV ? '今天就聊到这里' : '今天就聊到这里';
+  const titleText = isTV ? '就先聊到这里' : '就先聊到这里';
   const subText = blessing;
   const signText = signoff;
 
@@ -241,7 +241,7 @@ export const FarewellScene: React.FC<FarewellSceneProps> = ({
                 color: '#dbeafe',
               }}
             >
-              感谢收看 · 点赞收藏 · 明天再战
+              感谢收看 · 点赞收藏 · 下个交易日再战
             </span>
           </div>
         </div>

@@ -12,6 +12,7 @@ import {
 } from 'chart.js';
 import { Line } from 'react-chartjs-2';
 import { isNumber } from 'lodash';
+import { getChartThemeColors } from '@fund/lib/chartTheme';
 
 ChartJS.register(
   CategoryScale,
@@ -21,31 +22,6 @@ ChartJS.register(
   Tooltip,
   Filler
 );
-
-const CHART_COLORS = {
-  dark: {
-    danger: '#f87171',
-    success: '#34d399',
-    primary: '#22d3ee',
-    muted: '#9ca3af',
-    border: '#1f2937',
-    text: '#e5e7eb',
-    crosshairText: '#0f172a',
-  },
-  light: {
-    danger: '#dc2626',
-    success: '#059669',
-    primary: '#0891b2',
-    muted: '#475569',
-    border: '#e2e8f0',
-    text: '#0f172a',
-    crosshairText: '#ffffff',
-  }
-};
-
-function getChartThemeColors(theme) {
-  return CHART_COLORS[theme] || CHART_COLORS.dark;
-}
 
 /**
  * 分时图：展示当日（或最近一次记录日）的估值序列，纵轴为相对参考净值的涨跌幅百分比。

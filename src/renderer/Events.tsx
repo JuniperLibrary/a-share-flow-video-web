@@ -59,8 +59,8 @@ function generateDefaultEvents(
   events.push({
     event_type: 'market',
     frame: Math.round(totalFrames * 0.92),
-    text: '今日收盘',
-    subtext: '板块情绪分化明显',
+    text: '收盘了',
+    subtext: '当日板块情绪分化明显',
     importance: 2,
   });
 

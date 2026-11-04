@@ -168,8 +168,8 @@ export const MainStructureScene: React.FC<MainStructureSceneProps> = ({
   const outlook = mainStructureResult?.outlook
     ? mainStructureResult.outlook
     : leader
-      ? `明日盯${leader.name}延续，观察${pressure?.name ?? '流出侧'}是否收敛`
-      : '明日等待流出收敛与新主线回流';
+      ? `下个交易日盯${leader.name}延续，观察${pressure?.name ?? '流出侧'}是否收敛`
+      : '下个交易日等待流出收敛与新主线回流';
 
   const actions = mainStructureResult?.actions && (mainStructureResult?.actions?.length ?? 0) > 0
     ? mainStructureResult!.actions!
@@ -475,7 +475,7 @@ export const MainStructureScene: React.FC<MainStructureSceneProps> = ({
             gap: 18,
           }}
         >
-          <div style={{ color: '#34d399', fontSize: isTV ? 18 : 22, fontWeight: 900, letterSpacing: 2, whiteSpace: 'nowrap', marginTop: 2 }}>明日观察</div>
+          <div style={{ color: '#34d399', fontSize: isTV ? 18 : 22, fontWeight: 900, letterSpacing: 2, whiteSpace: 'nowrap', marginTop: 2 }}>下个交易日观察</div>
           <div style={{ flex: 1, color: '#dce8f7', fontSize: isTV ? 24 : 28, fontWeight: 800, lineHeight: 1.22 }}>
             {clampText(outlook, isTV ? 52 : 44)}
           </div>

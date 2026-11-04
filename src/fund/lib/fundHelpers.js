@@ -214,3 +214,175 @@ export function migrateDcaPlansToScoped(raw) {
   }
   return { [DCA_SCOPE_GLOBAL]: { ...raw } };
 }
+
+/**
+ * 把拖拽事件里的 active / over id（即基金代码）解析为重排所需的索引对。
+ * 行标识统一使用 `code`，PC 与 Mobile 表格共用同一规则。
+ * @returns {{ oldIndex: number, newIndex: number } | null} 无效拖拽返回 null
+ */
+export function resolveReorderIndexes(data, activeId, overId) {
+  if (!activeId || !overId || activeId === overId) return null;
+  const list = Array.isArray(data) ? data : [];
+  const oldIndex = list.findIndex((item) => item.code === activeId);
+  const newIndex = list.findIndex((item) => item.code === overId);
+  if (oldIndex === -1 || newIndex === -1) return null;
+  return { oldIndex, newIndex };
+}
+
+/** dnd-kit sortable 会给节点 tabIndex=0，拖拽聚焦时浏览器会把页面滚到该元素 */
+export function sortableRowA11yProps(attributes) {
+  if (!attributes) return {};
+  const { tabIndex: _ignored, ...rest } = attributes;
+  return { ...rest, tabIndex: -1 };
+}
+
+/** 拖拽期间锁死页面滚动，避免 dnd-kit 自动滚动与页面滚动叠加 */
+export function beginDragScrollLock(scrollYRef, rafRef) {
+  scrollYRef.current = window.scrollY;
+  const tick = () => {
+    if (window.scrollY !== scrollYRef.current) {
+      window.scrollTo(0, scrollYRef.current);
+    }
+    rafRef.current = requestAnimationFrame(tick);
+  };
+  if (rafRef.current) cancelAnimationFrame(rafRef.current);
+  rafRef.current = requestAnimationFrame(tick);
+}
+
+/** 结束拖拽滚动锁并复位滚动位置 */
+export function endDragScrollLock(scrollYRef, rafRef) {
+  if (rafRef.current) cancelAnimationFrame(rafRef.current);
+  rafRef.current = null;
+  if (window.scrollY !== scrollYRef.current) {
+    window.scrollTo(0, scrollYRef.current);
+  }
+}
+
+/**
+ * 创建单只基金的持仓收益计算器。
+ *
+ * 逻辑此前内联在 FundPage 的 `getHoldingProfit` useCallback 中（约 105 行），
+ * 与组件作用域的 4 个状态耦合。这里改为「先绑定上下文、再逐次调用」的工厂：
+ * 返回的函数签名与原 useCallback 完全一致 `(fund, holding, scopeGroupIdOverride)`，
+ * 因此调用方（含循环内的高频调用）无需改动，也不会产生额外的临时对象。
+ *
+ * 几个关键口径（保持与原实现一致）：
+ * - 当日收益按「昨日收盘时持有份额」计算：份额基数 = 当前份额 - 当日买入 + 当日卖出；
+ * - 持仓金额与总收益一律使用确权净值 dwjz，估值只用于「当日」收益；
+ * - 交易日且今日净值未出时，强制走估值口径（`useValuation`）。
+ *
+ * @param {object} ctx
+ * @param {string} ctx.todayStr 今日日期（YYYY-MM-DD）
+ * @param {boolean} ctx.isTradingDay 今日是否为交易日
+ * @param {Record<string, Array>} ctx.transactions 交易流水：{ [code]: Tx[] }
+ * @param {string|null} ctx.activeGroupId 当前分组 id（非 all/fav/汇总时为分组 id）
+ * @returns {(fund: object, holding: object, scopeGroupIdOverride?: string|null) => ({ amount: number, nav: number, profitToday: number|null, profitTotal: number|null, principalToday: number } | null)}
+ */
+export function createHoldingProfitCalculator({ todayStr, isTradingDay, transactions, activeGroupId }) {
+  return function getHoldingProfit(fund, holding, scopeGroupIdOverride) {
+    if (!holding || !isNumber(holding.share)) return null;
+
+    const txScope = scopeGroupIdOverride !== undefined ? scopeGroupIdOverride : activeGroupId;
+
+    const hasTodayData = fund.jzrq === todayStr;
+    const hasTodayValuation = isString(fund.gztime) && fund.gztime.startsWith(todayStr);
+    const canCalcTodayProfit = hasTodayData || hasTodayValuation;
+
+    // 如果是交易日且9点以后，且今日净值未出，则强制使用估值（隐藏涨跌幅列模式）
+    const useValuation = isTradingDay && !hasTodayData;
+
+    let currentNav;
+    let profitToday;
+    let shareForTodayProfit = holding.share;
+
+    if (canCalcTodayProfit) {
+      // 当日收益口径：按“昨日收盘时持有份额”计算，避免把当日买入份额算进当日收益。
+      // 份额基数 = 当前份额 - 当日买入份额 + 当日卖出份额（卖出份额在开盘前仍持有，应计入当日涨跌）
+      let buyToday = 0;
+      let sellToday = 0;
+      const list = transactions && fund?.code ? (transactions[fund.code] || []) : [];
+      for (const tx of list) {
+        if (!tx || tx.date !== todayStr) continue;
+        const gid = tx.groupId || null;
+        if (txScope) {
+          if (gid !== txScope) continue;
+        } else {
+          if (gid) continue;
+        }
+        if (tx.isHistoryOnly) continue;
+        const s = Number(tx.share);
+        if (!Number.isFinite(s) || s <= 0) continue;
+        if (tx.type === 'buy') buyToday += s;
+        else if (tx.type === 'sell') sellToday += s;
+      }
+      shareForTodayProfit = Math.max(0, holding.share - buyToday + sellToday);
+    }
+
+    if (!useValuation) {
+      // 使用确权净值 (dwjz)
+      currentNav = Number(fund.dwjz);
+      if (!currentNav) return null;
+
+      if (canCalcTodayProfit) {
+        const amount = shareForTodayProfit * currentNav;
+        // 优先使用昨日净值直接计算（更精确，避免涨跌幅四舍五入误差）
+        const lastNav = fund.lastNav != null && fund.lastNav !== '' ? Number(fund.lastNav) : null;
+        if (lastNav && Number.isFinite(lastNav) && lastNav > 0) {
+          profitToday = (currentNav - lastNav) * shareForTodayProfit;
+        } else {
+          const gz = isString(fund.gztime) ? toTz(fund.gztime) : null;
+          const jz = isString(fund.jzrq) ? toTz(fund.jzrq) : null;
+          const preferGszzl =
+            !!gz &&
+            !!jz &&
+            gz.isValid() &&
+            jz.isValid() &&
+            gz.startOf('day').isAfter(jz.startOf('day'));
+
+          let rate;
+          if (preferGszzl) {
+            rate = Number(fund.gszzl);
+          } else {
+            const zzl = fund.zzl !== undefined ? Number(fund.zzl) : Number.NaN;
+            rate = Number.isFinite(zzl) ? zzl : Number(fund.gszzl);
+          }
+          if (!Number.isFinite(rate)) rate = 0;
+          profitToday = amount - (amount / (1 + rate / 100));
+        }
+      } else {
+        profitToday = null;
+      }
+    } else {
+      // 否则使用估值
+      currentNav = isNumber(fund.gsz) ? fund.gsz : Number(fund.dwjz);
+
+      if (!currentNav) return null;
+
+      if (canCalcTodayProfit) {
+        const amount = shareForTodayProfit * currentNav;
+        // 估算涨幅
+        const gzChange = Number(fund.gszzl) || 0;
+        profitToday = amount - (amount / (1 + gzChange / 100));
+      } else {
+        profitToday = null;
+      }
+    }
+
+    // 持仓金额强制使用确权净值
+    const exactNav = Number(fund.dwjz) || currentNav;
+    const amount = holding.share * exactNav;
+
+    // 总收益 = (确权净值 - 成本价) * 份额
+    const profitTotal = isNumber(holding.cost)
+      ? (exactNav - holding.cost) * holding.share
+      : null;
+
+    return {
+      amount,
+      nav: exactNav,
+      profitToday,
+      profitTotal,
+      principalToday: isNumber(holding.cost) ? holding.cost * shareForTodayProfit : 0
+    };
+  };
+}

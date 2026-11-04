@@ -59,36 +59,43 @@ async function fetchJSON<T>(filename: string): Promise<T> {
   return res.json();
 }
 
-// Cache for loaded data (avoid re-fetching on every render)
-let cache: Record<string, any> = {};
+// Cache in-flight requests as well as loaded data so concurrent page loads
+// share one fetch. Failed requests are evicted to allow an explicit retry.
+let cache: Record<string, Promise<unknown>> = {};
 
 export function clearCache() {
   cache = {};
 }
 
-export async function getSectors(): Promise<SectorRow[]> {
-  if (!cache.sectors) cache.sectors = await fetchJSON<SectorRow[]>('sectors.json');
-  return cache.sectors;
+function loadCached<T>(key: string, filename: string): Promise<T> {
+  if (!cache[key]) {
+    const pending = fetchJSON<T>(filename);
+    cache[key] = pending;
+    void pending.catch(() => {
+      if (cache[key] === pending) delete cache[key];
+    });
+  }
+  return cache[key] as Promise<T>;
 }
 
-export async function getSectorsAll(): Promise<SectorAllRow[]> {
-  if (!cache.sectorsAll) cache.sectorsAll = await fetchJSON<SectorAllRow[]>('sectors_all.json');
-  return cache.sectorsAll;
+export function getSectors(): Promise<SectorRow[]> {
+  return loadCached('sectors', 'sectors.json');
 }
 
-export async function getCopywriting(): Promise<CopywritingRow[]> {
-  if (!cache.copywriting) cache.copywriting = await fetchJSON<CopywritingRow[]>('copywriting.json');
-  return cache.copywriting;
+export function getSectorsAll(): Promise<SectorAllRow[]> {
+  return loadCached('sectorsAll', 'sectors_all.json');
 }
 
-export async function getTickEvents(): Promise<TickEventRow[]> {
-  if (!cache.tickEvents) cache.tickEvents = await fetchJSON<TickEventRow[]>('tick_events.json');
-  return cache.tickEvents;
+export function getCopywriting(): Promise<CopywritingRow[]> {
+  return loadCached('copywriting', 'copywriting.json');
 }
 
-export async function getCLSNews(): Promise<CLSNewsRow[]> {
-  if (!cache.clsNews) cache.clsNews = await fetchJSON<CLSNewsRow[]>('cls_news.json');
-  return cache.clsNews;
+export function getTickEvents(): Promise<TickEventRow[]> {
+  return loadCached('tickEvents', 'tick_events.json');
+}
+
+export function getCLSNews(): Promise<CLSNewsRow[]> {
+  return loadCached('clsNews', 'cls_news.json');
 }
 
 /** Get the latest date from sectors data */

@@ -2,9 +2,6 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import { AnimatePresence } from 'framer-motion';
-import dayjs from 'dayjs';
-import utc from 'dayjs/plugin/utc';
-import timezone from 'dayjs/plugin/timezone';
 import { isNumber } from 'lodash';
 import { fetchFundPingzhongdata, fetchSmartFundNetValue } from '../api/fund';
 import { DatePicker, NumericInput } from './Common';
@@ -17,23 +14,7 @@ import {
 } from '@fund/components/ui/dialog';
 import PendingTradesModal from './PendingTradesModal';
 import { Spinner } from '@fund/components/ui/spinner';
-
-dayjs.extend(utc);
-dayjs.extend(timezone);
-
-const DEFAULT_TZ = 'Asia/Shanghai';
-const getBrowserTimeZone = () => {
-  if (typeof Intl !== 'undefined' && Intl.DateTimeFormat) {
-    const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
-    return tz || DEFAULT_TZ;
-  }
-  return DEFAULT_TZ;
-};
-const TZ = getBrowserTimeZone();
-dayjs.tz.setDefault(TZ);
-const nowInTz = () => dayjs().tz(TZ);
-const toTz = (input) => (input ? dayjs.tz(input, TZ) : nowInTz());
-const formatDate = (input) => toTz(input).format('YYYY-MM-DD');
+import { nowInTz, toTz, formatDate } from '@fund/lib/fundHelpers';
 
 export default function TradeModal({ type, fund, holding, onClose, onConfirm, pendingTrades = [], onDeletePending }) {
   const isBuy = type === 'buy';

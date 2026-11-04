@@ -1,5 +1,4 @@
 import { useState, useRef } from 'react';
-import { createWorker } from 'tesseract.js';
 import { toast as sonnerToast } from 'sonner';
 import { parseFundTextWithLLM, fetchFundData, searchFunds } from '../api/fund';
 import { recordValuation } from '../lib/valuationTimeseries';
@@ -91,6 +90,8 @@ export function useScanImport({
     try {
       let worker = ocrWorkerRef.current;
       if (!worker) {
+        // OCR 引擎只在扫描导入时用到，改为按需加载，避免打进基金页首屏包。
+        const { createWorker } = await import('tesseract.js');
         const cdnBases = [
           'https://fastly.jsdelivr.net/npm',
           'https://cdn.jsdelivr.net/npm',

@@ -4,6 +4,19 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>A股情绪流动可视化</title>
+    <!-- 主题需要在首次绘制前定好，否则暗色用户会先看到 body 的浅色背景再跳成深蓝。
+         这段脚本必须留在 head 内联执行，不能挪进 bundle。存储键见 src/lib/theme-context.tsx。
+         html 上的 class="light" 是脚本被禁用时的兜底，脚本会按存储值覆盖它。 -->
+    <script>
+      (function () {
+        var theme = 'light';
+        try {
+          var stored = localStorage.getItem('a-share-flow-theme');
+          if (stored === 'dark' || stored === 'light') theme = stored;
+        } catch (e) {}
+        document.documentElement.classList.toggle('light', theme === 'light');
+      })();
+    </script>
   </head>
   <body>
     <div id="root"></div>

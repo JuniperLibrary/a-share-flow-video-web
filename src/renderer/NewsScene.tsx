@@ -2,6 +2,7 @@ import React from 'react';
 import { useCurrentFrame, interpolate, Audio, staticFile } from 'remotion';
 import { Background } from './Background.tsx';
 import type { NewsPage, CatalysisResult } from './types.ts';
+import { useGsapState } from './gsap/useRemotionGsap.ts';
 
 interface NewsSceneProps {
   page: NewsPage;
@@ -59,20 +60,29 @@ export const NewsScene: React.FC<NewsSceneProps> = ({
   const isTV = format === 'tv';
 
   const enter = Math.min(1, frame / 10);
-  const leave = Math.min(1, Math.max(0, (totalFrames - frame) / 8));
-  const opacity = interpolate(enter * leave, [0, 1], [0.75, 1], {
-    extrapolateLeft: 'clamp',
-    extrapolateRight: 'clamp',
-  });
-  const translateY = interpolate(enter, [0, 1], [16, 0]);
+  const leave = Math.min(1, Math.max(0, (totalFrames - frame + 2) / 10));
+  const opacity = enter * leave;
+  const containerY = (1 - enter) * 16;
+
   const audioVolume = interpolate(frame, [0, 8, Math.max(0, totalFrames - 10), totalFrames], [0, 1, 1, 0], {
     extrapolateLeft: 'clamp',
     extrapolateRight: 'clamp',
   });
-  const headerSweep = interpolate(frame, [0, 10, Math.max(0, totalFrames - 10), totalFrames], [0, 1, 1, 0], {
-    extrapolateLeft: 'clamp',
-    extrapolateRight: 'clamp',
-  });
+
+  // GSAP-driven header sweep + sector card stagger.
+  const anim = useGsapState(
+    frame,
+    (p, t, fps) => {
+      t.fromTo(p, { sweep: 0, cards: 0, flag: 0 }, { sweep: 1, duration: 0.5, ease: 'power2.inOut' });
+      t.fromTo(p, { cards: 0 }, { cards: 1, duration: 1.1, ease: 'power4.out' }, 0.25 * fps / 30);
+      t.fromTo(p, { flag: 0 }, { flag: 1, duration: 0.6, ease: 'power2.out' }, 0.9 * fps / 30);
+    },
+    [],
+  );
+
+  const _sweep = anim.sweep ?? 0;
+  const cardProgress = anim.cards ?? 0;
+  const flagProgress = anim.flag ?? 0;
 
   const headerSize = isTV ? 28 : 36;
   const sectorNameSize = isTV ? 30 : 38;
@@ -95,8 +105,6 @@ export const NewsScene: React.FC<NewsSceneProps> = ({
     }
     return map;
   }, [catalysisResult]);
-
-  const introLead = isTV ? 6 : 10;
 
   return (
     <>
@@ -122,7 +130,7 @@ export const NewsScene: React.FC<NewsSceneProps> = ({
           padding: containerPad,
           zIndex: 20,
           opacity,
-          transform: `translateY(${translateY}px)`,
+          transform: `translateY(${containerY}px)`,
         }}
       >
         <div
@@ -143,9 +151,9 @@ export const NewsScene: React.FC<NewsSceneProps> = ({
               right: 0,
               bottom: -1,
               height: 2,
-              opacity: 0.18 + 0.28 * headerSweep,
+              opacity: 0.18 + 0.28 * _sweep,
               background: 'linear-gradient(90deg, rgba(74,128,208,0) 0%, rgba(170,210,255,0.9) 45%, rgba(74,128,208,0) 100%)',
-              transform: `scaleX(${Math.max(0.05, headerSweep)})`,
+              transform: `scaleX(${Math.max(0.05, _sweep)})`,
               transformOrigin: 'left center',
             }}
           />
@@ -189,18 +197,21 @@ export const NewsScene: React.FC<NewsSceneProps> = ({
         >
           {page.sectors.map((sn, si) => {
             const color = sectorColor(sn.sector);
-            const sectorDelay = si * 8;
-            const sectorProgress = Math.min(1, Math.max(0, (frame + introLead - sectorDelay) / 14));
-            const sectorOpacity = sectorProgress;
-            const sectorTranslateY = interpolate(sectorProgress, [0, 1], [24, 0]);
             const analysis = sectorAnalysis?.get(sn.sector);
+
+            // Stagger each sector from the single GSAP card timeline.
+            const st = Math.max(0, Math.min(1, (cardProgress - si * 0.22) / 0.42));
+            const stEase = easeOutExpo(st);
+            const sectorOpacity = stEase * leave;
+            const sectorY = (1 - stEase) * -26 * (isTV ? 1 : 1.2);
+            const sectorScale = 1 - (1 - stEase) * 0.02;
 
             return (
               <div
                 key={sn.sector}
                 style={{
-                  opacity: sectorOpacity,
-                  transform: `translateY(${sectorTranslateY}px)`,
+                  opacity: Math.max(0, sectorOpacity),
+                  transform: `translateY(${sectorY}px) scale(${sectorScale})`,
                   flex: isTV ? 1 : undefined,
                   background: 'rgba(10, 20, 40, 0.6)',
                   borderRadius: cardRadius,
@@ -220,11 +231,11 @@ export const NewsScene: React.FC<NewsSceneProps> = ({
                     right: 0,
                     top: 0,
                     height: 2,
-                    opacity: 0.18 + 0.45 * sectorProgress,
+                    opacity: 0.18 + 0.45 * stEase,
                     background: `linear-gradient(90deg, rgba(74,128,208,0) 0%, ${color} 50%, rgba(74,128,208,0) 100%)`,
-                    backgroundSize: '200% 100%',
-                    backgroundPosition: `${Math.round((1 - sectorProgress) * 100)}% 0`,
-                    filter: `blur(${Math.max(0, 1 - sectorProgress)}px)`,
+                    backgroundSize: '250% 100%',
+                    backgroundPosition: `${Math.round((1 - stEase) * 100)}% 0`,
+                    filter: `blur(${Math.max(0, 1 - stEase)}px)`,
                   }}
                 />
                 <div
@@ -353,7 +364,7 @@ export const NewsScene: React.FC<NewsSceneProps> = ({
 
                     const newsCount = Math.min(2, sn.news.length);
                     for (let ni = 0; ni < newsCount; ni++) {
-                      const newsDelay = sectorDelay + 6 + ni * 4;
+                      const newsDelay = 0.25 + si * 0.22 + 0.2 + ni * 0.14;
                       const item = sn.news[ni];
                       const newInsight = analysis?.newInsights?.[ni];
                       list.push({
@@ -369,15 +380,16 @@ export const NewsScene: React.FC<NewsSceneProps> = ({
                       });
                     }
                     return list.map((row) => {
-                      const newsProgress = Math.min(1, Math.max(0, (frame + introLead - row.delay) / 10));
-                      const newsOpacity = newsProgress;
-                      const newsTranslateY = interpolate(newsProgress, [0, 1], [8, 0]);
+                      const np = Math.max(0, Math.min(1, (cardProgress - row.delay * 0.22) / 0.36));
+                      const nEase = easeOutExpo(np);
+                      const newsOpacity = nEase * leave;
+                      const newsTranslateY = (1 - nEase) * 12;
                       const levelAcolor = row.isLevelA ? '#ffd4d4' : undefined;
                       return (
                         <div
                           key={row.key}
                           style={{
-                            opacity: newsOpacity,
+                            opacity: Math.max(0, newsOpacity),
                             transform: `translateY(${newsTranslateY}px)`,
                             display: 'flex',
                             alignItems: 'flex-start',
@@ -530,6 +542,7 @@ export const NewsScene: React.FC<NewsSceneProps> = ({
               color: '#3a4a5a',
               fontFamily: '"PingFang SC", "Helvetica Neue", sans-serif',
               letterSpacing: 2,
+              opacity: flagProgress,
             }}
           >
             新闻解释催化，资金确认方向 · 仅供参考
@@ -539,3 +552,7 @@ export const NewsScene: React.FC<NewsSceneProps> = ({
     </>
   );
 };
+
+function easeOutExpo(x: number): number {
+  return x === 1 ? 1 : 1 - Math.pow(2, -10 * x);
+}

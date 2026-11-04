@@ -1,30 +1,11 @@
 'use client';
 
 import { useState } from 'react';
-import dayjs from 'dayjs';
-import utc from 'dayjs/plugin/utc';
-import timezone from 'dayjs/plugin/timezone';
 import { Button } from '@fund/components/ui/button';
 import { Calendar } from '@fund/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@fund/components/ui/popover';
 import { CalendarIcon, MinusIcon, PlusIcon, TrendUpIcon, TrendDownIcon } from './Icons';
-
-dayjs.extend(utc);
-dayjs.extend(timezone);
-
-const DEFAULT_TZ = 'Asia/Shanghai';
-const getBrowserTimeZone = () => {
-  if (typeof Intl !== 'undefined' && Intl.DateTimeFormat) {
-    const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
-    return tz || DEFAULT_TZ;
-  }
-  return DEFAULT_TZ;
-};
-const TZ = getBrowserTimeZone();
-dayjs.tz.setDefault(TZ);
-const nowInTz = () => dayjs().tz(TZ);
-const toTz = (input) => (input ? dayjs.tz(input, TZ) : nowInTz());
-const formatDate = (input) => toTz(input).format('YYYY-MM-DD');
+import { nowInTz, toTz, formatDate } from '@fund/lib/fundHelpers';
 
 export function ConsecutiveTrendBadge({ trend }) {
   if (!trend || !trend.type || !trend.days || trend.days < 3) return null;

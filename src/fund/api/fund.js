@@ -7,22 +7,10 @@ import { withRetry } from '../lib/asyncHelper';
 import { getQueryClient } from '../lib/get-query-client';
 import * as qk from '../lib/query-keys';
 import { isTradingDay } from '../lib/tradingCalendar';
+import { TZ, nowInTz, toTz } from '../lib/fundHelpers';
 
 dayjs.extend(utc);
 dayjs.extend(timezone);
-
-const DEFAULT_TZ = 'Asia/Shanghai';
-const getBrowserTimeZone = () => {
-  if (typeof Intl !== 'undefined' && Intl.DateTimeFormat) {
-    const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
-    return tz || DEFAULT_TZ;
-  }
-  return DEFAULT_TZ;
-};
-const TZ = getBrowserTimeZone();
-dayjs.tz.setDefault(TZ);
-const nowInTz = () => dayjs().tz(TZ);
-const toTz = (input) => (input ? dayjs.tz(input, TZ) : nowInTz());
 
 const ONE_DAY_MS = 24 * 60 * 60 * 1000;
 

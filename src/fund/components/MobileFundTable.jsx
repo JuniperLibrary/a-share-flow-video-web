@@ -39,6 +39,10 @@ import { asyncPool } from '@fund/lib/asyncHelper';
 import { Badge } from '@fund/components/ui/badge';
 import { getTagThemeBadgeProps } from '@fund/components/AddTagDialog';
 import { cn } from '@fund/lib/utils';
+import { useFundBatchSelection } from '@fund/hooks/useFundBatchSelection';
+import { useFundGroupOptions } from '@fund/hooks/useFundGroupOptions';
+import { getCustomSettingsWithMigration } from '@fund/lib/tableSettings';
+import { resolveReorderIndexes, sortableRowA11yProps, beginDragScrollLock, endDragScrollLock } from '@fund/lib/fundHelpers';
 
 const EDIT_MOVE_TO_FRONT_COL = 'editMoveToFront';
 const EDIT_DRAG_COL = 'editDrag';
@@ -98,32 +102,6 @@ const RowSortableContext = createContext({
   listeners: null,
   activatorProps: null,
 });
-
-function sortableRowA11yProps(attributes) {
-  if (!attributes) return {};
-  const { tabIndex: _ignored, ...rest } = attributes;
-  return { ...rest, tabIndex: -1 };
-}
-
-function beginDragScrollLock(scrollYRef, rafRef) {
-  scrollYRef.current = window.scrollY;
-  const tick = () => {
-    if (window.scrollY !== scrollYRef.current) {
-      window.scrollTo(0, scrollYRef.current);
-    }
-    rafRef.current = requestAnimationFrame(tick);
-  };
-  if (rafRef.current) cancelAnimationFrame(rafRef.current);
-  rafRef.current = requestAnimationFrame(tick);
-}
-
-function endDragScrollLock(scrollYRef, rafRef) {
-  if (rafRef.current) cancelAnimationFrame(rafRef.current);
-  rafRef.current = null;
-  if (window.scrollY !== scrollYRef.current) {
-    window.scrollTo(0, scrollYRef.current);
-  }
-}
 
 function EditDragHandleCell({ disabled }) {
   const rowSortable = useContext(RowSortableContext);
@@ -398,24 +376,19 @@ export default function MobileFundTable({
   const blockDrawerClose = !!fundDeleteConfirm || !!fundDeleteBulkConfirm;
 
   const [isEditMode, setIsEditMode] = useState(false);
-  const [editSelectedCodes, setEditSelectedCodes] = useState(() => new Set());
   const [moveGroupOpen, setMoveGroupOpen] = useState(false);
 
   const editLongPressRef = useRef({ timer: null, startX: 0, startY: 0 });
 
-  const selectableCodes = useMemo(
-    () => (Array.isArray(data) ? data.map((d) => d?.code).filter(Boolean) : []),
-    [data],
-  );
-
-  /** 全部/自选下「关联汇总持仓」行不参与编辑模式批量选择 */
-  const batchSelectableCodes = useMemo(
-    () => (Array.isArray(data) ? data.filter((d) => !d?.isHoldingLinked).map((d) => d?.code).filter(Boolean) : []),
-    [data],
-  );
-  const batchSelectableCount = batchSelectableCodes.length;
-
-  const editSelectedCodesList = useMemo(() => Array.from(editSelectedCodes || []), [editSelectedCodes]);
+  // 批量选择状态与规则统一由共享 hook 提供，保证 PC / Mobile 两端行为一致
+  const {
+    selectableCodes,
+    batchSelectableCount,
+    selectedCodes: editSelectedCodes,
+    setSelectedCodes: setEditSelectedCodes,
+    selectedCodesList: editSelectedCodesList,
+    setAllSelected: setAllEditSelected,
+  } = useFundBatchSelection({ data, currentTab });
 
   const clearEditLongPressTimer = useCallback(() => {
     if (editLongPressRef.current.timer) {
@@ -438,49 +411,6 @@ export default function MobileFundTable({
       batchSelectionClearRef.current = null;
     };
   }, [batchSelectionClearRef, exitEditMode]);
-
-  useEffect(() => {
-    setEditSelectedCodes(new Set());
-  }, [currentTab]);
-
-  useEffect(() => {
-    setEditSelectedCodes((prev) => {
-      if (!prev?.size) return prev;
-      const allowed = new Set(selectableCodes);
-      let changed = false;
-      const next = new Set();
-      for (const c of prev) {
-        if (allowed.has(c)) next.add(c);
-        else changed = true;
-      }
-      return changed ? next : prev;
-    });
-  }, [selectableCodes]);
-
-  useEffect(() => {
-    const linkedCodes = new Set(
-      (Array.isArray(data) ? data : [])
-        .filter((d) => d && d.isHoldingLinked && d.code)
-        .map((d) => d.code),
-    );
-    if (!linkedCodes.size) return;
-    setEditSelectedCodes((prev) => {
-      if (!prev?.size) return prev;
-      let changed = false;
-      const next = new Set(prev);
-      for (const c of linkedCodes) {
-        if (next.delete(c)) changed = true;
-      }
-      return changed ? next : prev;
-    });
-  }, [data]);
-
-  const setAllEditSelected = useCallback((nextChecked) => {
-    setEditSelectedCodes(() => {
-      if (!nextChecked) return new Set();
-      return new Set(batchSelectableCodes);
-    });
-  }, [batchSelectableCodes]);
 
   useEffect(() => () => clearEditLongPressTimer(), [clearEditLongPressTimer]);
 
@@ -530,68 +460,17 @@ export default function MobileFundTable({
 
   const handleDragEnd = (e) => {
     const { active, over } = e;
-    if (active && over && active.id !== over.id && onReorder) {
-      const oldIndex = data.findIndex((item) => item.code === active.id);
-      const newIndex = data.findIndex((item) => item.code === over.id);
-      if (oldIndex !== -1 && newIndex !== -1) onReorder(oldIndex, newIndex);
+    const indexes = resolveReorderIndexes(data, active?.id, over?.id);
+    if (indexes && onReorder) {
+      onReorder(indexes.oldIndex, indexes.newIndex);
     }
     endDragScrollLock(dragScrollYRef, dragScrollRafRef);
   };
 
   useEffect(() => () => endDragScrollLock(dragScrollYRef, dragScrollRafRef), []);
 
-  const groupKey = currentTab ?? 'all';
-  const currentGroupName = useMemo(() => {
-    if (groupKey === 'all') return '全部';
-    if (groupKey === 'fav') return '自选';
-    return groups.find((g) => g?.id === groupKey)?.name || '当前';
-  }, [groupKey, groups]);
-  const settingSyncOptions = useMemo(() => {
-    const baseOptions = [
-      { id: 'all', name: '全部', description: '全部分组' },
-      { id: 'fav', name: '自选', description: '自选分组' },
-      ...(Array.isArray(groups) ? groups : []).map((group) => ({
-        id: group?.id,
-        name: group?.name || '未命名',
-        description: '自定义分组',
-      })),
-    ];
-    const seen = new Set();
-    return baseOptions.filter((item) => {
-      const id = String(item?.id ?? '').trim();
-      if (!id || id === groupKey || seen.has(id)) return false;
-      seen.add(id);
-      return true;
-    });
-  }, [groupKey, groups]);
-
-  const getCustomSettingsWithMigration = () => {
-    if (typeof window === 'undefined') return {};
-    try {
-      const parsed = storageStore.getItem('customSettings') || {};
-      if (!parsed || typeof parsed !== 'object') return {};
-      if (parsed.pcTableColumnOrder != null || parsed.pcTableColumnVisibility != null || parsed.pcTableColumns != null || parsed.mobileTableColumnOrder != null || parsed.mobileTableColumnVisibility != null) {
-        const all = {
-          ...(parsed.all && typeof parsed.all === 'object' ? parsed.all : {}),
-          pcTableColumnOrder: parsed.pcTableColumnOrder,
-          pcTableColumnVisibility: parsed.pcTableColumnVisibility,
-          pcTableColumns: parsed.pcTableColumns,
-          mobileTableColumnOrder: parsed.mobileTableColumnOrder,
-          mobileTableColumnVisibility: parsed.mobileTableColumnVisibility,
-        };
-        delete parsed.pcTableColumnOrder;
-        delete parsed.pcTableColumnVisibility;
-        delete parsed.pcTableColumns;
-        delete parsed.mobileTableColumnOrder;
-        delete parsed.mobileTableColumnVisibility;
-        parsed.all = all;
-        storageStore.setItem('customSettings', JSON.stringify(parsed));
-      }
-      return parsed;
-    } catch {
-      return {};
-    }
-  };
+  // 分组名与设置同步选项由共享 hook 派生，保证 PC / Mobile 两端一致
+  const { groupKey, currentGroupName, settingSyncOptions } = useFundGroupOptions({ currentTab, groups });
 
   const getInitialMobileConfigByGroup = () => {
     const parsed = getCustomSettingsWithMigration();

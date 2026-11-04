@@ -1,5 +1,5 @@
 import React from 'react';
-import { interpolate } from 'remotion';
+import { filmGrain } from './cinema.ts';
 
 interface BackgroundProps {
   frame: number;
@@ -10,128 +10,198 @@ interface BackgroundProps {
   format?: 'mobile' | 'tv';
 }
 
-const GridOverlay: React.FC<{ width: number; height: number }> = ({ width, height }) => {
-  const lines: React.ReactNode[] = [];
-  const spacing = 80;
+/** Deterministic hash → [0,1). */
+function fract(n: number): number {
+  return n - Math.floor(n);
+}
 
-  for (let y = 0; y <= height; y += spacing) {
-    lines.push(
-      <line
-        key={`h${y}`}
-        x1={0}
-        y1={y}
-        x2={width}
-        y2={y}
-        stroke="#2a3550"
-        strokeWidth={0.5}
-        opacity={y === 0 || y >= height - 1 ? 0.15 : 0.06}
-      />,
-    );
+/**
+ * Apple-style atmosphere — no grid, no HUD, no scanline. Just deep dark
+ * gradients + huge, ultra-soft color fields that drift imperceptibly slowly,
+ * a few floating dust motes and a whisper of grain. The hero colors stay as
+ * faint emotional undertones so the frame reads "premium" before "red/green".
+ */
+interface Atmosphere {
+  wash: string[];
+  tint: string;
+}
+
+function atmosphere(sentiment: BackgroundProps['sentiment']): Atmosphere {
+  switch (sentiment) {
+    case 'bearish':
+      return {
+        wash: ['rgba(43,214,123,0.07)', 'rgba(52,140,200,0.05)', 'rgba(20,40,60,0.10)'],
+        tint: 'rgba(43,214,123,0.025)',
+      };
+    case 'bullish':
+      return {
+        wash: ['rgba(255,107,138,0.07)', 'rgba(255,196,120,0.06)', 'rgba(40,24,38,0.10)'],
+        tint: 'rgba(255,77,79,0.025)',
+      };
+    case 'mainline':
+      return {
+        wash: ['rgba(245,198,72,0.09)', 'rgba(255,150,90,0.05)', 'rgba(48,40,24,0.10)'],
+        tint: 'rgba(245,198,72,0.03)',
+      };
+    default:
+      return {
+        wash: ['rgba(105,150,240,0.08)', 'rgba(79,216,255,0.06)', 'rgba(30,40,70,0.10)'],
+        tint: 'rgba(79,216,255,0.02)',
+      };
   }
+}
 
-  for (let x = 0; x <= width; x += spacing) {
-    lines.push(
-      <line
-        key={`v${x}`}
-        x1={x}
-        y1={0}
-        x2={x}
-        y2={height}
-        stroke="#2a3550"
-        strokeWidth={0.5}
-        opacity={x === 0 || x >= width - 1 ? 0.15 : 0.06}
-      />,
-    );
+/** Deep near-black base with the faintest violet/indigo cast (Apple's night palette). */
+function baseDeep(sentiment: BackgroundProps['sentiment']): string {
+  switch (sentiment) {
+    case 'bearish':
+      return 'linear-gradient(180deg, #03040a 0%, #070d0d 48%, #0a1210 100%)';
+    case 'bullish':
+      return 'linear-gradient(180deg, #040308 0%, #0d0a0c 48%, #120c0e 100%)';
+    case 'mainline':
+      return 'linear-gradient(180deg, #040309 0%, #0e0c08 48%, #150f06 100%)';
+    default:
+      return 'linear-gradient(180deg, #030407 0%, #080b18 48%, #0b1020 100%)';
   }
+}
+
+/**
+ * Huge, ultra-blurred color fields drifting on slow Lissajous paths.
+ * Large enough to cover a quarter of the frame each, soft enough to feel like
+ * studio light — never a blob, never a beam.
+ */
+const AtmosphereFields: React.FC<{
+  frame: number;
+  width: number;
+  height: number;
+  wash: string[];
+}> = ({ frame, width, height, wash }) => {
+  const t = frame / 30;
+  const fields = [
+    {
+      x: width * (0.18 + 0.16 * Math.sin(t * 0.045 + 1.2)),
+      y: height * (0.16 + 0.12 * Math.sin(t * 0.06)),
+      r: Math.max(width, height) * 0.55,
+      color: wash[0],
+      o: 1,
+      blur: 90,
+    },
+    {
+      x: width * (0.82 + 0.14 * Math.cos(t * 0.05)),
+      y: height * (0.62 + 0.16 * Math.sin(t * 0.048 + 2.4)),
+      r: Math.max(width, height) * 0.5,
+      color: wash[1],
+      o: 0.85,
+      blur: 90,
+    },
+    {
+      x: width * 0.5 + width * 0.1 * Math.sin(t * 0.033),
+      y: height * 0.42 + height * 0.1 * Math.cos(t * 0.04 + 0.8),
+      r: Math.max(width, height) * 0.7,
+      color: wash[2],
+      o: 0.5,
+      blur: 110,
+    },
+  ];
 
   return (
-    <svg width={width} height={height} style={{ position: 'absolute', top: 0, left: 0, zIndex: 1 }}>
-      {lines}
-    </svg>
+    <div style={{ position: 'absolute', inset: 0, overflow: 'hidden', pointerEvents: 'none' }}>
+      {fields.map((f, i) => (
+        <div
+          key={i}
+          style={{
+            position: 'absolute',
+            left: f.x - f.r / 2,
+            top: f.y - f.r / 2,
+            width: f.r,
+            height: f.r,
+            borderRadius: '50%',
+            background: `radial-gradient(circle, ${f.color} 0%, transparent 68%)`,
+            opacity: f.o,
+            filter: `blur(${f.blur}px)`,
+            transform: `scale(${1 + 0.03 * Math.sin(t * 0.02 + i)})`,
+          }}
+        />
+      ))}
+    </div>
   );
 };
 
-const ScanLine: React.FC<{ frame: number; width: number; height: number }> = ({ frame, width, height }) => {
-  const scanY = (frame * 4) % (height + 80);
-  const scanOpacity = 0.04 + Math.sin(frame * 0.1) * 0.02;
+/** A few floating dust motes — sparse, tiny, barely-lit. Apple's "breathing room". */
+const Dust: React.FC<{ frame: number; width: number; height: number; count?: number }> = ({
+  frame,
+  width,
+  height,
+  count = 22,
+}) => {
+  const t = frame / 30;
+  const motes = Array.from({ length: count }, (_, i) => {
+    const seed = i * 137.508;
+    const x = width * (0.08 + 0.84 * fract(Math.sin(i * 12.9898) * 43758.5453));
+    const y = height * fract(Math.sin(i * 78.233) * 12543.6657);
+    const drift = 0.02 + 0.03 * Math.abs(Math.sin(seed));
+    const r = 1.2 + 0.9 * fract(Math.sin(i * 39.1) * 987.5);
+    const opacity = 0.08 + 0.14 * fract(Math.sin(seed + 7.7) * 741.3);
+    return {
+      x: x + Math.sin(t * drift + seed * 3) * width * 0.03,
+      y: y + Math.cos(t * drift * 0.8 + seed) * height * 0.02,
+      r,
+      opacity,
+      color: i % 3 === 0 ? 'rgba(220,230,255,0.7)' : 'rgba(255,214,170,0.6)',
+    };
+  });
 
   return (
-    <svg width={width} height={height} style={{ position: 'absolute', top: 0, left: 0, zIndex: 3, pointerEvents: 'none' }}>
-      <defs>
-        <linearGradient id="scanGrad" x1="0%" y1="0%" x2="0%" y2="100%">
-          <stop offset="0%" stopColor="#4a80d0" stopOpacity={0} />
-          <stop offset="40%" stopColor="#4a80d0" stopOpacity={scanOpacity} />
-          <stop offset="60%" stopColor="#4a80d0" stopOpacity={scanOpacity} />
-          <stop offset="100%" stopColor="#4a80d0" stopOpacity={0} />
-        </linearGradient>
-      </defs>
-      <rect x={0} y={scanY - 60} width={width} height={120} fill="url(#scanGrad)" />
-    </svg>
+    <div style={{ position: 'absolute', inset: 0, overflow: 'hidden', pointerEvents: 'none' }}>
+      {motes.map((m, i) => (
+        <div
+          key={i}
+          style={{
+            position: 'absolute',
+            left: m.x,
+            top: m.y,
+            width: m.r,
+            height: m.r,
+            borderRadius: '50%',
+            background: `radial-gradient(circle, ${m.color} 0%, transparent 70%)`,
+            opacity: m.opacity,
+            filter: 'blur(0.6px)',
+          }}
+        />
+      ))}
+    </div>
   );
 };
 
-const RadarScan: React.FC<BackgroundProps> = ({ frame, totalFrames, width = 1080, height = 1920 }) => {
-  const cycleFrames = totalFrames * 1.5;
-  const progress = (frame % cycleFrames) / cycleFrames;
-  const sweepAngle = interpolate(progress, [0, 1], [5, 100], { extrapolateRight: 'clamp' });
-
-  const cx = width / 2;
-  const cy = height;
-  const radius = Math.max(width, height) * 1.2;
-  const startAngleDeg = -180;
-  const endAngleDeg = startAngleDeg + sweepAngle;
-  const rad = (deg: number) => (deg * Math.PI) / 180;
-
-  const x1 = cx + radius * Math.cos(rad(startAngleDeg));
-  const y1 = cy + radius * Math.sin(rad(startAngleDeg));
-  const xe = cx + radius * Math.cos(rad(endAngleDeg));
-  const ye = cy + radius * Math.sin(rad(endAngleDeg));
-  const largeArc = sweepAngle > 180 ? 1 : 0;
-
+/** Soft ground reflection — a faint upward wash that grounds the subject. */
+const GroundReflect: React.FC<{ width: number; height: number; bottom: string }> = ({ width, height, bottom }) => {
   return (
-    <svg width={width} height={height} style={{ position: 'absolute', top: 0, left: 0, zIndex: 1 }}>
-      <defs>
-        <linearGradient id="radarGrad" x1="0" y1="1" x2="0" y2="0">
-          <stop offset="0%" stopColor="#4a80d0" stopOpacity={0.06} />
-          <stop offset="100%" stopColor="#4a80d0" stopOpacity={0} />
-        </linearGradient>
-      </defs>
-      <path
-        d={`M ${x1} ${y1} A ${radius} ${radius} 0 ${largeArc} 1 ${xe} ${ye} L ${cx} ${cy} Z`}
-        fill="url(#radarGrad)"
-        opacity={0.5}
-      />
-      <path
-        d={`M ${x1} ${y1} A ${radius} ${radius} 0 ${largeArc} 1 ${xe} ${ye}`}
-        fill="none"
-        stroke="#4a80d0"
-        strokeWidth={1.5}
-        opacity={0.25}
-      />
-      <line x1={cx} y1={cy} x2={xe} y2={ye} stroke="#4a80d0" strokeWidth={1} opacity={0.15} />
-    </svg>
+    <div
+      style={{
+        position: 'absolute',
+        left: 0,
+        bottom: 0,
+        width,
+        height: height * 0.3,
+        background: `linear-gradient(0deg, ${bottom} 0%, transparent 60%)`,
+        filter: 'blur(24px)',
+        pointerEvents: 'none',
+      }}
+    />
   );
 };
 
-const CornerBrackets: React.FC<{ width: number; height: number }> = ({ width, height }) => {
-  const s = 45;
-  const m = 20;
-  return (
-    <svg width={width} height={height} style={{ position: 'absolute', top: 0, left: 0, zIndex: 4, pointerEvents: 'none' }}>
-      <line x1={m} y1={m} x2={m + s} y2={m} stroke="#3a5570" strokeWidth={1} opacity={0.5} />
-      <line x1={m} y1={m} x2={m} y2={m + s} stroke="#3a5570" strokeWidth={1} opacity={0.5} />
-      <line x1={width - m} y1={m} x2={width - m - s} y2={m} stroke="#3a5570" strokeWidth={1} opacity={0.5} />
-      <line x1={width - m} y1={m} x2={width - m} y2={m + s} stroke="#3a5570" strokeWidth={1} opacity={0.5} />
-      <line x1={m} y1={height - m} x2={m + s} y2={height - m} stroke="#3a5570" strokeWidth={1} opacity={0.5} />
-      <line x1={m} y1={height - m} x2={m} y2={height - m - s} stroke="#3a5570" strokeWidth={1} opacity={0.5} />
-      <line x1={width - m} y1={height - m} x2={width - m - s} y2={height - m} stroke="#3a5570" strokeWidth={1} opacity={0.5} />
-      <line x1={width - m} y1={height - m} x2={width - m} y2={height - m - s} stroke="#3a5570" strokeWidth={1} opacity={0.5} />
-    </svg>
-  );
-};
-
-const Vignette: React.FC<{ sentiment?: string; width: number; height: number }> = ({ sentiment, width, height }) => {
-  const baseColor = sentiment === 'bearish' ? 'rgba(100,30,30,0.08)' : sentiment === 'bullish' ? 'rgba(30,100,50,0.05)' : sentiment === 'mainline' ? 'rgba(180,150,30,0.08)' : 'rgba(20,60,120,0.06)';
+export const Background: React.FC<BackgroundProps> = ({
+  frame,
+  totalFrames,
+  sentiment = 'neutral',
+  width = 1080,
+  height = 1920,
+  format,
+}) => {
+  void totalFrames;
+  void format;
+  const { wash, tint } = atmosphere(sentiment);
 
   return (
     <div
@@ -141,30 +211,35 @@ const Vignette: React.FC<{ sentiment?: string; width: number; height: number }> 
         left: 0,
         width,
         height,
-        background: `radial-gradient(ellipse 60% 70% at 50% 40%, ${baseColor} 0%, transparent 70%)`,
-        zIndex: 2,
-        pointerEvents: 'none',
+        overflow: 'hidden',
+        background: baseDeep(sentiment),
       }}
-    />
-  );
-};
+    >
+      {/* near-black atmosphere fields — the heart of the look */}
+      <AtmosphereFields frame={frame} width={width} height={height} wash={wash} />
 
-export const Background: React.FC<BackgroundProps> = ({ frame, totalFrames, sentiment = 'neutral', width = 1080, height = 1920 }) => {
-  const bgGradient = sentiment === 'bearish'
-    ? 'linear-gradient(180deg, #080c14 0%, #0a1018 30%, #0e1520 60%, #080c14 100%)'
-    : sentiment === 'bullish'
-    ? 'linear-gradient(180deg, #081018 0%, #0a1420 30%, #0e1826 60%, #080f18 100%)'
-    : sentiment === 'mainline'
-    ? 'linear-gradient(180deg, #0a0810 0%, #141008 30%, #1a1508 60%, #0a0810 100%)'
-    : 'linear-gradient(180deg, #081018 0%, #0B1220 30%, #101826 60%, #0A0F18 100%)';
+      {/* faint sentiment undertone */}
+      <div style={{ position: 'absolute', inset: 0, background: tint }} />
 
-  return (
-    <div style={{ position: 'absolute', top: 0, left: 0, width, height, overflow: 'hidden', background: bgGradient }}>
-      <GridOverlay width={width} height={height} />
-      <RadarScan frame={frame} totalFrames={totalFrames} width={width} height={height} />
-      <ScanLine frame={frame} width={width} height={height} />
-      <Vignette sentiment={sentiment} width={width} height={height} />
-      <CornerBrackets width={width} height={height} />
+      {/* breathing dust */}
+      <Dust frame={frame} width={width} height={height} />
+
+      {/* ambient ground light */}
+      <GroundReflect width={width} height={height} bottom={wash[0]} />
+
+      {/* gentle vignette */}
+      <div
+        style={{
+          position: 'absolute',
+          inset: 0,
+          background:
+            'radial-gradient(150% 120% at 50% 42%, transparent 52%, rgba(0,0,0,0.12) 74%, rgba(0,0,0,0.38) 100%)',
+          pointerEvents: 'none',
+        }}
+      />
+
+      {/* whisper of grain */}
+      <div style={{ position: 'absolute', inset: 0, ...filmGrain() }} />
     </div>
   );
 };
