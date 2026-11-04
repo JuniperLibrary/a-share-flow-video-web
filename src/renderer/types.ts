@@ -136,6 +136,8 @@ export interface BloombergVideoProps {
   chartNarrationAudios?: string[];
   chartNarrationFrames?: number[];
   chartNarrationSegments?: number[];
+  /** 每段音频结尾自带静音的帧数，推进游标时扣掉，避免叠加成额外停顿。 */
+  chartNarrationTails?: number[];
   chartNarrationTexts?: string[];
   newsPages?: NewsPage[];
   newsAudioFiles?: string[];

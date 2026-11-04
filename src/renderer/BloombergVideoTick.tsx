@@ -497,6 +497,7 @@ export const BloombergVideoTick: React.FC = () => {
   const chartNarrationAudios = inputProps.chartNarrationAudios || [];
   const chartNarrationFrames = inputProps.chartNarrationFrames || [];
   const chartNarrationSegments = inputProps.chartNarrationSegments || [];
+  const chartNarrationTails = inputProps.chartNarrationTails || [];
   const chartNarrationTexts = inputProps.chartNarrationTexts || [];
   const newsPages = inputProps.newsPages || [];
   const newsAudioFiles = inputProps.newsAudioFiles || [];
@@ -589,11 +590,15 @@ export const BloombergVideoTick: React.FC = () => {
       const from = Math.max(0, Math.min(chartDuration - 1, Math.max(anchor, cursor)));
       const dur = Math.max(1, Math.min(frames, chartDuration - from));
       items.push({ index: i, from, durationInFrames: dur });
-      cursor = from + dur;
+      // 游标推进到“可听语音结束”，而不是文件结束：TTS 每个文件结尾都带
+      // 约 0.6s 静音（Go 侧量出来放在 chartNarrationTails），
+      // 按文件时长推进会把这 0.6s 叠加到下段之前变成额外停顿。
+      const tail = Math.min(chartNarrationTails[i] || 0, dur - 1);
+      cursor = from + Math.max(1, dur - tail);
       if (cursor >= chartDuration) break;
     }
     return items;
-  }, [chartDuration, chartNarrationAudios, chartNarrationFrames, chartNarrationSegments]);
+  }, [chartDuration, chartNarrationAudios, chartNarrationFrames, chartNarrationSegments, chartNarrationTails]);
 
   const newsStartFrames: number[] = [];
   let newsOffset = 0;
