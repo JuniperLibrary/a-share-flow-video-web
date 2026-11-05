@@ -1,6 +1,7 @@
 'use client';
 
 import ReactDOM from 'react-dom';
+import PortalScope from './PortalScope';
 import { createContext, useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { throttle } from 'lodash';
 import { AnimatePresence, motion } from 'framer-motion';
@@ -2318,6 +2319,7 @@ export default function PcFundTable({
           />
         )}
         {showPortalHeader && ReactDOM.createPortal(
+          <PortalScope>
           <div
             className="pc-fund-table pc-fund-table-portal-header"
             ref={portalHeaderRef}
@@ -2392,7 +2394,8 @@ export default function PcFundTable({
                 );
               })}
             </div>
-          </div>,
+          </div>
+          </PortalScope>,
           document.body
         )}
       </div>

@@ -5,6 +5,7 @@ import { Dialog as DialogPrimitive } from "radix-ui"
 
 import { cn } from "@fund/lib/utils"
 import {CloseIcon} from "@fund/components/Icons";
+import PortalScope from "@fund/components/PortalScope";
 
 const DialogContext = React.createContext({ open: false });
 
@@ -47,9 +48,14 @@ function DialogTrigger({
 }
 
 function DialogPortal({
+  children,
   ...props
 }) {
-  return <DialogPrimitive.Portal data-slot="dialog-portal" {...props} />;
+  return (
+    <DialogPrimitive.Portal data-slot="dialog-portal" {...props}>
+      <PortalScope>{children}</PortalScope>
+    </DialogPrimitive.Portal>
+  );
 }
 
 function DialogClose({

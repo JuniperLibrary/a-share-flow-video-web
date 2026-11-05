@@ -9,7 +9,7 @@
     "build": "tsc -b && vite build",
     "check:build": "node scripts/check-build.mjs",
     "check:theme": "node scripts/check-theme.mjs",
-    "test:build": "node --test scripts/check-build.test.mjs",
+    "test:build": "node --test scripts/check-build.test.mjs scripts/postcss-scope-fund.test.mjs",
     "preview": "vite preview",
     "typecheck": "tsc --noEmit"
   },

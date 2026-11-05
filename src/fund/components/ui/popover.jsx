@@ -4,6 +4,7 @@ import * as React from "react"
 import { Popover as PopoverPrimitive } from "radix-ui"
 
 import { cn } from "@fund/lib/utils"
+import PortalScope from "@fund/components/PortalScope"
 
 function Popover({
   ...props
@@ -25,6 +26,7 @@ function PopoverContent({
 }) {
   return (
     <PopoverPrimitive.Portal>
+      <PortalScope>
       <PopoverPrimitive.Content
         data-slot="popover-content"
         align={align}
@@ -34,6 +36,7 @@ function PopoverContent({
           className
         )}
         {...props} />
+      </PortalScope>
     </PopoverPrimitive.Portal>
   );
 }

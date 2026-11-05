@@ -4,6 +4,7 @@ import { useIsMobile } from '@fund/hooks/useIsMobile';
 import { useEffect, useState } from "react";
 import { AnimatePresence, motion, Reorder, useDragControls } from "framer-motion";
 import { createPortal } from "react-dom";
+import PortalScope from './PortalScope';
 import { useStorageStore, DEFAULT_SORT_RULES } from "@fund/stores";
 import {
   Drawer,
@@ -603,10 +604,10 @@ export default function SortSettingModal({open,
   );
 
   return createPortal(
-    <>
+    <PortalScope>
       {content}
       {resetConfirm}
-    </>,
+    </PortalScope>,
     document.body
   );
 }

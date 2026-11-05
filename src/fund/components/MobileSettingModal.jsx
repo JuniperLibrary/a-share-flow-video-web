@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
+import PortalScope from './PortalScope';
 import { AnimatePresence, Reorder, useDragControls } from 'framer-motion';
 import {
   Drawer,
@@ -322,12 +323,14 @@ export default function MobileSettingModal({
       </AnimatePresence>
       <AnimatePresence>
         {syncSuccessOpen && typeof document !== 'undefined' && createPortal(
-          <SuccessModal
-            message="同步成功"
-            onClose={() => setSyncSuccessOpen(false)}
-            overlayStyle={{ zIndex: 10004 }}
-            cardStyle={{ maxWidth: '420px', width: '90vw', zIndex: 10005 }}
-          />,
+          <PortalScope>
+            <SuccessModal
+              message="同步成功"
+              onClose={() => setSyncSuccessOpen(false)}
+              overlayStyle={{ zIndex: 10004 }}
+              cardStyle={{ maxWidth: '420px', width: '90vw', zIndex: 10005 }}
+            />
+          </PortalScope>,
           document.body,
         )}
       </AnimatePresence>

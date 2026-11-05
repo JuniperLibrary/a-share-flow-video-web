@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { AnimatePresence, motion, Reorder } from 'framer-motion';
 import { createPortal } from 'react-dom';
+import PortalScope from './PortalScope';
 import ConfirmModal from './ConfirmModal';
 import SuccessModal from './SuccessModal';
 import SyncPersonalSettingsModal from './SyncPersonalSettingsModal';
@@ -413,5 +414,5 @@ export default function PcTableSettingModal({
   );
 
   if (typeof document === 'undefined') return null;
-  return createPortal(content, document.body);
+  return createPortal(<PortalScope>{content}</PortalScope>, document.body);
 }

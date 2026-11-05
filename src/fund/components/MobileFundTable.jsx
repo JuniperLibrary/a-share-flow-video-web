@@ -3,6 +3,7 @@
 import { createContext, useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 
 import ReactDOM from 'react-dom';
+import PortalScope from './PortalScope';
 import { AnimatePresence, motion } from 'framer-motion';
 import { useModalStore } from '../stores';
 import {
@@ -2371,12 +2372,14 @@ export default function MobileFundTable({
         )}
 
         {syncSuccessOpen && typeof document !== 'undefined' && ReactDOM.createPortal(
-          <SuccessModal
-            message="同步成功"
-            onClose={() => setSyncSuccessOpen(false)}
-            overlayStyle={{ zIndex: 10004 }}
-            cardStyle={{ maxWidth: '420px', width: '90vw', zIndex: 10005 }}
-          />,
+          <PortalScope>
+            <SuccessModal
+              message="同步成功"
+              onClose={() => setSyncSuccessOpen(false)}
+              overlayStyle={{ zIndex: 10004 }}
+              cardStyle={{ maxWidth: '420px', width: '90vw', zIndex: 10005 }}
+            />
+          </PortalScope>,
           document.body,
         )}
 
@@ -2389,7 +2392,7 @@ export default function MobileFundTable({
           getFundCardProps={getFundCardPropsWithRelatedSector}
         />
 
-        {!onlyShowHeader && showPortalHeader && ReactDOM.createPortal(renderContent(true), document.body)}
+        {!onlyShowHeader && showPortalHeader && ReactDOM.createPortal(<PortalScope>{renderContent(true)}</PortalScope>, document.body)}
 
         {!onlyShowHeader && moveGroupOpen && (
           <MoveGroupModal

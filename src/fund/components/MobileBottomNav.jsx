@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
+import PortalScope from './PortalScope';
 import { motion, LayoutGroup, useReducedMotion, AnimatePresence } from 'framer-motion';
 import { Home, User } from 'lucide-react';
 
@@ -104,5 +105,5 @@ export default function MobileBottomNav({ value, onChange, hidden }) {
     </AnimatePresence>
   );
 
-  return createPortal(node, document.body);
+  return createPortal(<PortalScope>{node}</PortalScope>, document.body);
 }

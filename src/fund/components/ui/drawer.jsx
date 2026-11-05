@@ -4,6 +4,7 @@ import * as React from "react"
 import { Drawer as DrawerPrimitive } from "vaul"
 
 import { cn } from "@fund/lib/utils"
+import PortalScope from "@fund/components/PortalScope"
 
 const DrawerScrollLockContext = React.createContext(null)
 
@@ -46,9 +47,14 @@ function DrawerTrigger({
 }
 
 function DrawerPortal({
+  children,
   ...props
 }) {
-  return <DrawerPrimitive.Portal data-slot="drawer-portal" {...props} />;
+  return (
+    <DrawerPrimitive.Portal data-slot="drawer-portal" {...props}>
+      <PortalScope>{children}</PortalScope>
+    </DrawerPrimitive.Portal>
+  );
 }
 
 function DrawerClose({

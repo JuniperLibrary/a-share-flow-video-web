@@ -3,6 +3,7 @@ import { useIsMobile } from '@fund/hooks/useIsMobile';
 
 import { useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
+import PortalScope from './PortalScope';
 import { AnimatePresence, motion } from "framer-motion";
 import {
   DndContext,
@@ -468,6 +469,6 @@ export default function MarketSettingModal({open,
   );
 
   if (typeof document === "undefined") return null;
-  return createPortal(pcContent, document.body);
+  return createPortal(<PortalScope>{pcContent}</PortalScope>, document.body);
 }
 
