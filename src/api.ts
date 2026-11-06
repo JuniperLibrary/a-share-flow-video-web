@@ -336,18 +336,6 @@ export const api = {
     return body as { ok: boolean; items: SectorWatchItem[] };
   },
 
-  debateGenerate: (report: string, structuredReport?: Record<string, unknown>, stockCode?: string, stockName?: string) => {
-    const body: Record<string, unknown> = { report };
-    if (structuredReport) body.structuredReport = structuredReport;
-    if (stockCode) body.stockCode = stockCode;
-    if (stockName) body.stockName = stockName;
-    return request<{ taskId: string; script: DebateScript }>('/api/debate/generate', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(body),
-    });
-  },
-
   debateCouncilStart: (params: {
     report: string;
     structuredReport?: Record<string, unknown>;
@@ -355,6 +343,8 @@ export const api = {
     stockName?: string;
     reportPeriod?: string;
     useMemory?: boolean;
+    /** deep: 17 轮并调报表工具核实; quick: 8 轮快速出稿 */
+    mode?: 'deep' | 'quick';
   }) => {
     const body: Record<string, unknown> = { report: params.report };
     if (params.structuredReport) body.structuredReport = params.structuredReport;
@@ -362,6 +352,7 @@ export const api = {
     if (params.stockName) body.stockName = params.stockName;
     if (params.reportPeriod) body.reportPeriod = params.reportPeriod;
     if (params.useMemory !== undefined) body.useMemory = params.useMemory;
+    if (params.mode) body.mode = params.mode;
     return request<{ taskId: string; script: DebateScript; phase: string; turnCount: number }>('/api/debate/council/start', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },

@@ -144,7 +144,9 @@ export function DebatePage() {
   const [report, setReport] = useState('');
   const [richReport, setRichReport] = useState<Record<string, unknown> | null>(null);
   const [stage, setStage] = useState<Stage>('idle');
-  const [useNewOrchestrator, setUseNewOrchestrator] = useState(true);
+  // 只有一个辩论链路,档位只改变轮次预算与是否查表:
+  // deep 17 轮(约 7.4 分钟成片,FactCheck 会调报表工具)、quick 8 轮(约 3.5 分钟)。
+  const [profile, setProfile] = useState<'deep' | 'quick'>('deep');
   const [error, setError] = useState<string | null>(null);
   const [warning, setWarning] = useState<string | null>(null);
   const [format, setFormat] = useState<Format>('mobile');
@@ -413,17 +415,13 @@ export function DebatePage() {
 
     try {
       setStage('script');
-      let genRes;
-      if (useNewOrchestrator) {
-        genRes = await api.debateCouncilStart({
-          report,
-          structuredReport: richReport ?? undefined,
-          stockCode: stockCode || undefined,
-          stockName: stockName || undefined,
-        });
-      } else {
-        genRes = await api.debateGenerate(report, richReport ?? undefined, stockCode || undefined, stockName || undefined);
-      }
+      const genRes = await api.debateCouncilStart({
+        report,
+        structuredReport: richReport ?? undefined,
+        stockCode: stockCode || undefined,
+        stockName: stockName || undefined,
+        mode: profile,
+      });
       setTaskId(genRes.taskId);
       setScript(genRes.script);
       savePendingTask(genRes.taskId, genRes.script, null, 'script');
@@ -444,7 +442,7 @@ export function DebatePage() {
       setError(e instanceof Error ? e.message : '出错了');
       setStage('error');
     }
-  }, [report, format, richReport, startPolling, stockCode, stockName, useNewOrchestrator]);
+  }, [report, format, richReport, startPolling, stockCode, stockName, profile]);
 
   async function retryStage() {
     if (!script && stage === 'error') {
@@ -592,24 +590,32 @@ export function DebatePage() {
                   />
                 </div>
                 <div className="flex items-center gap-1.5 text-[11px]">
-                  <span className={cn('transition-colors', !useNewOrchestrator ? 'text-ink-3' : 'text-ink-muted')}>经典</span>
+                  <span className={cn('transition-colors', profile === 'quick' ? 'text-primary' : 'text-ink-muted')}>
+                    快速
+                  </span>
                   <button
-                    onClick={() => setUseNewOrchestrator(!useNewOrchestrator)}
+                    onClick={() => setProfile(profile === 'deep' ? 'quick' : 'deep')}
                     disabled={isBusy}
                     className={cn(
                       'relative w-9 h-5 rounded-full transition-all duration-200 disabled:opacity-40',
-                      useNewOrchestrator ? 'bg-primary/30' : 'bg-surface-3',
+                      profile === 'deep' ? 'bg-primary/30' : 'bg-surface-3',
                     )}
-                    title={useNewOrchestrator ? '当前: 多智能体辩论' : '当前: 经典辩论'}
+                    title={
+                      profile === 'deep'
+                        ? '当前: 深度(17 轮,事实核对会查三大报表,约 8 分钟)'
+                        : '当前: 快速(8 轮,不查表,约 3 分钟)'
+                    }
                   >
                     <span
                       className={cn(
                         'absolute top-0.5 w-4 h-4 rounded-full bg-primary transition-all duration-200',
-                        useNewOrchestrator ? 'left-[18px]' : 'left-0.5',
+                        profile === 'deep' ? 'left-[18px]' : 'left-0.5',
                       )}
                     />
                   </button>
-                  <span className={cn('transition-colors', useNewOrchestrator ? 'text-primary' : 'text-ink-muted')}>多智能体</span>
+                  <span className={cn('transition-colors', profile === 'deep' ? 'text-primary' : 'text-ink-muted')}>
+                    深度
+                  </span>
                 </div>
                 <button
                   onClick={handleReset}
