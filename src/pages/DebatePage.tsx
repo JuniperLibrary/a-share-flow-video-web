@@ -78,6 +78,13 @@ function fmtNum(v: unknown): string {
   return (v / 1e8).toFixed(2);
 }
 
+// 现金流/合同负债这类科目抓到 0 基本只意味着"后端没取到"，
+// 直接显示 0.00 会让人以为公司真的没有经营现金流。
+function fmtFlow(v: unknown): string {
+  if (typeof v !== 'number' || v === 0) return '—';
+  return (v / 1e8).toFixed(2);
+}
+
 function yoyStr(v: unknown): { text: string; positive: boolean } | undefined {
   if (typeof v !== 'number') return undefined;
   const sign = v >= 0 ? '+' : '';
@@ -1061,7 +1068,9 @@ function ReportCard({
                 { label: '净利率', value: typeof richReport.netMargin === 'number' ? richReport.netMargin.toFixed(1) : '—', unit: '%' },
                 { label: 'ROE', value: typeof richReport.roe === 'number' ? richReport.roe.toFixed(1) : '—', unit: '%' },
                 { label: '资产负债率', value: typeof richReport.debtAssetRatio === 'number' ? richReport.debtAssetRatio.toFixed(1) : '—', unit: '%' },
-                { label: '经营现金流', value: fmtNum(richReport.operatingCashFlow), unit: '亿' },
+                { label: '经营现金流', value: fmtFlow(richReport.operatingCashFlow), unit: '亿' },
+                { label: '销售收现', value: fmtFlow(richReport.salesCashReceived), unit: '亿' },
+                { label: '合同负债', value: fmtFlow(richReport.contractLiability), unit: '亿' },
               ].map((item) => (
                 <div key={item.label} className="bg-surface-2 px-3 py-2.5">
                   <div className="text-[10px] text-ink-3 mb-0.5">{item.label}</div>
