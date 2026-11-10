@@ -66,6 +66,21 @@ export function PhaseCard({
       <p className="text-[14px] text-ink-2 leading-relaxed tracking-wide pl-9">
         {turn.text}
       </p>
+      {turn.unverifiedAmounts && turn.unverifiedAmounts.length > 0 && (
+        <div className="mt-2 pl-9 flex flex-wrap items-center gap-1.5">
+          <span className="text-[9px] px-1.5 py-0.5 rounded bg-warning-soft border border-warning/30 text-warning">
+            无出处
+          </span>
+          {turn.unverifiedAmounts.map((a, i) => (
+            <span
+              key={i}
+              className="text-[9px] font-mono px-1.5 py-0.5 rounded bg-surface-2 border border-warning/20 text-warning/80"
+            >
+              {a}
+            </span>
+          ))}
+        </div>
+      )}
       {turn.citations && turn.citations.length > 0 && (
         <div className="mt-2 pl-9 flex flex-wrap gap-1.5">
           {turn.citations.map((c, i) => (

@@ -151,6 +151,8 @@ export interface DebateTurn {
   emotion?: string;
   citations?: DebateCitation[];
   toolCalls?: DebateToolCall[];
+  /** 返工后仍找不到出处的金额；为空表示这一轮所有金额都能在报告或前序发言里对上 */
+  unverifiedAmounts?: string[];
 }
 
 export interface DebateScript {
@@ -161,6 +163,8 @@ export interface DebateScript {
   sessionId?: string;
   previousRefs?: string;
   verdict?: string;
+  /** 单轮失败被跳过的次数；turns 的 index 会因此出现空档 */
+  skippedTurns?: number;
 }
 
 export interface DebateAudioTurn {

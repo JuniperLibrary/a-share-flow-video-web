@@ -719,6 +719,14 @@ export function DebatePage() {
                       <span className="text-[11px] text-ink-3 bg-surface-2 px-2 py-0.5 rounded-full">
                         {script.turns.length} 轮
                       </span>
+                      {script.skippedTurns ? (
+                        <span
+                          className="text-[11px] text-warning bg-warning-soft border border-warning/30 px-2 py-0.5 rounded-full"
+                          title="单轮调用失败被跳过，这几轮没有内容"
+                        >
+                          缺 {script.skippedTurns} 轮
+                        </span>
+                      ) : null}
                     </div>
                     {activeSpeaker && (
                       <div className="flex items-center gap-1.5 text-[10px]">
@@ -737,8 +745,16 @@ export function DebatePage() {
                       const isLatest = idx === script.turns.length - 1;
                       const isActive = isLatest && !videoUrl;
                       const audio = audioTurns?.[idx];
+                      const prevIndex = idx > 0 ? script.turns[idx - 1].index : -1;
+                      const missing = turn.index - prevIndex - 1;
                       return (
                         <Fragment key={turn.index}>
+                          {missing > 0 && (
+                            <div className="flex items-center gap-2 px-3 py-2 rounded-lg border border-dashed border-hairline text-[11px] text-ink-muted">
+                              <span className="font-mono">第 {prevIndex + 2} 轮</span>
+                              <span>模型未返回，已跳过</span>
+                            </div>
+                          )}
                           {isSwitch && (
                             <div className="flex items-center gap-2 py-1.5">
                               <div className="flex-1 h-px bg-gradient-to-r from-transparent via-hairline-active to-transparent" />
